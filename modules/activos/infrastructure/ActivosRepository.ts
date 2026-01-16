@@ -57,4 +57,14 @@ export class InMemoryActivosRepository {
     async save(activo: ActivoFijo): Promise<void> {
         MOCK_ACTIVOS.push(activo);
     }
+
+    async actualizarDepreciacion(id: string, montoDepreciado: number): Promise<void> {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const activo = MOCK_ACTIVOS.find(a => a.id === id);
+        if (activo) {
+            activo.depreciacionAcumulada += montoDepreciado;
+            activo.valorLibros = activo.costoAdquisicion - activo.depreciacionAcumulada;
+            activo.fechaUltimaDepreciacion = new Date().toISOString().split('T')[0];
+        }
+    }
 }

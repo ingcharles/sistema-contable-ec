@@ -26,12 +26,28 @@ export interface DocumentoPendiente extends Auditable {
     diasVencidos: number; // > 0 Vencido, < 0 Por Vencer
 }
 
+export interface Anticipo extends Auditable {
+    id: string;
+    empresaId: string;
+    tipo: TipoCartera; // CXC = Anticipo Cliente (Pasivo), CXP = Anticipo Proveedor (Activo)
+    terceroId: string;
+    terceroNombre: string;
+    fecha: string;
+    referencia: string; // Cheque o Transferencia
+    montoOriginal: number;
+    montoUsado: number; // Monto cruzado
+    saldoDisponible: number;
+    estado: 'DISPONIBLE' | 'AGOTADO';
+}
+
 export interface TransaccionCartera {
-    documentoId: string;
+    documentoId?: string; // Opcional si es solo registro de anticipo
+    anticipoId?: string; // Si es cruce
     fecha: string;
     valorEfectivo: number; // Lo que entra/sale de banco/caja
     valorRetencion: number; // Retención recibida (solo CxC) o aplicada (CxP ya descontada)
-    formaPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'CHEQUE';
+    valorCruce?: number; // Valor usado del anticipo
+    formaPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'CHEQUE' | 'CRUCE_ANTICIPO';
     bancoId?: string; // Cuenta afectada
     referencia: string; // Nro cheque / comprobante
     nroRetencionRecibida?: string; // Solo para CxC

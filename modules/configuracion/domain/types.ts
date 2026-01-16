@@ -45,3 +45,14 @@ export interface CodigoRetencion extends Auditable {
     tipo: 'RENTA' | 'IVA'; 
     activo: boolean;
 }
+
+// Nueva interfaz para persistencia de parámetros
+export interface ParametrosContables {
+    sbu: number;
+    iva: number;
+    maxConsumidorFinal: number;
+    cuentaCaja: string;
+    cuentaIvaVentas: string;
+    cuentaIvaCompras: string;
+    cuentaRetRentaPorPagar: string;
+}

@@ -1,5 +1,5 @@
 
-import { DocumentoPendiente, TipoCartera, TransaccionCartera } from '../domain/types';
+import { DocumentoPendiente, TipoCartera, TransaccionCartera, Anticipo } from '../domain/types';
 
 // Helper para fechas
 const today = new Date();
@@ -62,10 +62,26 @@ const MOCK_DOCUMENTOS: DocumentoPendiente[] = [
     }
 ];
 
+const MOCK_ANTICIPOS: Anticipo[] = [
+    {
+        id: 'ant1',
+        empresaId: '1',
+        tipo: TipoCartera.CXP, // Anticipo a Proveedor (Activo)
+        terceroId: '0990004196001',
+        terceroNombre: 'IMPORTADORA EL ROSADO S.A.',
+        fecha: addDays(today, -30),
+        referencia: 'Transf. Inicial Obra',
+        montoOriginal: 500.00,
+        montoUsado: 0,
+        saldoDisponible: 500.00,
+        estado: 'DISPONIBLE',
+        createdAt: '', updatedAt: '', createdBy: ''
+    }
+];
+
 export class InMemoryCarteraRepository {
     async getPendientes(empresaId: string, tipo: TipoCartera): Promise<DocumentoPendiente[]> {
         await new Promise(resolve => setTimeout(resolve, 300));
-        // Recalcular dias vencidos dinámicamente
         const now = new Date();
         return MOCK_DOCUMENTOS
             .filter(d => d.empresaId === empresaId && d.tipo === tipo && d.saldoPendiente > 0)
@@ -81,15 +97,36 @@ export class InMemoryCarteraRepository {
             });
     }
 
+    async getAnticipos(empresaId: string, tipo: TipoCartera): Promise<Anticipo[]> {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return MOCK_ANTICIPOS.filter(a => a.empresaId === empresaId && a.tipo === tipo && a.saldoDisponible > 0);
+    }
+
+    async saveAnticipo(anticipo: Anticipo): Promise<void> {
+        MOCK_ANTICIPOS.push(anticipo);
+    }
+
     async registrarTransaccion(tx: TransaccionCartera): Promise<void> {
         await new Promise(resolve => setTimeout(resolve, 500));
-        const docIndex = MOCK_DOCUMENTOS.findIndex(d => d.id === tx.documentoId);
-        if (docIndex >= 0) {
-            const doc = MOCK_DOCUMENTOS[docIndex];
-            const totalAbono = tx.valorEfectivo + (tx.valorRetencion || 0);
-            
-            doc.totalPagado += totalAbono;
-            doc.saldoPendiente = Math.max(0, doc.montoTotal - doc.totalPagado);
+        
+        // 1. Afectar Documento (Si existe)
+        if (tx.documentoId) {
+            const doc = MOCK_DOCUMENTOS.find(d => d.id === tx.documentoId);
+            if (doc) {
+                const totalAbono = (tx.valorEfectivo || 0) + (tx.valorRetencion || 0) + (tx.valorCruce || 0);
+                doc.totalPagado += totalAbono;
+                doc.saldoPendiente = Math.max(0, doc.montoTotal - doc.totalPagado);
+            }
+        }
+
+        // 2. Afectar Anticipo (Si es cruce)
+        if (tx.formaPago === 'CRUCE_ANTICIPO' && tx.anticipoId) {
+            const ant = MOCK_ANTICIPOS.find(a => a.id === tx.anticipoId);
+            if (ant) {
+                ant.montoUsado += (tx.valorCruce || 0);
+                ant.saldoDisponible = ant.montoOriginal - ant.montoUsado;
+                if (ant.saldoDisponible <= 0.01) ant.estado = 'AGOTADO';
+            }
         }
     }
 }

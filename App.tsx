@@ -20,6 +20,8 @@ import { ReportesPage } from './modules/reportes/ui/ReportesPage';
 import { DirectorioPage } from './modules/directorio/ui/DirectorioPage';
 import { ActivosPage } from './modules/activos/ui/ActivosPage';
 import { BuzonPage } from './modules/buzon/ui/BuzonPage';
+import { AuditoriaPage } from './modules/seguridad/ui/AuditoriaPage';
+import { CajaChicaPage } from './modules/cajachica/ui/CajaChicaPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -60,7 +62,9 @@ const App: React.FC = () => {
             <Route path="bancos" element={<BancosPage />} />
             <Route path="inventario" element={<InventarioPage />} />
             <Route path="activos" element={<ActivosPage />} />
+            <Route path="caja-chica" element={<CajaChicaPage />} />
             <Route path="reportes" element={<ReportesPage />} />
+            <Route path="auditoria" element={<AuditoriaPage />} />
             <Route path="configuracion" element={<ConfiguracionPage />} />
             
             <Route path="*" element={<Navigate to="/" replace />} />

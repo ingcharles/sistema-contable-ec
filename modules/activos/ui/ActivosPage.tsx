@@ -170,6 +170,8 @@ export const ActivosPage: React.FC = () => {
         }
 
         const fecha = new Date().toISOString().split('T')[0];
+        
+        // 1. Generar Asiento
         const asiento: AsientoContable = {
             id: Math.random().toString(36),
             empresaId: currentEmpresa.id,
@@ -192,10 +194,15 @@ export const ActivosPage: React.FC = () => {
         const repoContabilidad = new InMemoryContabilidadRepository();
         await repoContabilidad.saveAsiento(asiento);
         
-        // En una app real, actualizaríamos la depreciación acumulada de cada activo en la BD
-        // Aquí solo simulamos el asiento
+        // 2. Actualizar Activos (Persistencia Real)
+        const repoActivos = new InMemoryActivosRepository();
+        // Procesamos uno por uno (en producción sería un batch update)
+        for (const activo of activosDepreciables) {
+            await repoActivos.actualizarDepreciacion(activo.id, activo.depreciacionMensual);
+        }
         
-        alert(`Depreciación generada correctamente por ${formatMoney(totalDepreciacion)}. Se ha creado el asiento contable de ajuste.`);
+        alert(`Depreciación generada correctamente por ${formatMoney(totalDepreciacion)}. Se ha creado el asiento contable y actualizado el valor en libros.`);
+        loadData(); // Recargar tabla para ver nuevos valores
     };
 
     const totalActivos = activos.reduce((acc, a) => acc + a.costoAdquisicion, 0);

@@ -1,5 +1,5 @@
 
-import { Sucursal, PuntoEmision, UsuarioSistema, CodigoRetencion } from '../domain/types';
+import { Sucursal, PuntoEmision, UsuarioSistema, CodigoRetencion, ParametrosContables } from '../domain/types';
 import { TipoComprobante } from '../../../types';
 
 const MOCK_SUCURSALES: Sucursal[] = [
@@ -50,6 +50,17 @@ const MOCK_RETENCIONES: CodigoRetencion[] = [
     { id: 'iv4', empresaId: '1', codigo: '0', concepto: 'No Retiene IVA (0%)', porcentaje: 0, tipo: 'IVA', activo: true, createdAt: '', updatedAt: '', createdBy: '' },
 ];
 
+// Persistencia Mock de Parámetros Globales
+let MOCK_PARAMS: ParametrosContables = {
+    sbu: 460,
+    iva: 15,
+    maxConsumidorFinal: 50,
+    cuentaCaja: '1.1.01.01',
+    cuentaIvaVentas: '2.1.07.01',
+    cuentaIvaCompras: '1.1.05.01',
+    cuentaRetRentaPorPagar: '2.1.03.01'
+};
+
 // Simulación de persistencia de fecha de cierre
 let MOCK_FECHA_CIERRE = '2023-09-30';
 
@@ -95,6 +106,23 @@ export class InMemoryConfiguracionRepository {
 
     async setFechaCierre(empresaId: string, fecha: string): Promise<void> {
         MOCK_FECHA_CIERRE = fecha;
+    }
+
+    // --- LOGICA DE BLOQUEO CONTABLE ---
+    async validarPeriodoAbierto(empresaId: string, fechaTransaccion: string): Promise<boolean> {
+        if (!MOCK_FECHA_CIERRE) return true;
+        return fechaTransaccion > MOCK_FECHA_CIERRE;
+    }
+
+    // --- PARAMETROS CONTABLES ---
+    async getParametros(empresaId: string): Promise<ParametrosContables> {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        return MOCK_PARAMS;
+    }
+
+    async saveParametros(empresaId: string, params: ParametrosContables): Promise<void> {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        MOCK_PARAMS = params;
     }
 
     // --- RETENCIONES ---
