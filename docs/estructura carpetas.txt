@@ -1,0 +1,50 @@
+
+## 🧠 BACKEND
+
+### Tecnologías
+
+* Quarkus 3.x
+* Panache Reactive
+* Hibernate Reactive
+* Mutiny
+* PostgreSQL
+* JWT
+* MapStruct
+* Maven
+
+---
+
+### 🧱 Arquitectura Backend (DDD + Clean Architecture)
+
+```txt
+src/main/java/com/sistema/contable
+│
+├── domain                     # Núcleo del negocio
+│   ├── model
+│   ├── valueobject
+│   ├── enum
+│   ├── repository             # Interfaces
+│   └── service                # Domain services
+│
+├── application                # Casos de uso
+│   ├── usecase
+│   └── dto
+│       ├── request
+│       └── response
+│
+└── infrastructure             # Detalles técnicos
+    ├── rest                   # Resources (HTTP)
+    ├── persistence
+    │   ├── entity
+    │   ├── PanacheRepositories
+    │   └── RepositoryImpl
+    ├── mapper
+    ├── sri
+    └── security
+```
+
+✔️ Dirección de dependencias correcta
+✔️ Dominio sin dependencias técnicas
+✔️ Infraestructura desacoplada
+
+---

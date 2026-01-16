@@ -1,0 +1,334 @@
+1. Módulo de Cartera (/cartera)
+Gestión de liquidez y deudas.
+Cuentas por Cobrar (CXC): Monitoreo de facturas de clientes pendientes de pago, con cálculo de días de vencimiento (Cartera Vencida vs. Por Vencer).
+Cuentas por Pagar (CXP): Control de obligaciones con proveedores.
+Gestión de Cobros/Pagos: Registro de abonos parciales o totales.
+2. Módulo de Reportes (/reportes)
+Centro de inteligencia de negocios y cumplimiento.
+Reportes Financieros: Balances y Estados de Resultados (NIIF).
+Reportes Tributarios: Listos para anexos SRI.
+Reportes Operativos: Ventas, Compras y Nómina.
+
+1. Módulo de Tesorería / Bancos (/bancos)
+Control del flujo de efectivo.
+Gestión de Cuentas: Administración de cuentas corrientes y de ahorros (ej. Banco Pichincha, Guayaquil).
+Libro Bancos: Registro de Cheques, Transferencias (SPI) y Depósitos.
+Conciliación: Visualización de saldos contables vs. bancarios.
+2. Módulo de Inventario (/inventario)
+Control de stock y precios.
+Catálogo de Productos: Gestión de ítems con PVP (Precio Venta Público) y códigos de barras.
+Kardex: Movimientos de entrada y salida valorados (Método Promedio Ponderado, aceptado por NIIF y SRI).
+Alertas: Indicadores de stock bajo.
+
+1. Módulo de Configuración (/configuracion)
+Fundamental para la facturación electrónica y cumplimiento tributario.
+Gestión de Firma Electrónica: Simulación de carga de archivo .p12 y configuración de vigencia.
+Datos Tributarios: Configuración de Régimen RIMPE, Agente de Retención y Ambiente SRI (Pruebas/Producción).
+Secuenciales: Administración de puntos de emisión (ej. 001-002) para facturación.
+2. Módulo de Nómina (/nomina)
+Adaptado a la legislación laboral ecuatoriana (Código de Trabajo / IESS).
+Ficha del Colaborador: Datos personales, cargo y sueldo unificado.
+Roles de Pago: Cálculo automático del aporte personal al IESS (9.45%) y líquido a recibir.
+Beneficios Sociales: Indicadores de décimos acumulados.
+
+
+Gestión de Centros de Costos: Requisito explícito ("Administración -> Centros de Costos"). Es vital para la contabilidad administrativa, permitiendo asignar gastos e ingresos a departamentos o proyectos específicos (ej: Administración, Ventas Guayaquil, Proyecto X).
+Registro de Asientos Manuales (Nuevo Comprobante de Diario): Actualmente el sistema permite ver el Libro Diario, pero no crear asientos (ej: Depreciaciones, Ajustes de fin de mes, Devengados).
+
+
+🛠️ Nuevos Módulos Implementados
+1. Módulo de Compras (/compras)
+Dominio: Entidades Compra y Proveedor. Reglas de negocio sobre Sustento Tributario (código SRI que justifica el crédito tributario).
+Infraestructura: Repositorio en memoria con datos mockeados de proveedores reales de Ecuador (ej. Conecel, Otecel).
+UI: Tabla de gestión de gastos con indicadores de Retención (si se ha emitido o está pendiente).
+2. Módulo de Impuestos (/impuestos)
+UI: Tablero de control fiscal que simula el Formulario 104.
+Lógica: Calcula automáticamente el Impuesto a Pagar cruzando los totales de Facturación (Ventas) y Compras.
+
+2. Módulos Implementados
+Facturación Electrónica: Gestión de comprobantes con estados SRI (Autorizado, Pendiente, Anulado).
+Contabilidad: Plan de cuentas jerárquico y asientos contables.
+Dashboard: KPI financieros y semáforo tributario.
+
+. Cumplimiento SRI y Multiempresa
+Validación de RUC: Algoritmo de validación de RUC de personas naturales y sociedades (Módulo 11).
+Contexto Multiempresa: El sistema maneja el estado global de la empresa seleccionada para filtrar datos y configuraciones.
+Calendario Tributario: Cálculo dinámico de fechas de vencimiento según el 9no dígito del RUC.
+
+
+Gestión de Centros de Costos: Requisito explícito ("Administración -> Centros de Costos"). Es vital para la contabilidad administrativa, permitiendo asignar gastos e ingresos a departamentos o proyectos específicos (ej: Administración, Ventas Guayaquil, Proyecto X).
+Registro de Asientos Manuales (Nuevo Comprobante de Diario): Actualmente el sistema permite ver el Libro Diario, pero no crear asientos (ej: Depreciaciones, Ajustes de fin de mes, Devengados).
+
+Emisión de Facturas (Punto de Venta): El módulo de Facturación listaba documentos, pero no permitía crear una nueva factura, agregar ítems, seleccionar clientes y calcular impuestos automáticamente.
+Kardex Detallado: El módulo de Inventario mostraba el stock actual, pero carecía de la vista detallada del Kardex (Tarjeta de Control de Inventario) para auditar los movimientos (Entradas, Salidas y Saldos con costeo promedio).
+
+Módulo de Directorio (Gestión de Terceros) Clientes y Proveedores 
+
+ -----
+ Basado en los módulos obligatorios y el estado actual del código, la funcionalidad crítica faltante es el Registro de Compras con Generación de Retenciones.
+Actualmente, el módulo de Compras (ComprasPage) solo lista datos simulados, pero no tiene la pantalla para ingresar una nueva factura de proveedor ni para calcular y emitir el Comprobante de Retención (obligatorio en Ecuador para Agentes de Retención).
+A continuación, implemento el Modal de Registro de Compras que incluye la calculadora tributaria para bases imponibles y la configuración de retenciones de IVA y Renta.
+---
+
+Basado en el análisis de los "Módulos Obligatorios" de la especificación inicial, he identificado que falta la gestión profunda de la Estructura Organizacional (Sucursales) y la Administración de Series/Puntos de Emisión vinculados a estas sucursales.
+Actualmente, el sistema tiene una configuración superficial. Para un sistema contable ecuatoriano real, es crítico definir:
+Establecimientos (Sucursales): Código 001, 002 (Matriz, Sucursal Norte, etc.).
+Puntos de Emisión (Cajas): Código 001, 002 (Caja 1, Caja 2) vinculados a una sucursal.
+Usuarios y Roles: Gestión de acceso al sistema.
+
+---------
+Basado en los "Módulos Obligatorios" y el flujo contable ecuatoriano, la funcionalidad crítica que falta es la Gestión de Tesorería (Registro de Cobros y Pagos).
+Aunque ya puedes ver las cuentas por cobrar (Cartera), el sistema no tiene una interfaz para registrar la recaudación ni los pagos. Esto es complejo en Ecuador porque:
+Cobros (CxC): El cliente no siempre paga todo en efectivo; suele entregar un Comprobante de Retención (papel) que disminuye la deuda pero no entra al banco. El sistema debe permitir registrar el dinero + la retención recibida.
+Pagos (CxP): Se debe seleccionar la cuenta bancaria de egreso, generar el número de cheque o referencia de transferencia y afectar el saldo.
+A continuación, implemento el Módulo de Tesorería dentro de la pantalla de Cartera.
+
+-----------
+
+Basado en los "Módulos Obligatorios" y el flujo contable, he detectado una funcionalidad crítica faltante en el módulo de Bancos: La Conciliación Bancaria.
+En Ecuador, la conciliación es fundamental para justificar ante el SRI las diferencias entre el saldo contable y el saldo real del banco (por cheques girados y no cobrados, o depósitos en tránsito).
+A continuación, implemento la lógica completa de Conciliación Bancaria dentro del módulo de Bancos, permitiendo comparar el Libro Mayor contra el Estado de Cuenta.
+
+-----------
+
+Basado en los requerimientos iniciales de "Contabilidad General", el sistema debe incluir obligatoriamente: Mayor General, Balance de Comprobación, Balance General y Estado de Pérdidas y Ganancias.
+Actualmente, el módulo de contabilidad solo tiene Plan de Cuentas y Libro Diario. Un sistema contable sin Estados Financieros ni Libro Mayor está incompleto, ya que no permite el análisis de saldos ni la toma de decisiones.
+A continuación, implemento la funcionalidad completa de Reportes Financieros y Mayorización dentro del módulo de Contabilidad.
+
+---------
+
+Basado en los requerimientos iniciales de "Contabilidad General", el sistema debe incluir obligatoriamente: Mayor General, Balance de Comprobación, Balance General y Estado de Pérdidas y Ganancias.
+Actualmente, el módulo de contabilidad solo tiene Plan de Cuentas y Libro Diario. Un sistema contable sin Estados Financieros ni Libro Mayor está incompleto, ya que no permite el análisis de saldos ni la toma de decisiones.
+A continuación, implemento la funcionalidad completa de Reportes Financieros y Mayorización dentro del módulo de Contabilidad.
+
+---------
+
+Basado en los requerimientos iniciales de "Contabilidad General", el sistema debe incluir obligatoriamente: Mayor General, Balance de Comprobación, Balance General y Estado de Pérdidas y Ganancias.
+Actualmente, el módulo de contabilidad solo tiene Plan de Cuentas y Libro Diario. Un sistema contable sin Estados Financieros ni Libro Mayor está incompleto, ya que no permite el análisis de saldos ni la toma de decisiones.
+A continuación, implemento la funcionalidad completa de Reportes Financieros y Mayorización dentro del módulo de Contabilidad.
+
+-----------
+
+Basado en los requerimientos iniciales y para dar consistencia al sistema como un ERP Integrado, falta la Automatización Contable y de Inventarios.
+Actualmente, los módulos funcionan como islas: facturar no genera asiento contable ni baja stock, y comprar no genera asiento contable.
+A continuación, implemento la Integración Transaccional Completa:
+Repositorio de Inventario: Habilito la persistencia de movimientos (Kardex).
+Facturación Inteligente: Al emitir factura → Genera Asiento Contable (Ventas + IVA + CxC) y Rebaja Inventario (Kardex).
+Compras Inteligentes: Al registrar compra → Genera Asiento Contable (Inventario + IVA + CxP + Retenciones)
+
+--------------
+
+Basado en los requerimientos iniciales, el sistema debe ser multiusuario y seguro. Actualmente, la aplicación entra directamente al Dashboard sin autenticación.
+Falta el módulo de Autenticación y Seguridad (Login). Un sistema contable maneja información sensible y no puede existir sin una capa de seguridad.
+A continuación implemento:
+Contexto de Autenticación: Manejo de sesión global.
+Pantalla de Login: Diseño profesional corporativo.
+Protección de Rutas: Evitar acceso a módulos sin loguearse.
+Integración en Layout: El botón "Salir" ahora será funcional.
+
+------------
+
+Basado en los requerimientos iniciales, la sección de "AUTOMATIZACIÓN E INTELIGENCIA" está completamente ausente.
+El requerimiento especifica: "Asistente contable IA para: Explicar impuestos, Validar deducibilidad, Ayudar al contador".
+Para completar esto y dar el toque "Senior Architect", voy a implementar un Asistente Virtual Tributario (Chatbot) integrado en el sistema. Este asistente no solo responderá preguntas sobre normativa (códigos de retención, porcentajes), sino que tendrá "Conciencia de Contexto", es decir, podrá leer los datos del sistema (Ventas, Bancos, Cartera) para responder preguntas sobre la situación financiera de la empresa.
+Implementaré:
+Base de Conocimiento SRI: Un motor de reglas local con códigos de retención y normas básicas.
+Motor de Inferencia Híbrido:
+Detecta intención normativa (ej: "¿Cuánto retengo por servicios?").
+Detecta intención transaccional (ej: "¿Cuánto tengo en bancos?", "¿Cuánto vendí hoy?").
+UI de Chat Flotante: Accesible desde cualquier parte del sistema.
+
+--------
+Basado en los requerimientos iniciales, he identificado que falta un módulo crítico para cualquier sistema contable que cumpla con las NIIF y la normativa tributaria en Ecuador: Gestión de Activos Fijos y Depreciación.
+Aunque se menciona en el requerimiento general ("Inventarios... Activos Fijos"), no existe actualmente una interfaz para:
+Registrar los bienes de la empresa (Maquinaria, Vehículos, Equipos).
+Controlar la depreciación acumulada (Gasto deducible importante).
+Asignar custodios.
+A continuación, implemento el módulo de Activos Fijos completo con arquitectura limpia.
+
+----------
+Basado en una revisión exhaustiva de los requerimientos iniciales versus lo implementado, he detectado que el módulo de Nómina (Trabajadores) está incompleto.
+Actualmente solo permite listar empleados, pero faltan dos componentes críticos exigidos por la normativa ecuatoriana y los requerimientos originales:
+Formulario de Gastos Personales (SRI-GP): Fundamental para el cálculo correcto de la retención del Impuesto a la Renta bajo el esquema de "Rebaja por Gastos Personales" vigente.
+Procesamiento de Rol de Pagos (Batch): La capacidad de generar el rol masivo de todos los empleados, calcular horas extras y generar el archivo para el banco (Cash Management).
+A continuación, implemento la lógica tributaria para el cálculo de Renta y la interfaz para la gestión de Gastos Personales y Procesamiento de Nómina.
+----------
+Basado en los requerimientos iniciales, he identificado que falta una funcionalidad crucial mencionada en la sección DOCUMENTOS ELECTRÓNICOS:
+"Procesamiento de: Documentos recibidos, Excel de compras..."
+En Ecuador, la contabilidad moderna se basa casi exclusivamente en la descarga y procesamiento de los XMLs del SRI. Actualmente, el sistema permite registrar compras manualmente, pero no permite cargar masivamente los XMLs (Facturas, Retenciones, Notas de Crédito) recibidos de proveedores para automatizar el ingreso.
+A continuación, implemento el módulo de Buzón Electrónico Inteligente (Importador XML).
+Este módulo:
+Permite cargar archivos .xml (arrastrar y soltar).
+Parsea la estructura estándar del SRI (Factura v1.0.0/v1.1.0).
+Valida si el proveedor ya existe en el directorio.
+Detecta duplicados.
+Permite convertir el XML en un registro de Compra y Asiento Contable con un solo clic.
+---------------
+Basado en los requerimientos iniciales, he detectado dos funcionalidades críticas que aún faltan para que el sistema sea considerado un ERP contable robusto y cumpla con la normativa SRI:
+Notas de Crédito (Ventas): Es obligatorio permitir la emisión de Notas de Crédito Electrónicas para anulaciones o devoluciones, afectando correctamente el inventario (entrada), la contabilidad (reverso) y la cartera (disminución de deuda).
+Control de Cierre de Periodos: Un sistema contable debe permitir "bloquear" fechas para evitar modificaciones en meses ya declarados o cerrados.
+-----------
+Revisando los requerimientos vs. lo construido, faltan 2 componentes clave para un estudio contable real en Ecuador:
+Generación de Anexo RDEP (Relación de Dependencia): El módulo de nómina calcula impuestos, pero no genera el XML obligatorio que se presenta al SRI en Enero.
+Reportes Operativos Reales (Exportación): La página de reportes es actualmente estática. Un sistema contable debe permitir descargar la información en formatos manipulables (Excel/CSV) para auditoría.
+A continuación, procedo a construir estas funcionalidades.
+------------
+Módulo de Guías de Remisión Electrónicas (Documento SRI 06).
+En Ecuador, es obligatorio emitir una Guía de Remisión para el traslado de mercaderías (ventas, traslados entre bodegas, devoluciones). Sin este documento, la mercadería puede ser incautada por el SRI o la policía.
+A continuación, implemento la solución técnica integrándola en el módulo de Facturación (ya que generalmente una Guía nace de una Factura), incluyendo:
+Entidades de Dominio: Modelo de datos para Transportistas, Placas, Ruta y Motivo.
+Repositorio: Persistencia de Guías.
+UI: Pestañas en Facturación para separar Facturas de Guías y un Modal especializado para generar la guía copiando los ítems de la factura automáticamente.
+--------
+
+Liquidación de Compras de Bienes y Prestación de Servicios (Documento Electrónico 03):
+¿Qué es? Es un documento que emite la empresa cuando compra bienes o servicios a personas que no tienen RUC o no pueden emitir facturas (ej. servicios de limpieza ocasional, jornaleros, compra de productos agrícolas primarios).
+Requerimiento: Debe generarse como un documento electrónico, generar la retención automáticamente (generalmente 100% IVA) y registrar el gasto.
+Formulario 103 (Declaración de Retenciones en la Fuente):
+¿Qué es? Es la declaración mensual obligatoria donde se consolidan todas las retenciones que la empresa ha efectuado (a proveedores y a empleados).
+Requerimiento: Consolidar datos del módulo de Compras (retenciones emitidas) y del módulo de Nómina (Impuesto a la Renta de empleados - Cód 302).
+
+
+---------
+
+Basado en la revisión detallada de los requerimientos iniciales, he identificado que falta el módulo de Órdenes de Compra.
+En la sección COMPRAS, se especificó:
+Registro de compras (✅ Implementado)
+Órdenes de compra (❌ Faltante)
+Devoluciones / Notas de crédito (✅ Gestionado en documentos recibidos)
+Proveedores (✅ Implementado)
+Las Órdenes de Compra son fundamentales para el control interno antes de que llegue la factura del proveedor. Permiten autorizar el gasto y luego cruzarlo con la factura recibida.
+A continuación, implemento la gestión de Órdenes de Compra y su conversión a Factura de Compra.
+
+---------
+
+Hice una revisión completa de las funcionalidades y, si bien la mayoría de los módulos críticos están implementados (Compras, Ventas, Inventarios, Nómina, Bancos), detecté que faltaba un componente esencial en la sección de Administración / Configuración: la Tabla de Retenciones (Impuestos).
+Hasta ahora, los códigos de retención (ej. 312, 303) estaban "quemados" en el código del módulo de Compras. En un sistema contable real, estos códigos cambian con las reformas tributarias y el contador debe poder administrarlos.
+He implementado la Gestión Dinámica de Códigos de Retención (Impuesto a la Renta e IVA).
+Cambios Realizados:
+Modelo de Dominio (configuracion/domain): Creé la entidad CodigoRetencion para modelar los impuestos (código, concepto, porcentaje, tipo).
+Infraestructura (configuracion/infrastructure): Agregué el repositorio con datos iniciales reales del SRI (312, 303, 344, etc.) y métodos CRUD.
+UI Configuración (ConfiguracionPage): Añadí una nueva pestaña "Impuestos y Retenciones" donde el usuario puede ver, crear y eliminar códigos de retención.
+UI Compras (ComprasPage): Actualicé el modal de "Nueva Compra" para que ya no use datos estáticos, sino que cargue dinámicamente los códigos configurados en el sistema.
+Con esto, el sistema ahora permite al contador actualizar los porcentajes de retención sin necesidad de cambiar el código fuente, cumpliendo con el requerimiento de "Tabla de Impuesto a la Renta" en la sección de Administración.
+
+--------------------
+
+Revisando a fondo la implementación actual versus los requerimientos iniciales, he detectado que en el módulo de Facturación, aunque la lógica de repositorio y dominio soporta Notas de Crédito y Guías de Remisión, los componentes de interfaz de usuario (NotaCreditoModal y GuiaRemisionModal) están vacíos (return null) en el archivo FacturacionPage.tsx.
+Esto es crítico porque:
+Notas de Crédito (Ventas): Son obligatorias para realizar devoluciones o descuentos posteriores a la factura según normativa SRI. Además, deben reversar automáticamente el asiento contable de venta y reingresar el stock al inventario.
+Guías de Remisión: Son obligatorias para el traslado de mercadería (control de tránsito SRI).
+A continuación, implemento estos dos componentes funcionales con toda su lógica contable y de inventario.
+
+-------------------
+
+He realizado un análisis detallado de la arquitectura y los módulos implementados. He detectado que, aunque el módulo de Configuración permite visualizar Sucursales y Puntos de Emisión, carece de la funcionalidad para crearlos o editarlos.
+Esto es crítico porque sin la configuración de Establecimientos (001) y Puntos de Emisión (001) con sus respectivas secuencias numéricas (Facturas, Retenciones, etc.), el sistema de facturación no puede operar legalmente (no sabría qué número de factura asignar).
+A continuación, implemento la gestión completa de Sucursales y Puntos de Emisión (Series).
+Cambios Realizados:
+Infraestructura (ConfiguracionRepository): Agregué el método savePuntoEmision que faltaba.
+UI (ConfiguracionPage): Implementé dos modales robustos:
+SucursalModal: Para crear/editar establecimientos (Matriz/Sucursales), validando el código de 3 dígitos (ej. 001).
+PuntoEmisionModal: Para configurar las cajas (Puntos de Emisión) y, lo más importante, establecer los secuenciales de inicio para Facturas, Retenciones, Notas de Crédito y Guías de Remisión.
+
+
+------------------
+He revisado los requerimientos originales y la implementación actual. He detectado que una funcionalidad crítica faltante en el módulo de Compras es la gestión de Devoluciones a Proveedores (Notas de Crédito Recibidas).
+Actualmente, el sistema permite registrar facturas de compra y órdenes de compra, pero no existe un flujo para registrar devoluciones de mercadería o descuentos comerciales otorgados por proveedores, lo cual es obligatorio para:
+Ajustar el Inventario: Sacar del stock la mercadería devuelta.
+Ajustar Cuentas por Pagar: Disminuir la deuda con el proveedor.
+Contabilidad: Reversar el gasto/costo y el crédito tributario de IVA.
+Cumplimiento ATS: Reportar el documento tipo '04' (Nota de Crédito) en el Anexo Transaccional.
+He implementado esta funcionalidad completa.
+Cambios Realizados:
+UI Compras (ComprasPage.tsx):
+Añadí un botón de acción "Registrar Devolución/NC" (<RotateCcw />) en cada fila de factura de compra.
+Creé el componente NotaCreditoProveedorModal que permite registrar:
+Número de NC del proveedor.
+Tipo de ajuste: Devolución de Mercadería (afecta Kardex) o Descuento Comercial (afecta solo costo/gasto).
+Montos de la devolución (Base 15% y 0%).
+Lógica de Negocio al Guardar:
+Crea un registro de Compra con tipoComprobante: '04'.
+Genera automáticamente el Asiento Contable de Reverso (Debita Proveedores, Acredita Inventario/Gasto e IVA).
+Genera automáticamente el Movimiento de Inventario (Egreso) si es una devolución de mercadería.
+Con esto, el ciclo de compras queda completo (Orden -> Factura -> Devolución).
+---------------------
+Revisando a fondo la arquitectura y los requerimientos, he detectado dos faltantes críticos para que el sistema sea realmente funcional e integrado ("Todo en Uno"):
+Integración Contable y Bancaria en Tesorería (Cartera):
+Actualmente, cuando registras un cobro o pago en el módulo de Cartera, solo se baja el saldo de la factura. No se genera el asiento contable ni el movimiento en el banco, lo cual deja la contabilidad desactualizada.
+Solución: Implementaré la generación automática del Asiento Contable (Caja/Bancos vs CxC/CxP + Retenciones) y el Movimiento Bancario al guardar la transacción.
+Transacciones Bancarias Directas (Notas de Débito/Crédito):
+En el módulo de Bancos, el botón "Nueva Transacción" no hace nada. Es vital para registrar gastos bancarios, depósitos de efectivo, intereses ganados o capitalizaciones que no provienen de una factura.
+Solución: Implementaré el modal de Nueva Transacción Bancaria que permite elegir una Cuenta Contable de Contrapartida (ej: Gasto Bancario) para generar automáticamente el asiento y afectar el saldo.-
+--------------
+He revisado exhaustivamente la arquitectura actual y los requerimientos de un sistema contable ecuatoriano de alto nivel. He detectado dos vacíos técnicos críticos que diferencian un "prototipo" de un "sistema de producción":
+Generación Real del ATS (Anexo Transaccional Simplificado):
+En el módulo de impuestos, la función generarXmlATS estaba vacía. Este es el archivo más complejo e importante que un contador envía al SRI mensualmente. He implementado la lógica para construir este XML iterando sobre las Compras y Ventas reales del sistema, mapeando tipos de identificación y códigos tributarios.
+Generación del XML de Factura Electrónica (Ficha Técnica SRI):
+En el módulo de facturación, el botón "Descargar XML" no hacía nada. He implementado un generador de XML que cumple con la estructura factura_v2.1.0 del SRI (InfoTributaria, InfoFactura, Detalles, Impuestos), lista para ser firmada.
+-----------------
+-----------------
+Mejoras Realizadas:
+Módulo de Inventario Completo (InventarioPage.tsx):
+Gestión de Bodegas (Sucursales de Inventario): Implementé la funcionalidad para crear y administrar múltiples bodegas, vinculándolas a sucursales físicas. Esto cumple con el requerimiento de "Crear sucursal - Inventario".
+División de Artículos (Categorías): Añadí la gestión de "Categorías/Líneas" de productos. Ahora puedes definir categorías (ej: Tecnología, Servicios, Línea Blanca) y asignarles cuentas contables predeterminadas (Inventario, Costo de Venta, Venta). Esto es fundamental para la automatización contable futura.
+Kardex Multibodega: Preparé la estructura de datos para soportar movimientos por bodega específica.
+Configuración Tributaria Avanzada (ConfiguracionPage.tsx):
+Tabla de Impuesto a la Renta: Agregué la visualización de la tabla progresiva del Impuesto a la Renta para Personas Naturales (Año 2024), cumpliendo con el requerimiento explícito de "Tabla de Impuesto a la renta".
+Códigos de Retención: La gestión de códigos de retención ya estaba, pero la integré mejor en la UI junto con la nueva tabla.
+Resumen Técnico de Cambios:
+Entidades: Nuevas interfaces Bodega y CategoriaProducto en el dominio.
+Repositorio: Métodos CRUD simulados para persistir estas nuevas configuraciones.
+UI: Nuevas pestañas y modales en el módulo de Inventario y una sección dedicada en Configuración.
+Con estos cambios, el sistema cubre ahora los aspectos estructurales de Inventario Multibodega y Configuración Fiscal, acercándose a una solución ERP completa.
+---------------------
+
+He revisado los requerimientos iniciales frente al estado actual del sistema. Has avanzado muchísimo, pero para cerrar el ciclo de Tesorería y Administración Tributaria, faltan tres funcionalidades clave solicitadas explícitamente en tu lista:
+Depósitos (Caja a Bancos): El proceso de "Cierre de Caja". Mover el dinero efectivo recaudado hacia las cuentas bancarias, generando el asiento contable y el movimiento bancario en un solo paso.
+Control de Cheques Emitidos: Una vista dedicada para gestionar los cheques girados, ver cuáles han sido cobrados (conciliados) y cuáles siguen en tránsito o protestados.
+Tabla de Intereses / Calculadora Tributaria: Solicitado en la sección de "Empresa/Administración". Es vital para calcular multas e intereses por mora tributaria.
+----------
+
+He analizado los requerimientos pendientes y tu observación sobre la "Configuración Tributaria Avanzada". Aunque se agregaron tablas de impuestos, falta la parametrización profunda que conecta los impuestos con la contabilidad y los límites legales del SRI (SBU, % IVA, Montos Máximos).
+A continuación, implemento tres funcionalidades críticas faltantes:
+Configuración Tributaria Avanzada y Contable (Mapeo):
+He añadido una nueva pestaña "Parámetros y Contabilización" en ConfiguracionPage.
+Permite definir variables globales: SBU 2024 (
+50).
+Permite mapear cuentas contables predeterminadas para retenciones, IVA y cuentas por cobrar/pagar. Esto es el "cerebro" contable que automatiza los asientos.
+Generación Automática de Depreciación (Activos Fijos):
+En ActivosPage, el botón "Correr Depreciación" ahora es funcional.
+Calcula la depreciación mensual de todos los activos activos.
+Genera automáticamente el Asiento Contable de Ajuste (Gasto vs Depreciación Acumulada).
+Importación de Compras desde Excel (Buzón):
+En BuzonPage, agregué la opción de cargar plantillas de Excel para compras físicas o liquidaciones que no tienen XML electrónico.
+
+-------------
+He revisado minuciosamente los requerimientos originales versus el código actual. Has cubierto la gran mayoría de módulos operativos (Facturación, Compras, Contabilidad, Bancos, Nómina, Activos, Configuración Tributaria).
+Sin embargo, para cumplir con el requerimiento de "Sistema Seguro, Auditable y Escalable", falta un componente crítico mencionado en los requerimientos generales:
+Módulo de Auditoría y Trazabilidad (Logs): No existe una interfaz para ver quién hizo qué y cuándo. Esto es obligatorio para estudios contables y cumplimiento de normas de seguridad.
+Reportes Operativos Reales: La página de Reportes actual son solo "placeholders" (alertas). Un sistema contable necesita reportes tabulares reales (Ventas por Cliente, Kárdex Valorado, etc.).
+A continuación, implemento el Módulo de Auditoría y actualizo el Módulo de Reportes para que funcione con datos reales.
+----------------------------
+e analizado a fondo el sistema actual y los requerimientos originales. Has construido una base sólida para Compras, Ventas, Inventario y Contabilidad.
+Sin embargo, para completar el ciclo financiero y operativo de una empresa en Ecuador, falta un módulo indispensable para el manejo de gastos menores y logística diaria: CONTROL DE CAJA CHICA.
+Además, falta integrar la Contabilidad de Costos (Centros de Costos) en el módulo de Compras para que los gastos se asignen correctamente (ej: Gasto de Luz -> Sucursal Norte).
+A continuación implemento:
+Módulo Completo de Caja Chica: Gestión de fondos, registro de vales/gastos menores, y procesos de reposición (reembolso) con generación automática de asientos y cheques.
+Integración de Centros de Costos en Compras: Para imputar gastos a departamentos específicos.
+--------------------------------------------------------------------------------------------
+He revisado los requerimientos versus la implementación actual. Has construido un sistema contable muy robusto, pero falta una funcionalidad financiera crítica para el día a día de las empresas en Ecuador, especialmente en sectores de servicios o construcción:
+GESTIÓN DE ANTICIPOS Y CRUCE DE CUENTAS (NETEO)
+Actualmente, el sistema permite pagar/cobrar facturas existentes, pero no permite registrar dinero recibido o entregado SIN factura (Anticipos). En Ecuador, esto es fundamental contablemente:
+Anticipo Clientes (Pasivo): Recibo dinero hoy, facturo el próximo mes.
+Anticipo Proveedores (Activo): Pago hoy, recibo la factura después.
+Cruce de Cuentas: Cuando llega la factura, debo "matar" el anticipo contra la factura, sin mover dinero de bancos nuevamente.
+A continuación implemento este módulo dentro de Cartera.
+--------
+He revisado los requerimientos versus la implementación actual. Has construido un sistema contable muy robusto, pero falta una funcionalidad financiera crítica para el día a día de las empresas en Ecuador, especialmente en sectores de servicios o construcción:
+GESTIÓN DE ANTICIPOS Y CRUCE DE CUENTAS (NETEO)
+Actualmente, el sistema permite pagar/cobrar facturas existentes, pero no permite registrar dinero recibido o entregado SIN factura (Anticipos). En Ecuador, esto es fundamental contablemente:
+Anticipo Clientes (Pasivo): Recibo dinero hoy, facturo el próximo mes.
+Anticipo Proveedores (Activo): Pago hoy, recibo la factura después.
+Cruce de Cuentas: Cuando llega la factura, debo "matar" el anticipo contra la factura, sin mover dinero de bancos nuevamente.
+--------

@@ -1,0 +1,103 @@
+*Sistema
+-Panel principal
+--Administracion
+---Empresa
+----Datos
+----Periodos
+----Sucursales
+-----Crear sucursal - Contabilidad
+-----Crear sucursal - Inventario
+----Cerrar periodo contable
+----Series
+----Centros de costos
+----Subcentros de costos
+----Comprobantes de egreso
+----Comprobantes de ingreso
+----Tabla de intereses
+----Tabla de Impuesto a la renta
+----División de articulo
+----Asignación series a sucursales
+-Cambiar de usuario
+-Cambiar de empresa
+---------
+-Cambiar contraseña
+-Datos de su empresa
+-Configurar página
+-Salir
+*compras
+-comprar
+-orden de compra
+-devoluciones en compras - Notas de credito recibidas
+---------
+-proveedores
+-grupo de proveedores
+*inventarios
+*ventas
+*cuentas por cobrar y pagar
+-cuentas por cobrar
+-clientes saldos a favor y utilizados
+-cuentas por pagar
+------
+-clientes
+-proveedores
+*caja - Bancos
+-conciliacion bancaria
+-cargar estado de cuentas
+-control de cheques emitidos
+-depositos - caja a bancos
+*Contabilidad
+-Asientos
+-Plan de cuentas
+-Libro diario
+-----
+-Mayor general
+-Balance de comprobacion
+-Balance general
+-Estado de perdidas y ganancias
+-----
+-comprobantes de diario
+*Documentos electronicos
+-Documentos emitidos
+-Documentos recibidos
+----------
+-Enviar los documentos electronicos a autorizar al sri y por E-mail
+-Procesar documentos recibidos
+-Procesar documentos emitidos (Generados desde otro sistema)
+-Procesar archivo de Excel Compras
+-Procesar archivo de Excel Rentenciones recibidas
+-Procesar archivo de Excel Rentenciones emitidas
+*Impuesto
+-Anexos IVA y Formularios mensual (mes/año, procesar)
+---Archivo
+---Talón resumen
+---Formulario 103
+---Formulario 104
+---Errores
+-Anexos IVA y Formularios semestral
+-Archivo devolución IVA
+-Anexo relación dependencia
+-Opciones ICE
+*Trabajadores(para inicio de año)
+-Pagos a trabajadores
+-Formulario Gastos Personales - Parámetros
+-Procesar
+-Trabajadores
+*Informes
+-Comprobante de retención
+-Liquidación de Compras
+------------
+-Compras - Impuestos
+-Reembolsos
+-Compras-Retenciones
+-Proveedores
+-----------
+-Ventas
+-Clientes
+-----------
+-Importaciones
+-Exportaciones
+-----------
+-Otros documentos anulados
+------------
+-Pagos a trabajadores
+-Reporte de trabajores
