@@ -8,6 +8,7 @@ import { InMemoryCompraRepository } from '@/modules/compras/infrastructure/Compr
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { NuevaCompraModal } from '@/modules/compras/ui/components/NuevaCompraModal';
 import { LiquidacionCompraModal } from '@/modules/compras/ui/components/LiquidacionCompraModal';
+import { NuevaOrdenModal } from '@/modules/compras/ui/components/NuevaOrdenModal';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 
 const RetencionBadge = ({ estado }: { estado: string }) => {
@@ -25,6 +26,7 @@ export default function ComprasPage() {
 
     const [showModalCompra, setShowModalCompra] = useState(false);
     const [showModalLiq, setShowModalLiq] = useState(false);
+    const [showModalOrden, setShowModalOrden] = useState(false);
     const [ordenParaFacturar, setOrdenParaFacturar] = useState<OrdenCompra | undefined>(undefined);
 
     const loadData = async () => {
@@ -146,7 +148,7 @@ export default function ComprasPage() {
             {activeTab === 'ordenes' && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex justify-end gap-2">
-                        <button className="px-4 py-2 bg-sri-blue text-white rounded-lg text-sm font-medium hover:bg-sri-light flex items-center gap-2 shadow-sm"><Plus size={16} /> Nueva Orden</button>
+                        <button onClick={() => setShowModalOrden(true)} className="px-4 py-2 bg-sri-blue text-white rounded-lg text-sm font-medium hover:bg-sri-light flex items-center gap-2 shadow-sm transition-all active:scale-95"><Plus size={16} /> Nueva Orden</button>
                     </div>
                     <DataTable
                         data={ordenes}
@@ -169,6 +171,14 @@ export default function ComprasPage() {
             {showModalLiq && (
                 <LiquidacionCompraModal
                     onClose={() => setShowModalLiq(false)}
+                    onSave={loadData}
+                    empresaId={currentEmpresa.id}
+                />
+            )}
+
+            {showModalOrden && (
+                <NuevaOrdenModal
+                    onClose={() => setShowModalOrden(false)}
                     onSave={loadData}
                     empresaId={currentEmpresa.id}
                 />

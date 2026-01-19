@@ -329,7 +329,7 @@ export default function ConfiguracionPage() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-2">Archivo de Firma (.p12)</label>
-                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-sri-blue transition-colors bg-slate-50">
+                                        <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-sri-blue transition-colors bg-slate-50">
                                             <Upload className="mx-auto text-slate-400 mb-2" size={24} />
                                             {firmaFile ? (
                                                 <div className="text-sm text-green-600 font-medium flex items-center justify-center gap-2">

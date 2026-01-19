@@ -242,7 +242,7 @@ export default function FacturacionPage() {
     const [facturaVerRide, setFacturaVerRide] = useState<any | null>(null);
     const [guias, setGuias] = useState<GuiaRemision[]>([]);
     const [showModalGuia, setShowModalGuia] = useState(false);
-    const [showModalLiq, setShowModalLiq] = useState(false);
+    // const [showModalLiq, setShowModalLiq] = useState(false);
     const [showModalFactura, setShowModalFactura] = useState(false);
 
     // Mock facturas as state to allow adding new ones
@@ -393,12 +393,12 @@ export default function FacturacionPage() {
                     searchPlaceholder="Buscar por cliente, RUC o secuencial..."
                     actions={
                         <div className="flex gap-2">
-                            <button
+                            {/* <button
                                 onClick={() => setShowModalLiq(true)}
                                 className="px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 flex items-center gap-2 transition-all"
                             >
                                 <FileInput size={16} /> Liquidación Compra
-                            </button>
+                            </button> */}
                             <button
                                 onClick={() => setShowModalFactura(true)}
                                 className="px-4 py-2 bg-sri-blue text-white rounded-lg text-sm font-medium hover:bg-sri-light flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-all transform hover:scale-105"
@@ -452,13 +452,13 @@ export default function FacturacionPage() {
                 />
             )}
 
-            {showModalLiq && (
+            {/* {showModalLiq && (
                 <LiquidacionCompraModal
                     onClose={() => setShowModalLiq(false)}
                     onSave={() => { }}
                     empresaId={currentEmpresa.id}
                 />
-            )}
+            )} */}
 
             {showModalFactura && (
                 <NuevaFacturaModal

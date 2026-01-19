@@ -19,6 +19,7 @@ import { InMemoryDirectorioRepository } from '@/modules/directorio/infrastructur
 import { InMemoryInventarioRepository } from '@/modules/inventario/infrastructure/InventarioRepository';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Producto } from '@/modules/inventario/domain/types';
+import { SriStandardizer } from '../../application/services/SriStandardizer';
 
 export interface FacturaFormProps {
     factura?: Partial<FacturaViewModel>;
@@ -65,6 +66,7 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
     const [estab, setEstab] = useState(factura?.estab || '001');
     const [ptoEmi, setPtoEmi] = useState(factura?.ptoEmi || '001');
     const [secuencial, setSecuencial] = useState(factura?.secuencial || '');
+    const [fechaEmision, setFechaEmision] = useState(factura?.fechaEmision || new Date().toISOString().split('T')[0]);
 
     // Detalles
     const [detalles, setDetalles] = useState<DetalleFactura[]>(factura?.detalles || [{
@@ -228,8 +230,7 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
             ptoEmi,
             secuencial,
             dirMatriz: currentEmpresa.direccionMatriz,
-            fechaEmision: new Date().toISOString().split('T')[0],
-            obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
+            fechaEmision,
             tipoIdentificacionAdquirente: tipoIdentificacion,
             razonSocialAdquirente: razonSocial,
             identificacionAdquirente: identificacion,
@@ -239,7 +240,12 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
             ...totales,
             pagos,
             estado: 'BORRADOR',
+            obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
         };
+
+        // Estandarización para el SRI
+        const dataSri = SriStandardizer.standardizeFactura(nuevaFactura);
+        console.log('JSON ESTANDARIZADO SRI:', JSON.stringify(dataSri, null, 2));
 
         onSubmit(nuevaFactura);
     };
@@ -263,6 +269,10 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
                     <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Secuencial</label>
                         <Input value={secuencial} onChange={(e) => setSecuencial(e.target.value)} placeholder="000000001" maxLength={9} required />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Fecha Emisión</label>
+                        <Input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} required />
                     </div>
                 </div>
             </div>
