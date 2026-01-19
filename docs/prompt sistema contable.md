@@ -106,24 +106,24 @@ src
 │       ├── page.tsx
 │       └── loading.tsx
 │
-├── modules                    # Bounded Contexts (DDD)
+├── modules                    
 │   └── facturacion
 │       │
-│       ├── application        # Casos de uso (NO UI)
+│       ├── application        
 │       │   ├── useCases
 │       │   │   ├── registrarFactura.ts
 │       │   │   ├── listarFacturas.ts
 │       │   │
-│       │   └── models         # ViewModels
+│       │   └── models         
 │       │       └── FacturaViewModel.ts
 │       │
-│       ├── infrastructure     # Adaptadores
+│       ├── infrastructure     
 │       │   ├── api
 │       │   │   └── facturacionApi.ts
 │       │   └── mapper
 │       │       └── facturaMapper.ts
 │       │
-│       └── ui                 # Presentación
+│       └── ui                 
 │           ├── components
 │           │   ├── FacturaForm.tsx
 │           │   ├── FacturaTable.tsx
@@ -132,7 +132,7 @@ src
 │           └── hooks
 │               └── useFacturacion.ts
 │
-├── shared                     # Transversal
+├── shared                     
 │   ├── ui
 │   │   ├── Button.tsx
 │   │   ├── Input.tsx

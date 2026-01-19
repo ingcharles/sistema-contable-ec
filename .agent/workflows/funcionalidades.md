@@ -2,7 +2,7 @@
 description: FUNCIONALIDADES SISTEMA CONTABLE MODERNO PARA ECUADOR
 ---
 
-# 📘 DISEÑO DE SISTEMA CONTABLE MODERNO PARA ECUADOR
+# 📘 DISEÑO DE SISTEMA CONTABLE MODERNO PARA ECUADOR CON NORMAS DEL SRI
 
 **(Clean Architecture + Cumplimiento SRI)**
 
@@ -98,7 +98,7 @@ Tu objetivo es **DISEÑAR Y DEFINIR UN SISTEMA CONTABLE MODERNO PARA ECUADOR**,
 src
 │
 ├── app                        # Framework layer (Next.js)
-│   ├── (auth)
+│   ├── auth
 │   │   └── login
 │   │       └── page.tsx
 │   │
@@ -110,24 +110,24 @@ src
 │       ├── page.tsx
 │       └── loading.tsx
 │
-├── modules                    # Bounded Contexts (DDD)
+├── modules                    
 │   └── facturacion
 │       │
-│       ├── application        # Casos de uso (NO UI)
+│       ├── application        
 │       │   ├── useCases
 │       │   │   ├── registrarFactura.ts
 │       │   │   ├── listarFacturas.ts
 │       │   │
-│       │   └── models         # ViewModels
+│       │   └── models         
 │       │       └── FacturaViewModel.ts
 │       │
-│       ├── infrastructure     # Adaptadores
+│       ├── infrastructure     
 │       │   ├── api
 │       │   │   └── facturacionApi.ts
 │       │   └── mapper
 │       │       └── facturaMapper.ts
 │       │
-│       └── ui                 # Presentación
+│       └── ui                 
 │           ├── components
 │           │   ├── FacturaForm.tsx
 │           │   ├── FacturaTable.tsx
@@ -136,7 +136,7 @@ src
 │           └── hooks
 │               └── useFacturacion.ts
 │
-├── shared                     # Transversal
+├── shared                     
 │   ├── ui
 │   │   ├── Button.tsx
 │   │   ├── Input.tsx
@@ -159,6 +159,25 @@ src
 ✔️ **Correctamente alineado a Clean Architecture en frontend**
 ✔️ **Sin lógica de negocio en UI**
 ✔️ **Casos de uso aislados**
+
+---
+
+
+## 🎨 ESTILOS (TAILWIND)
+
+```ts
+theme: {
+  extend: {
+    colors: {
+      sri: {
+        blue: '#00548b',
+        light: '#007cc3',
+        gray: '#f4f6f9'
+      }
+    }
+  }
+}
+```
 
 ---
 

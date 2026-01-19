@@ -24,7 +24,7 @@ const ConciliacionModal: React.FC<ConciliacionModalProps> = ({ cuenta, movimient
     const [marcados, setMarcados] = useState<Set<string>>(new Set());
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const movimientosPendientes = movimientos.filter(m => 
+    const movimientosPendientes = movimientos.filter(m =>
         !m.conciliado && m.fecha <= fechaCorte
     );
 
@@ -48,7 +48,7 @@ const ConciliacionModal: React.FC<ConciliacionModalProps> = ({ cuenta, movimient
         setTimeout(() => {
             const newMarcados = new Set(marcados);
             let matchedCount = 0;
-            
+
             // Lógica dummy: Marca el 80% de los movimientos como si coincidieran con el extracto
             movimientosPendientes.forEach(m => {
                 if (Math.random() > 0.2) {
@@ -56,7 +56,7 @@ const ConciliacionModal: React.FC<ConciliacionModalProps> = ({ cuenta, movimient
                     matchedCount++;
                 }
             });
-            
+
             setMarcados(newMarcados);
             setSaldoExtracto(cuenta.saldoContable); // Truco para cuadrar en demo
             alert(`Importación exitosa. Se han conciliado automáticamente ${matchedCount} movimientos coincidentes.`);
@@ -65,7 +65,7 @@ const ConciliacionModal: React.FC<ConciliacionModalProps> = ({ cuenta, movimient
 
     const saldoLibro = cuenta.saldoContable;
     const partidasPendientes = movimientosPendientes.filter(m => !marcados.has(m.id));
-    
+
     const chequesGiradosNoCobrados = partidasPendientes
         .filter(m => m.esEgreso)
         .reduce((acc, m) => acc + m.monto, 0);
@@ -107,16 +107,16 @@ const ConciliacionModal: React.FC<ConciliacionModalProps> = ({ cuenta, movimient
                                         <label className="block text-xs font-medium text-slate-700 mb-1">Saldo Final del Estado de Cuenta ($)</label>
                                         <input type="number" value={saldoExtracto} onChange={e => setSaldoExtracto(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-right" />
                                     </div>
-                                    
+
                                     <div className="pt-2 border-t border-slate-100">
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            className="hidden" 
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
                                             accept=".csv,.xls,.xlsx"
                                             onChange={handleImportarExtracto}
                                         />
-                                        <button 
+                                        <button
                                             onClick={() => fileInputRef.current?.click()}
                                             className="w-full py-2 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-bold hover:bg-indigo-100 flex items-center justify-center gap-2"
                                         >
@@ -222,7 +222,7 @@ export const BancosPage: React.FC = () => {
     // ... (Lógica principal se mantiene igual que el archivo anterior, solo se actualizó ConciliacionModal arriba)
     // Para simplificar la respuesta y no repetir todo el código idéntico, 
     // asumimos que el componente BancosPage utiliza el ConciliacionModal actualizado.
-    
+
     // ... (Código de BancosPage del archivo anterior) ...
     const { currentEmpresa } = useOutletContext<{ currentEmpresa: Empresa }>();
     const [activeTab, setActiveTab] = useState<'movimientos' | 'cheques'>('movimientos');
@@ -269,20 +269,20 @@ export const BancosPage: React.FC = () => {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <button 
+                    <button
                         onClick={() => setShowDeposito(true)}
                         className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-2 shadow-sm"
                     >
-                        <ArrowRightLeft size={16} /> Depositar (Caja->Banco)
+                        <ArrowRightLeft size={16} /> Depositar (Caja a Banco)
                     </button>
-                    <button 
+                    <button
                         onClick={() => setShowConciliacion(true)}
                         disabled={!selectedCuenta}
                         className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center gap-2"
                     >
                         <FileCheck size={16} /> Conciliar
                     </button>
-                    <button 
+                    <button
                         onClick={() => setShowNuevaTransaccion(true)}
                         className="px-4 py-2 bg-sri-blue text-white rounded-lg text-sm font-medium hover:bg-sri-light flex items-center gap-2 shadow-sm"
                     >
@@ -294,14 +294,13 @@ export const BancosPage: React.FC = () => {
             {/* Listado de Cuentas (Cards) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {cuentas.map(cuenta => (
-                    <div 
-                        key={cuenta.id} 
+                    <div
+                        key={cuenta.id}
                         onClick={() => setSelectedCuenta(cuenta.id)}
-                        className={`cursor-pointer p-6 rounded-xl border transition-all ${
-                            selectedCuenta === cuenta.id 
-                                ? 'bg-slate-800 text-white shadow-lg ring-2 ring-slate-800 ring-offset-2' 
-                                : 'bg-white text-slate-800 border-slate-200 hover:shadow-md'
-                        }`}
+                        className={`cursor-pointer p-6 rounded-xl border transition-all ${selectedCuenta === cuenta.id
+                            ? 'bg-slate-800 text-white shadow-lg ring-2 ring-slate-800 ring-offset-2'
+                            : 'bg-white text-slate-800 border-slate-200 hover:shadow-md'
+                            }`}
                     >
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-2 rounded-lg bg-white/10">
@@ -328,13 +327,13 @@ export const BancosPage: React.FC = () => {
 
             {/* Tabs de Vistas */}
             <div className="flex gap-4 border-b border-slate-200">
-                <button 
+                <button
                     onClick={() => setActiveTab('movimientos')}
                     className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'movimientos' ? 'text-sri-blue border-b-2 border-sri-blue' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     Libro Banco (Movimientos)
                 </button>
-                <button 
+                <button
                     onClick={() => setActiveTab('cheques')}
                     className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'cheques' ? 'text-sri-blue border-b-2 border-sri-blue' : 'text-slate-500 hover:text-slate-700'}`}
                 >
@@ -351,7 +350,7 @@ export const BancosPage: React.FC = () => {
                             <span className="text-xs bg-white px-2 py-1 border rounded text-slate-600">Octubre 2023</span>
                         </div>
                     </div>
-                    
+
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-white text-slate-600 font-semibold border-b border-slate-200">
@@ -386,7 +385,7 @@ export const BancosPage: React.FC = () => {
                                                 </div>
                                             ) : (
                                                 <div className="flex justify-center" title="Pendiente">
-                                                     <span className="h-3 w-3 rounded-full bg-slate-200 border border-slate-300"></span>
+                                                    <span className="h-3 w-3 rounded-full bg-slate-200 border border-slate-300"></span>
                                                 </div>
                                             )}
                                         </td>
@@ -453,7 +452,7 @@ export const BancosPage: React.FC = () => {
             )}
 
             {showConciliacion && currentCuentaObj && (
-                <ConciliacionModal 
+                <ConciliacionModal
                     cuenta={currentCuentaObj}
                     movimientos={movimientos}
                     onClose={() => setShowConciliacion(false)}
@@ -466,7 +465,7 @@ export const BancosPage: React.FC = () => {
             )}
 
             {showNuevaTransaccion && (
-                <NuevaTransaccionModal 
+                <NuevaTransaccionModal
                     cuentas={cuentas}
                     empresaId={currentEmpresa.id}
                     onClose={() => setShowNuevaTransaccion(false)}
@@ -478,7 +477,7 @@ export const BancosPage: React.FC = () => {
             )}
 
             {showDeposito && (
-                <DepositoModal 
+                <DepositoModal
                     cuentas={cuentas}
                     empresaId={currentEmpresa.id}
                     onClose={() => setShowDeposito(false)}
