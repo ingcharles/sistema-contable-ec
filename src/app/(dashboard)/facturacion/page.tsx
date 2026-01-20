@@ -6,7 +6,7 @@ import { TipoComprobante, EstadoSRI, Factura } from '@/shared/types';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
 import {
     CheckCircle2, XCircle, Clock, FileText, Download, Plus,
-    RotateCcw, Truck, Receipt, FileInput, X, Eye
+    RotateCcw, Truck, Receipt, X, Eye, FileCode
 } from 'lucide-react';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { Button } from '@/shared/ui/Button';
@@ -14,9 +14,8 @@ import { Button } from '@/shared/ui/Button';
 // Modals y Tipos de otros módulos
 import { GuiaRemisionModal } from '@/modules/facturacion/ui/components/GuiaRemisionModal';
 import { GuiaRemision } from '@/modules/facturacion/domain/guias';
-import { InMemoryGuiaRemisionRepository } from '@/modules/facturacion/infrastructure/GuiaRemisionRepository';
-import { InMemoryVentasRepository } from '@/modules/facturacion/infrastructure/VentasRepository';
-import { LiquidacionCompraModal } from '@/modules/compras/ui/components/LiquidacionCompraModal';
+import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+
 import { NuevaFacturaModal } from '@/modules/facturacion/ui/components/NuevaFacturaModal';
 
 // Componente para badge de estado
@@ -53,8 +52,11 @@ const EstadoBadge = ({ estado }: { estado: EstadoSRI | string }) => {
 
 
 // Importar catálogos para evitar hardcoding
-import { FORMA_PAGO, TARIFA_IVA } from '@/modules/facturacion/domain/catalogos';
+import { FORMA_PAGO, TARIFA_IVA, AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
 import { FacturaRIDE } from '@/modules/facturacion/ui/components/FacturaRIDE';
+import { XmlModal } from '@/modules/facturacion/ui/components/XmlModal';
+import { SriStandardizer } from '@/modules/facturacion/application/services/SriStandardizer';
+import { XmlGenerator } from '@/modules/facturacion/application/services/XmlGenerator';
 
 // Modal Visor RIDE (Usando el componente profesional)
 const VisorRideModal = ({ factura, onClose }: { factura: any, onClose: () => void }) => {
@@ -241,6 +243,7 @@ export default function FacturacionPage() {
     const [selectedFacturaNC, setSelectedFacturaNC] = useState<any | null>(null);
     const [selectedFacturaGuia, setSelectedFacturaGuia] = useState<any | null>(null);
     const [facturaVerRide, setFacturaVerRide] = useState<any | null>(null);
+    const [xmlVer, setXmlVer] = useState<string | null>(null);
     const [guias, setGuias] = useState<GuiaRemision[]>([]);
     const [showModalGuia, setShowModalGuia] = useState(false);
     const [showModalFactura, setShowModalFactura] = useState(false);
@@ -253,12 +256,9 @@ export default function FacturacionPage() {
         if (!currentEmpresa) return;
         setLoading(true);
         try {
-            const repoVentas = new InMemoryVentasRepository();
-            const repoGuias = new InMemoryGuiaRemisionRepository();
-
             const [dataFacturas, dataGuias] = await Promise.all([
-                repoVentas.getFacturas(currentEmpresa.id),
-                repoGuias.getGuias(currentEmpresa.id)
+                FacturacionUseCases.listarComprobantes(),
+                FacturacionUseCases.listarGuias()
             ]);
 
             setFacturas(dataFacturas);
@@ -277,31 +277,14 @@ export default function FacturacionPage() {
     const handleSaveFactura = async (nuevaFactura: any) => {
         if (!currentEmpresa) return;
 
-        const facturaAdaptada: Factura = {
-            id: Math.random().toString(36).substr(2, 9),
-            empresaId: currentEmpresa.id,
-            tipo: TipoComprobante.FACTURA,
-            secuencial: `${nuevaFactura.estab}-${nuevaFactura.ptoEmi}-${nuevaFactura.secuencial}`,
-            fechaEmision: nuevaFactura.fechaEmision,
-            terceroNombre: nuevaFactura.razonSocialAdquirente,
-            terceroId: nuevaFactura.identificacionAdquirente,
-            subtotal: nuevaFactura.totalSinImpuestos,
-            descuento: nuevaFactura.totalDescuento,
-            totalImpuestos: nuevaFactura.totalIVA,
-            importeTotal: nuevaFactura.importeTotal,
-            estado: EstadoSRI.AUTORIZADO,
-            claveAcceso: `${nuevaFactura.fechaEmision.replace(/-/g, '')}01${nuevaFactura.ruc}1${nuevaFactura.estab}${nuevaFactura.ptoEmi}${nuevaFactura.secuencial}123456781`,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'user'
-        };
-
-        const repo = new InMemoryVentasRepository();
-        await repo.saveFactura(facturaAdaptada);
-
-        alert('Factura emitida y autorizada exitosamente por el SRI (Simulación)');
-        loadData();
-        setShowModalFactura(false);
+        try {
+            await FacturacionUseCases.emitirFactura(nuevaFactura);
+            alert('Factura emitida y autorizada exitosamente por el SRI (Conectado a API)');
+            loadData();
+            setShowModalFactura(false);
+        } catch (error) {
+            alert('Error al emitir factura: ' + (error as Error).message);
+        }
     };
 
     const columns: Column<Factura>[] = [
@@ -343,8 +326,19 @@ export default function FacturacionPage() {
                             </button>
                         </>
                     )}
-                    <button onClick={() => setFacturaVerRide(row)} className="p-2 text-slate-500 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onClick={() => setFacturaVerRide(row)} className="p-2 text-slate-500 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-colors" title="Ver RIDE">
                         <Eye size={18} />
+                    </button>
+                    <button
+                        onClick={() => {
+                            const dataSri = SriStandardizer.standardizeFactura(row as any);
+                            const xml = XmlGenerator.generateFacturaXml(dataSri);
+                            setXmlVer(xml);
+                        }}
+                        className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Ver XML"
+                    >
+                        <FileCode size={18} />
                     </button>
                 </div>
             )
@@ -381,9 +375,36 @@ export default function FacturacionPage() {
         {
             header: 'Acciones',
             className: 'text-right',
-            cell: () => (
+            cell: (row) => (
                 <div className="flex justify-end gap-2">
                     <button className="p-1.5 text-slate-400 hover:text-sri-blue"><Eye size={16} /></button>
+                    <button
+                        onClick={() => {
+                            // Mock para Guía de Remisión (Estandarización rápida para demo)
+                            const dataSri = {
+                                infoTributaria: {
+                                    ambiente: AMBIENTE.PRUEBAS, tipoEmision: TIPO_EMISION.NORMAL, razonSocial: currentEmpresa.razonSocial, ruc: currentEmpresa.ruc,
+                                    codDoc: '06', estab: '001', ptoEmi: '001', secuencial: row.secuencial.split('-')[2], dirMatriz: currentEmpresa.direccionMatriz
+                                },
+                                infoGuiaRemision: {
+                                    dirEstablecimiento: currentEmpresa.direccionMatriz, dirPartida: row.puntoPartida, razonSocialTransportista: row.transportista.razonSocial,
+                                    tipoIdentificacionTransportista: '04', rucTransportista: row.transportista.ruc, obligadoContabilidad: 'SI',
+                                    fechaIniTraslado: row.fechaInicioTraslado, fechaFinTraslado: row.fechaFinTraslado, placa: row.transportista.placa
+                                },
+                                destinatarios: row.destinatarios.map((d: any) => ({
+                                    identificacionDestinatario: d.identificacion, razonSocialDestinatario: d.razonSocial, dirDestinatario: d.direccionDestino,
+                                    motivoTraslado: d.motivoTraslado, ruta: d.ruta, codDocSustento: '01', numDocSustento: d.documentoReferencia,
+                                    detalles: d.items.map((i: any) => ({ codigoInterno: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad }))
+                                }))
+                            };
+                            const xml = XmlGenerator.generateGuiaXml(dataSri);
+                            setXmlVer(xml);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-blue-600"
+                        title="Ver XML"
+                    >
+                        <FileCode size={16} />
+                    </button>
                     <button className="p-1.5 text-slate-400 hover:text-green-600"><Download size={16} /></button>
                 </div>
             )
@@ -476,6 +497,13 @@ export default function FacturacionPage() {
                 <NuevaFacturaModal
                     onClose={() => setShowModalFactura(false)}
                     onSave={handleSaveFactura}
+                />
+            )}
+
+            {xmlVer && (
+                <XmlModal
+                    xml={xmlVer}
+                    onClose={() => setXmlVer(null)}
                 />
             )}
 

@@ -29,7 +29,7 @@ interface DataTableProps<T> {
 export function DataTable<T extends { id: string | number }>({
     data,
     columns,
-    itemsPerPage = 10,
+    itemsPerPage = 5,
     searchable = false,
     searchKeys,
     searchPlaceholder = "Buscar...",
@@ -38,6 +38,7 @@ export function DataTable<T extends { id: string | number }>({
     emptyMessage = "No se encontraron registros.",
     loading = false
 }: DataTableProps<T>) {
+    const [pageSize, setPageSize] = useState(itemsPerPage);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: keyof T | null; direction: 'asc' | 'desc' }>({
@@ -45,6 +46,7 @@ export function DataTable<T extends { id: string | number }>({
         direction: 'asc',
     });
 
+    // ... (rest of the previous logic updated to use pageSize)
     // Filter
     const filteredData = React.useMemo(() => {
         if (!searchTerm) return data;
@@ -75,10 +77,10 @@ export function DataTable<T extends { id: string | number }>({
     }, [filteredData, sortConfig]);
 
     // Pagination
-    const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+    const totalPages = Math.ceil(sortedData.length / pageSize);
     const paginatedData = sortedData.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
     );
 
     const handleSort = (key: keyof T) => {
@@ -94,6 +96,11 @@ export function DataTable<T extends { id: string | number }>({
         setSearchTerm(term);
         setCurrentPage(1);
         if (onSearch) onSearch(term);
+    };
+
+    const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setPageSize(Number(e.target.value));
+        setCurrentPage(1);
     };
 
     return (
@@ -173,12 +180,29 @@ export function DataTable<T extends { id: string | number }>({
                 </table>
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+            {/* Pagination Controls */}
+            <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/30">
+                <div className="flex items-center gap-4">
                     <div className="text-xs text-slate-500">
-                        Mostrando <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> a <span className="font-bold">{Math.min(currentPage * itemsPerPage, sortedData.length)}</span> de <span className="font-bold">{sortedData.length}</span> registros
+                        Mostrando <span className="font-bold">{(currentPage - 1) * pageSize + 1}</span> a <span className="font-bold">{Math.min(currentPage * pageSize, sortedData.length)}</span> de <span className="font-bold">{sortedData.length}</span> registros
                     </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 border-l pl-4 border-slate-200">
+                        <span>Mostrar:</span>
+                        <select
+                            value={pageSize}
+                            onChange={handlePageSizeChange}
+                            className="bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-sri-blue/20 font-bold"
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                    </div>
+                </div>
+
+                {totalPages > 1 && (
                     <div className="flex gap-2">
                         <Button
                             variant="secondary"
@@ -190,6 +214,7 @@ export function DataTable<T extends { id: string | number }>({
                             <ChevronLeft size={16} />
                         </Button>
                         <div className="flex items-center gap-1">
+                            {/* Logic for showing limited page numbers could go here, but keeping it simple for now */}
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                                 <button
                                     key={page}
@@ -213,8 +238,8 @@ export function DataTable<T extends { id: string | number }>({
                             <ChevronRight size={16} />
                         </Button>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }

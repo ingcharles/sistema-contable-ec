@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import { X, Save, Calculator, Search } from 'lucide-react';
 import { Compra, SustentoTributario, OrdenCompra } from '../../domain/types';
 import { CodigoRetencion } from '@/modules/configuracion/domain/types';
-import { AsientoContable, CentroCosto } from '@/modules/contabilidad/domain/types';
+import { AsientoContable } from '@/modules/contabilidad/domain/types';
 import { InMemoryCompraRepository } from '../../infrastructure/CompraRepository';
-import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
-import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
+import { ConfiguracionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useCentrosCostos } from '@/modules/contabilidad/hooks/useContabilidad';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
@@ -19,8 +19,8 @@ interface Props {
 }
 
 export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, empresaId, ordenPrevia }) => {
+    const { centros: centrosCostos, cargarCentros } = useCentrosCostos();
     const [retencionesDisponibles, setRetencionesDisponibles] = React.useState<CodigoRetencion[]>([]);
-    const [centrosCostos, setCentrosCostos] = React.useState<CentroCosto[]>([]);
 
     const [proveedorNombre, setProveedorNombre] = useState(ordenPrevia?.proveedor.razonSocial || '');
     const [proveedorRuc, setProveedorRuc] = useState(ordenPrevia?.proveedor.ruc || '');
@@ -38,19 +38,19 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, empresaId, 
     const [codRetRenta, setCodRetRenta] = useState('');
     const [codRetIva, setCodRetIva] = useState('');
 
+    const [guardando, setGuardando] = useState(false);
+
     React.useEffect(() => {
-        const repoConf = new InMemoryConfiguracionRepository();
-        repoConf.getCodigosRetencion(empresaId).then(data => {
+        ConfiguracionUseCases.listarRetenciones().then(data => {
             setRetencionesDisponibles(data);
-            const defaultRenta = data.find(r => r.tipo === 'RENTA' && r.codigo === '312');
-            const defaultIva = data.find(r => r.tipo === 'IVA' && r.codigo === '9');
+            const defaultRenta = data.find((r: any) => r.tipo === 'RENTA' && r.codigo === '312');
+            const defaultIva = data.find((r: any) => r.tipo === 'IVA' && r.codigo === '9');
             if (defaultRenta) setCodRetRenta(defaultRenta.codigo);
             if (defaultIva) setCodRetIva(defaultIva.codigo);
         });
 
-        const repoCont = new InMemoryContabilidadRepository();
-        repoCont.getCentrosCostos(empresaId).then(setCentrosCostos);
-    }, [empresaId]);
+        cargarCentros();
+    }, [cargarCentros]);
 
     const montoIva = Number((subtotal15 * 0.15).toFixed(2));
     const totalFactura = subtotal15 + subtotal0 + montoIva;
@@ -67,77 +67,84 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, empresaId, 
     const handleGuardar = async () => {
         if (!proveedorRuc || !secuencial) return;
 
-        const nuevaCompra: Compra = {
-            id: Math.random().toString(36),
-            empresaId,
-            proveedor: {
-                id: Math.random().toString(36),
-                razonSocial: proveedorNombre,
-                ruc: proveedorRuc,
-                esContribuyenteEspecial: false
-            },
-            tipoComprobante: '01',
-            secuencial,
-            autorizacion: autorizacion || '0000000000',
-            fechaEmision,
-            fechaRegistro: new Date().toISOString().split('T')[0],
-            sustento,
-            descripcion: ordenPrevia ? `Comp. Factura de OC: ${ordenPrevia.secuencial}` : 'COMPRA REGISTRADA MANUALMENTE',
-            subtotal15,
-            subtotal0,
-            montoIva,
-            total: totalFactura,
-            ordenCompraId: ordenPrevia?.id,
-            tieneRetencion: aplicaRetencion,
-            estadoRetencion: aplicaRetencion ? 'EMITIDA' : 'NO_APLICA',
-            nroRetencion: aplicaRetencion ? `001-001-${Math.floor(Math.random() * 1000000)}` : undefined,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'user'
-        };
-
-        const repoCompra = new InMemoryCompraRepository();
-        await repoCompra.save(nuevaCompra);
-
-        if (ordenPrevia) {
-            await repoCompra.actualizarEstadoOrden(ordenPrevia.id, 'FACTURADA');
-        }
-
-        const selectedCentro = centrosCostos.find(c => c.id === centroCostoId);
-
-        const asiento: AsientoContable = {
-            id: Math.random().toString(36),
-            empresaId,
-            numero: `CC-${Math.floor(Math.random() * 1000)}`,
-            fecha: fechaEmision,
-            glosa: `P/R Compra Fac/${secuencial} - ${proveedorNombre} ${selectedCentro ? `(${selectedCentro.nombre})` : ''}`,
-            tipo: 'EGRESO',
-            estado: 'MAYORIZADO',
-            totalDebe: totalFactura,
-            totalHaber: totalFactura,
-            detalles: [
-                {
-                    cuentaCodigo: '1.1.03.01',
-                    cuentaNombre: 'INVENTARIO DE MERCADERÍAS',
-                    debe: subtotal15 + subtotal0,
-                    haber: 0,
-                    centroCostoId: centroCostoId || undefined
+        setGuardando(true);
+        try {
+            const nuevaCompra: Compra = {
+                id: crypto.randomUUID(),
+                empresaId,
+                proveedor: {
+                    id: crypto.randomUUID(),
+                    razonSocial: proveedorNombre,
+                    ruc: proveedorRuc,
+                    esContribuyenteEspecial: false
                 },
-                { cuentaCodigo: '1.1.05.01', cuentaNombre: 'IVA COMPRAS', debe: montoIva, haber: 0 },
-                { cuentaCodigo: '2.1.01.01', cuentaNombre: 'CUENTAS POR PAGAR PROVEEDORES', debe: 0, haber: totalPagar },
-                { cuentaCodigo: '2.1.03.01', cuentaNombre: 'RETENCIÓN FUENTE RENTA', debe: 0, haber: valorRetRenta },
-                { cuentaCodigo: '2.1.03.02', cuentaNombre: 'RETENCIÓN IVA', debe: 0, haber: valorRetIva }
-            ].filter(d => d.debe > 0 || d.haber > 0),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'system'
-        };
+                tipoComprobante: '01',
+                secuencial,
+                autorizacion: autorizacion || '0000000000',
+                fechaEmision,
+                fechaRegistro: new Date().toISOString().split('T')[0],
+                sustento,
+                descripcion: ordenPrevia ? `Comp. Factura de OC: ${ordenPrevia.secuencial}` : 'COMPRA REGISTRADA MANUALMENTE',
+                subtotal15,
+                subtotal0,
+                montoIva,
+                total: totalFactura,
+                ordenCompraId: ordenPrevia?.id,
+                tieneRetencion: aplicaRetencion,
+                estadoRetencion: aplicaRetencion ? 'EMITIDA' : 'NO_APLICA',
+                nroRetencion: aplicaRetencion ? `001-001-${Math.floor(Math.random() * 1000000)}` : undefined,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                createdBy: 'user'
+            };
 
-        const repoContabilidad = new InMemoryContabilidadRepository();
-        await repoContabilidad.saveAsiento(asiento);
+            const repoCompra = new InMemoryCompraRepository();
+            await repoCompra.save(nuevaCompra);
 
-        onSave();
-        onClose();
+            if (ordenPrevia) {
+                await repoCompra.actualizarEstadoOrden(ordenPrevia.id, 'FACTURADA');
+            }
+
+            const selectedCentro = centrosCostos.find(c => c.id === centroCostoId);
+
+            const asiento: AsientoContable = {
+                id: crypto.randomUUID(),
+                empresaId,
+                numero: `CC-${Math.floor(Math.random() * 1000)}`,
+                fecha: fechaEmision,
+                glosa: `P/R Compra Fac/${secuencial} - ${proveedorNombre} ${selectedCentro ? `(${selectedCentro.nombre})` : ''}`,
+                tipo: 'EGRESO',
+                estado: 'MAYORIZADO',
+                totalDebe: totalFactura,
+                totalHaber: totalFactura,
+                detalles: [
+                    {
+                        cuentaCodigo: '1.1.03.01',
+                        cuentaNombre: 'INVENTARIO DE MERCADERÍAS',
+                        debe: subtotal15 + subtotal0,
+                        haber: 0,
+                        centroCostoId: centroCostoId || undefined
+                    },
+                    { cuentaCodigo: '1.1.05.01', cuentaNombre: 'IVA COMPRAS', debe: montoIva, haber: 0 },
+                    { cuentaCodigo: '2.1.01.01', cuentaNombre: 'CUENTAS POR PAGAR PROVEEDORES', debe: 0, haber: totalPagar },
+                    { cuentaCodigo: '2.1.03.01', cuentaNombre: 'RETENCIÓN FUENTE RENTA', debe: 0, haber: valorRetRenta },
+                    { cuentaCodigo: '2.1.03.02', cuentaNombre: 'RETENCIÓN IVA', debe: 0, haber: valorRetIva }
+                ].filter(d => d.debe > 0 || d.haber > 0),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                createdBy: 'system'
+            };
+
+            await ContabilidadUseCases.registrarAsiento(asiento);
+
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Error al registrar la compra');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     return (
@@ -287,8 +294,8 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, empresaId, 
                             <p className="text-xs text-slate-400 uppercase font-bold">Neto a Pagar</p>
                             <p className="text-3xl font-mono text-emerald-400 font-bold">{formatMoney(aplicaRetencion ? totalPagar : totalFactura)}</p>
                         </div>
-                        <Button onClick={handleGuardar} disabled={!proveedorRuc || !secuencial || totalFactura === 0} className="ml-4 px-6 py-3 bg-sri-light text-white font-bold rounded-xl hover:bg-white hover:text-sri-blue transition-all disabled:opacity-50 flex items-center gap-2">
-                            <Save size={20} /> Guardar Compra
+                        <Button onClick={handleGuardar} disabled={!proveedorRuc || !secuencial || totalFactura === 0 || guardando} className="ml-4 px-6 py-3 bg-sri-light text-white font-bold rounded-xl hover:bg-white hover:text-sri-blue transition-all disabled:opacity-50 flex items-center gap-2">
+                            <Save size={20} /> {guardando ? 'Guardando...' : 'Guardar Compra'}
                         </Button>
                     </div>
                 </div>

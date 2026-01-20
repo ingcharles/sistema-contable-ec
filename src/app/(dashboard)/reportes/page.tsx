@@ -38,19 +38,13 @@ const dataAnual = [
 export default function ReportesPage() {
     const { currentEmpresa } = useEmpresa();
     const [kpis, setKpis] = useState<KpiFinanciero[]>([]);
-    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
             if (!currentEmpresa) return;
-            setLoading(true);
-
-            // Load BI Data
             const repoBI = new InMemoryReportesRepository();
             const kpisData = await repoBI.getKpis(currentEmpresa.id, '2024-03');
             setKpis(kpisData);
-
-            setLoading(false);
         };
         loadData();
     }, [currentEmpresa?.id]);

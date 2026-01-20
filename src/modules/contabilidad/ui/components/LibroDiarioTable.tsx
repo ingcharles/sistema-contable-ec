@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { ChevronDown, ChevronRight, Printer, Download, Search, Filter } from 'lucide-react';
 import { AsientoContable } from '../../domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
+import { Empresa } from '@/shared/types';
 
 interface LibroDiarioTableProps {
     asientos: AsientoContable[];
     loading?: boolean;
+    empresa?: Empresa;
+    fechaInicio?: string;
+    fechaFin?: string;
 }
 
-export const LibroDiarioTable = ({ asientos, loading }: LibroDiarioTableProps) => {
+export const LibroDiarioTable = ({ asientos, loading, empresa, fechaInicio, fechaFin }: LibroDiarioTableProps) => {
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -25,6 +29,22 @@ export const LibroDiarioTable = ({ asientos, loading }: LibroDiarioTableProps) =
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            {/* Cabecera con datos de la empresa */}
+            {empresa && (
+                <div className="text-center p-6 pb-4 border-b-2 border-slate-200 bg-slate-50/30">
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{empresa.razonSocial}</h2>
+                    <p className="text-xs text-slate-600 mt-1">RUC: {empresa.ruc}</p>
+                    <p className="text-xs text-slate-500 mt-1">{empresa.direccionMatriz}</p>
+                    <h3 className="text-lg font-bold text-sri-blue uppercase mt-3">Libro Diario General</h3>
+                    {fechaInicio && fechaFin && (
+                        <p className="text-slate-500 font-medium text-sm mt-1">
+                            Del {new Date(fechaInicio + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </p>
+                    )}
+                    <p className="text-xs text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
+                </div>
+            )}
+
             {/* Toolbar */}
             <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/50">
                 <div className="relative w-full sm:w-72">
@@ -72,7 +92,7 @@ export const LibroDiarioTable = ({ asientos, loading }: LibroDiarioTableProps) =
                         ) : filteredAsientos.map((asiento) => {
                             const isExpanded = expanded[asiento.id];
                             return (
-                                <div key={asiento.id} style={{ display: 'contents' }}>
+                                <Fragment key={asiento.id}>
                                     <tr
                                         className={`hover:bg-slate-50 transition-colors cursor-pointer ${isExpanded ? 'bg-slate-50' : ''}`}
                                         onClick={() => toggleExpand(asiento.id)}
@@ -132,7 +152,7 @@ export const LibroDiarioTable = ({ asientos, loading }: LibroDiarioTableProps) =
                                             </td>
                                         </tr>
                                     )}
-                                </div>
+                                </Fragment>
                             );
                         })}
                     </tbody>

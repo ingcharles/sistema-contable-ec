@@ -2,9 +2,11 @@
 // Definiciones transversales del sistema
 
 export enum TipoIdentificacion {
-    RUC = 'RUC',
-    CEDULA = 'CEDULA',
-    PASAPORTE = 'PASAPORTE'
+    RUC = '04',
+    CEDULA = '05',
+    PASAPORTE = '06',
+    CONSUMIDOR_FINAL = '07',
+    EXTERIOR = '08'
 }
 
 export enum EstadoSRI {

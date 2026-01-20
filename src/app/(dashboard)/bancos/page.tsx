@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Landmark, ArrowUpRight, ArrowDownRight, Plus, MoreVertical, CheckCircle2, FileCheck, ArrowRightLeft, Banknote, ScrollText } from 'lucide-react';
+import { Landmark, ArrowUpRight, ArrowDownRight, Plus, MoreVertical, CheckCircle2, FileCheck, ArrowRightLeft, FileSpreadsheet, Banknote } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { CuentaBancaria, MovimientoBancario, TipoMovimientoBancario } from '@/modules/bancos/domain/types';
-import { InMemoryBancosRepository } from '@/modules/bancos/infrastructure/BancosRepository';
+import { CuentaBancaria, MovimientoBancario } from '@/modules/bancos/domain/types';
+import { BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { ConciliacionModal } from '@/modules/bancos/ui/components/ConciliacionModal';
 import { DepositoModal } from '@/modules/bancos/ui/components/DepositoModal';
 import { NuevaTransaccionModal } from '@/modules/bancos/ui/components/NuevaTransaccionModal';
 import { Button } from '@/shared/ui/Button';
+import { DataTable, Column } from '@/shared/ui/DataTable';
 
 export default function BancosPage() {
     const { currentEmpresa } = useEmpresa();
@@ -24,28 +25,129 @@ export default function BancosPage() {
 
     const loadCuentas = async () => {
         if (!currentEmpresa) return;
-        const repo = new InMemoryBancosRepository();
-        const data = await repo.getCuentas(currentEmpresa.id);
-        setCuentas(data);
-        if (data.length > 0 && !selectedCuenta) setSelectedCuenta(data[0].id);
+        try {
+            const data = await BancosUseCases.listarCuentas();
+            setCuentas(data);
+            if (data.length > 0 && !selectedCuenta) setSelectedCuenta(data[0].id);
+        } catch (error) {
+            console.error('Error cargando cuentas:', error);
+        }
     };
 
     const loadMovimientos = async () => {
         if (selectedCuenta) {
-            const repo = new InMemoryBancosRepository();
-            const movs = await repo.getMovimientos(selectedCuenta, '2020-01-01', '2030-12-31');
-            setMovimientos(movs);
-            setCheques(movs.filter(m => m.tipo === TipoMovimientoBancario.CHEQUE));
+            try {
+                const movs = await BancosUseCases.listarMovimientos({
+                    cuenta: selectedCuenta,
+                    desde: '2020-01-01',
+                    hasta: '2030-12-31'
+                });
+                setMovimientos(movs);
+                // TipoMovimientoBancario.CHEQUE no está importado aquí, pero se usaba el string 'CHEQUE' en el repo ficticio
+                setCheques(movs.filter((m: any) => m.tipo === 'CHEQUE'));
+            } catch (error) {
+                console.error('Error cargando movimientos:', error);
+            }
         }
     };
 
     useEffect(() => { loadCuentas(); }, [currentEmpresa?.id]);
     useEffect(() => { loadMovimientos(); }, [selectedCuenta]);
 
+    const movColumns: Column<MovimientoBancario>[] = [
+        { header: 'Fecha', accessorKey: 'fecha', className: 'text-slate-600' },
+        {
+            header: 'Tipo / Referencia',
+            cell: (mov) => (
+                <div className="flex flex-col">
+                    <span className="font-medium text-slate-800 text-[10px] uppercase">{mov.tipo.replace('_', ' ')}</span>
+                    <span className="text-xs text-slate-500 font-mono">{mov.referencia}</span>
+                </div>
+            )
+        },
+        {
+            header: 'Beneficiario / Concepto',
+            cell: (mov) => (
+                <div className="flex flex-col">
+                    <span className="font-medium text-slate-800">{mov.beneficiario}</span>
+                    <span className="text-[10px] text-slate-500">{mov.concepto}</span>
+                </div>
+            )
+        },
+        {
+            header: 'Conciliado',
+            className: 'text-center',
+            cell: (mov) => (
+                <div className="flex justify-center">
+                    {mov.conciliado ? (
+                        <CheckCircle2 size={18} className="text-green-500" />
+                    ) : (
+                        <span className="h-3 w-3 rounded-full bg-slate-200 border border-slate-300"></span>
+                    )}
+                </div>
+            )
+        },
+        {
+            header: 'Monto',
+            className: 'text-right font-bold',
+            cell: (mov) => (
+                <div className={`flex items-center justify-end gap-1 ${mov.esEgreso ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {mov.esEgreso ? '-' : '+'}{formatMoney(mov.monto)}
+                    {mov.esEgreso ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}
+                </div>
+            )
+        }
+    ];
+
+    const chqColumns: Column<MovimientoBancario>[] = [
+        { header: 'Fecha Emisión', accessorKey: 'fecha', className: 'text-slate-600' },
+        { header: 'Nro. Cheque', accessorKey: 'referencia', className: 'font-mono font-bold' },
+        { header: 'Beneficiario', accessorKey: 'beneficiario', className: 'font-medium' },
+        {
+            header: 'Valor',
+            className: 'text-right font-bold',
+            cell: (chq) => formatMoney(chq.monto)
+        },
+        {
+            header: 'Estado',
+            className: 'text-center',
+            cell: (chq) => (
+                chq.conciliado ? (
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold border border-green-200">COBRADO</span>
+                ) : (
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-[10px] font-bold border border-yellow-200">EN TRÁNSITO</span>
+                )
+            )
+        }
+    ];
+
+    const handleExport = () => {
+        const data = activeTab === 'movimientos' ? movimientos : cheques;
+        if (data.length === 0) return;
+
+        const headers = activeTab === 'movimientos'
+            ? ["Fecha", "Tipo", "Referencia", "Beneficiario", "Concepto", "Conciliado", "Monto"]
+            : ["Fecha", "Nro Cheque", "Beneficiario", "Valor", "Estado"];
+
+        const rows = data.map(m => activeTab === 'movimientos'
+            ? [m.fecha, m.tipo, m.referencia, `"${m.beneficiario}"`, `"${m.concepto}"`, m.conciliado ? "SI" : "NO", m.esEgreso ? -m.monto : m.monto]
+            : [m.fecha, m.referencia, `"${m.beneficiario}"`, m.monto, m.conciliado ? "COBRADO" : "EN TRÁNSITO"]
+        );
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `bancos_${currentCuentaObj?.banco.replace(/\s+/g, '_')}_${activeTab}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (!currentEmpresa) return null;
 
     const currentCuentaObj = cuentas.find(c => c.id === selectedCuenta);
-    const empresaId = currentEmpresa.id;
 
     return (
         <div className="space-y-6">
@@ -56,28 +158,13 @@ export default function BancosPage() {
                         Control de flujo de efectivo, cheques y conciliación bancaria.
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="secondary"
-                        onClick={() => setShowDeposito(true)}
-                        className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100 flex items-center gap-2"
-                    >
-                        <ArrowRightLeft size={16} /> Depositar
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        onClick={() => setShowConciliacion(true)}
-                        disabled={!selectedCuenta}
-                        className="flex items-center gap-2"
-                    >
-                        <FileCheck size={16} /> Conciliar
-                    </Button>
-                    <Button
-                        onClick={() => setShowNuevaTransaccion(true)}
-                        className="flex items-center gap-2 shadow-sm"
-                    >
-                        <Plus size={16} /> Nueva Transacción
-                    </Button>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                    <button onClick={() => setActiveTab('movimientos')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'movimientos' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <ArrowRightLeft size={16} /> Movimientos
+                    </button>
+                    <button onClick={() => setActiveTab('cheques')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'cheques' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <Banknote size={16} /> Cheques
+                    </button>
                 </div>
             </div>
 
@@ -114,125 +201,52 @@ export default function BancosPage() {
                 ))}
             </div>
 
-            <div className="flex gap-4 border-b border-slate-200">
-                <button
-                    onClick={() => setActiveTab('movimientos')}
-                    className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'movimientos' ? 'text-sri-blue border-b-2 border-sri-blue' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                    Libro Banco (Movimientos)
-                </button>
-                <button
-                    onClick={() => setActiveTab('cheques')}
-                    className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'cheques' ? 'text-sri-blue border-b-2 border-sri-blue' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                    Control de Cheques
-                </button>
+            <div className="bg-white p-4 rounded-xl border border-slate-100 flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-2">
+                <Button variant="secondary" onClick={() => setShowDeposito(true)} className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100 flex items-center gap-2">
+                    <ArrowRightLeft size={16} /> Depositar
+                </Button>
+                <Button variant="secondary" onClick={() => setShowConciliacion(true)} disabled={!selectedCuenta} className="flex items-center gap-2">
+                    <FileCheck size={16} /> Conciliar
+                </Button>
+                <Button onClick={() => setShowNuevaTransaccion(true)} className="flex items-center gap-2 shadow-sm">
+                    <Plus size={16} /> Nueva Transacción
+                </Button>
             </div>
 
             {activeTab === 'movimientos' && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-                    <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                        <h3 className="font-bold text-slate-700">Movimientos Recientes</h3>
-                        <div className="flex gap-2 text-xs text-slate-500">
-                            <span>Mostrando últimos movimientos</span>
-                        </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-white text-slate-600 font-semibold border-b border-slate-200">
-                                <tr>
-                                    <th className="px-6 py-4">Fecha</th>
-                                    <th className="px-6 py-4">Tipo / Referencia</th>
-                                    <th className="px-6 py-4">Beneficiario / Concepto</th>
-                                    <th className="px-6 py-4 text-center">Conciliado</th>
-                                    <th className="px-6 py-4 text-right">Monto</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {movimientos.map((mov) => (
-                                    <tr key={mov.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 text-slate-600 whitespace-nowrap">{mov.fecha}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium text-slate-800 text-xs uppercase">{mov.tipo.replace('_', ' ')}</span>
-                                                <span className="text-xs text-slate-500 font-mono">{mov.referencia}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium text-slate-800">{mov.beneficiario}</span>
-                                                <span className="text-xs text-slate-500">{mov.concepto}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <div className="flex justify-center">
-                                                {mov.conciliado ? (
-                                                    <CheckCircle2 size={18} className="text-green-500" />
-                                                ) : (
-                                                    <span className="h-3 w-3 rounded-full bg-slate-200 border border-slate-300"></span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className={`px-6 py-4 text-right font-bold ${mov.esEgreso ? 'text-red-600' : 'text-green-600'}`}>
-                                            <div className="flex items-center justify-end gap-1">
-                                                {mov.esEgreso ? '-' : '+'}{formatMoney(mov.monto)}
-                                                {mov.esEgreso ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                <div className="animate-in fade-in slide-in-from-bottom-2">
+                    <DataTable
+                        data={movimientos}
+                        columns={movColumns}
+                        itemsPerPage={5}
+                        searchable
+                        searchKeys={['beneficiario', 'concepto', 'referencia']}
+                        searchPlaceholder="Buscar movimientos..."
+                        actions={
+                            <Button variant="secondary" size="sm" onClick={handleExport} className="flex items-center gap-2">
+                                <FileSpreadsheet size={16} /> Exportar
+                            </Button>
+                        }
+                    />
                 </div>
             )}
 
             {activeTab === 'cheques' && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-                    <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                        <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                            <Banknote size={18} /> Cheques Girados
-                        </h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-white text-slate-600 font-semibold border-b border-slate-200">
-                                <tr>
-                                    <th className="px-6 py-4">Fecha Emisión</th>
-                                    <th className="px-6 py-4">Nro. Cheque</th>
-                                    <th className="px-6 py-4">Beneficiario</th>
-                                    <th className="px-6 py-4 text-right">Valor</th>
-                                    <th className="px-6 py-4 text-center">Estado</th>
-                                    <th className="px-6 py-4 text-center">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {cheques.length === 0 ? (
-                                    <tr><td colSpan={6} className="p-8 text-center text-slate-400">No hay cheques registrados en esta cuenta.</td></tr>
-                                ) : cheques.map((chq) => (
-                                    <tr key={chq.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 text-slate-600">{chq.fecha}</td>
-                                        <td className="px-6 py-4 font-mono font-bold text-slate-800">{chq.referencia}</td>
-                                        <td className="px-6 py-4 font-medium text-slate-800">{chq.beneficiario}</td>
-                                        <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(chq.monto)}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            {chq.conciliado ? (
-                                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold border border-green-200">COBRADO</span>
-                                            ) : (
-                                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-bold border border-yellow-200">EN TRÁNSITO</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button className="text-xs text-sri-blue hover:underline flex items-center gap-1 mx-auto">
-                                                <ScrollText size={14} /> Detalle
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                <div className="animate-in fade-in slide-in-from-bottom-2">
+                    <DataTable
+                        data={cheques}
+                        columns={chqColumns}
+                        itemsPerPage={5}
+                        emptyMessage="No hay cheques registrados en esta cuenta."
+                        searchable
+                        searchKeys={['beneficiario', 'referencia']}
+                        searchPlaceholder="Buscar cheques..."
+                        actions={
+                            <Button variant="secondary" size="sm" onClick={handleExport} className="flex items-center gap-2">
+                                <FileSpreadsheet size={16} /> Exportar
+                            </Button>
+                        }
+                    />
                 </div>
             )}
 
@@ -245,7 +259,6 @@ export default function BancosPage() {
                         setShowConciliacion(false);
                         loadMovimientos();
                     }}
-                    empresaId={empresaId}
                 />
             )}
 
@@ -257,7 +270,6 @@ export default function BancosPage() {
                         loadMovimientos();
                         setShowNuevaTransaccion(false);
                     }}
-                    empresaId={empresaId}
                 />
             )}
 
@@ -269,7 +281,6 @@ export default function BancosPage() {
                         loadMovimientos();
                         setShowDeposito(false);
                     }}
-                    empresaId={empresaId}
                 />
             )}
         </div>

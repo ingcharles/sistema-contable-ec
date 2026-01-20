@@ -22,7 +22,7 @@ export enum TipoEvento {
 }
 
 export enum NivelSeveridad {
-    INFO = 'INFO',
+    SUCCESS = 'SUCCESS',
     WARNING = 'WARNING',
     CRITICAL = 'CRITICAL'
 }

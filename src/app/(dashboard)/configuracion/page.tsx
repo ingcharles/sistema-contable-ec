@@ -3,28 +3,32 @@
 import { useState, useEffect } from 'react';
 import { Settings, Building2, Monitor, Users, Database, Save, Plus, Edit2, Trash2, Shield, Key, CalendarOff, Upload, CheckCircle2, Eye, EyeOff, AlertTriangle, Lock } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Sucursal, UsuarioSistema, ParametrosContables, PuntoEmision, CodigoRetencion } from '@/modules/configuracion/domain/types';
-import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
-import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
+import { Sucursal, UsuarioSistema, PuntoEmision, CodigoRetencion } from '@/modules/configuracion/domain/types';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
+import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { RetencionModal } from '@/modules/configuracion/ui/components/RetencionModal';
 import { PuntoEmisionModal } from '@/modules/configuracion/ui/components/PuntoEmisionModal';
+import { SucursalModal } from '@/modules/configuracion/ui/components/SucursalModal';
 import { CuentaContable } from '@/shared/types';
 
 export default function ConfiguracionPage() {
     const { currentEmpresa } = useEmpresa();
     const [activeTab, setActiveTab] = useState<'empresa' | 'sucursales' | 'puntos' | 'usuarios' | 'parametros' | 'firma' | 'impuestos' | 'cierre'>('empresa');
 
-    // Data States
-    const [sucursales, setSucursales] = useState<Sucursal[]>([]);
-    const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([]);
-    const [parametros, setParametros] = useState<ParametrosContables | null>(null);
+    // Hooks para datos reales
+    const {
+        sucursales, cargarSucursales,
+        puntosEmision, cargarPuntosEmision,
+        retenciones, cargarRetenciones,
+        parametros, setParametros, cargarParametros, guardarParametros
+    } = useConfiguracion();
+
+    // Otros estados
+    const [usuarios] = useState<UsuarioSistema[]>([]);
     const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
-    const [puntosEmision, setPuntosEmision] = useState<PuntoEmision[]>([]);
-    const [retenciones, setRetenciones] = useState<CodigoRetencion[]>([]);
     const [fechaCierre, setFechaCierre] = useState('');
-    const [cargando, setCargando] = useState(true);
 
     // Firma States
     const [firmaFile, setFirmaFile] = useState<File | null>(null);
@@ -38,42 +42,29 @@ export default function ConfiguracionPage() {
     const [selectedRet, setSelectedRet] = useState<CodigoRetencion | undefined>(undefined);
     const [showModalPunto, setShowModalPunto] = useState(false);
     const [selectedPunto, setSelectedPunto] = useState<PuntoEmision | undefined>(undefined);
+    const [showModalSuc, setShowModalSuc] = useState(false);
+    const [selectedSuc, setSelectedSuc] = useState<Sucursal | undefined>(undefined);
 
     const loadData = async () => {
         if (!currentEmpresa) return;
-        setCargando(true);
         try {
-            const repoConfig = new InMemoryConfiguracionRepository();
-            const repoCont = new InMemoryContabilidadRepository();
-
-            // Load basic data
-            const [dataSuc, dataUser, dataParams, dataPC] = await Promise.all([
-                repoConfig.getSucursales(currentEmpresa.id),
-                repoConfig.getUsuarios(currentEmpresa.id),
-                repoConfig.getParametros(currentEmpresa.id),
-                repoCont.getPlanCuentas(currentEmpresa.id)
-            ]);
-
-            setSucursales(dataSuc);
-            setUsuarios(dataUser);
-            setParametros(dataParams);
-            setPlanCuentas(dataPC);
-
-            // Load tab specific data
-            if (activeTab === 'puntos') {
-                const dataPuntos = await repoConfig.getPuntosEmision(currentEmpresa.id);
-                setPuntosEmision(dataPuntos);
-            } else if (activeTab === 'impuestos') {
-                const dataRet = await repoConfig.getCodigosRetencion(currentEmpresa.id);
-                setRetenciones(dataRet);
-            } else if (activeTab === 'cierre') {
-                const fecha = await repoConfig.getFechaCierre(currentEmpresa.id);
-                setFechaCierre(fecha);
+            // Cargar datos según pestaña o iniciales
+            if (activeTab === 'empresa' || activeTab === 'parametros' || activeTab === 'sucursales') {
+                await Promise.all([
+                    cargarSucursales(),
+                    cargarParametros(),
+                    ContabilidadUseCases.listarCuentas().then(setPlanCuentas)
+                ]);
             }
+
+            if (activeTab === 'puntos') {
+                await cargarPuntosEmision();
+            } else if (activeTab === 'impuestos') {
+                await cargarRetenciones();
+            }
+            // Usuarios sigue pendiente de API real, mantenemos vacío o mock mínimo si fuera necesario
         } catch (error) {
             console.error('Error al cargar datos:', error);
-        } finally {
-            setCargando(false);
         }
     };
 
@@ -89,17 +80,23 @@ export default function ConfiguracionPage() {
     };
 
     const handleGuardarCierre = async () => {
-        if (!currentEmpresa) return;
-        const repo = new InMemoryConfiguracionRepository();
-        await repo.setFechaCierre(currentEmpresa.id, fechaCierre);
-        alert('Fecha de cierre actualizada exitosamente.');
+        if (!currentEmpresa || !parametros) return;
+        try {
+            await guardarParametros({ ...parametros, fechaCierre });
+            alert('Fecha de cierre actualizada exitosamente.');
+        } catch (error) {
+            alert('Error al actualizar fecha de cierre');
+        }
     };
 
     const handleGuardarParametros = async () => {
         if (!currentEmpresa || !parametros) return;
-        const repo = new InMemoryConfiguracionRepository();
-        await repo.saveParametros(currentEmpresa.id, parametros);
-        alert('Parámetros contables actualizados exitosamente.');
+        try {
+            await guardarParametros(parametros);
+            alert('Parámetros contables actualizados exitosamente.');
+        } catch (error) {
+            alert('Error al guardar parámetros');
+        }
     };
 
     // Columns Definitions
@@ -274,7 +271,7 @@ export default function ConfiguracionPage() {
                         <div className="space-y-6 animate-in fade-in duration-300">
                             <div className="flex justify-between items-center border-b pb-2">
                                 <h3 className="text-lg font-bold text-slate-800">Sucursales y Establecimientos</h3>
-                                <Button size="sm" className="flex items-center gap-1"><Plus size={16} /> Añadir</Button>
+                                <Button size="sm" onClick={() => { setSelectedSuc(undefined); setShowModalSuc(true); }} className="flex items-center gap-1"><Plus size={16} /> Añadir</Button>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
                                 {sucursales.map(suc => (
@@ -287,7 +284,7 @@ export default function ConfiguracionPage() {
                                             <p className="text-xs text-slate-500 mt-1">{suc.direccion}</p>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                            <button onClick={() => { setSelectedSuc(suc); setShowModalSuc(true); }} className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
                                             {!suc.esMatriz && <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>}
                                         </div>
                                     </div>
@@ -590,9 +587,16 @@ export default function ConfiguracionPage() {
                 <PuntoEmisionModal
                     onClose={() => setShowModalPunto(false)}
                     onSave={loadData}
-                    empresaId={currentEmpresa.id}
                     sucursales={sucursales}
                     puntoEditar={selectedPunto}
+                />
+            )}
+
+            {showModalSuc && (
+                <SucursalModal
+                    onClose={() => setShowModalSuc(false)}
+                    onSave={loadData}
+                    sucursalEditar={selectedSuc}
                 />
             )}
         </div>

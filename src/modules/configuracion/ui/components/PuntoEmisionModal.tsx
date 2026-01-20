@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { PuntoEmision, Sucursal } from '../../domain/types';
-import { InMemoryConfiguracionRepository } from '../../infrastructure/ConfiguracionRepository';
+import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
 import { TipoComprobante } from '@/shared/types';
 
@@ -15,7 +15,7 @@ interface PuntoEmisionModalProps {
     puntoEditar?: PuntoEmision;
 }
 
-export const PuntoEmisionModal = ({ onClose, onSave, empresaId, sucursales, puntoEditar }: PuntoEmisionModalProps) => {
+export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: Omit<PuntoEmisionModalProps, 'empresaId'>) => {
     const [formData, setFormData] = useState<Partial<PuntoEmision>>(puntoEditar || {
         sucursalId: sucursales[0]?.id || '',
         codigo: '',
@@ -27,23 +27,28 @@ export const PuntoEmisionModal = ({ onClose, onSave, empresaId, sucursales, punt
         ]
     });
 
+    const [guardando, setGuardando] = useState(false);
+
     const handleSubmit = async () => {
         if (!formData.codigo || !formData.nombre || !formData.sucursalId) {
             alert('Complete los campos obligatorios');
             return;
         }
 
-        const newPunto: PuntoEmision = {
-            ...formData as PuntoEmision,
-            id: puntoEditar?.id || Math.random().toString(36).substr(2, 9)
-        };
-
-        const repo = new InMemoryConfiguracionRepository();
-        // Simulate save using empresaId
-        console.log('Guardando punto de emisión para empresa:', empresaId);
-        await repo.savePuntoEmision(newPunto);
-        onSave();
-        onClose();
+        setGuardando(true);
+        try {
+            await ConfiguracionUseCases.guardarPuntoEmision({
+                ...formData,
+                id: puntoEditar?.id
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Error al guardar punto de emisión');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     const updateSecuencial = (index: number, val: number) => {
@@ -131,9 +136,9 @@ export const PuntoEmisionModal = ({ onClose, onSave, empresaId, sucursales, punt
                 </div>
 
                 <div className="p-6 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl bg-slate-50">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleSubmit} className="flex items-center gap-2">
-                        <Save size={18} /> Guardar
+                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+                    <Button onClick={handleSubmit} className="flex items-center gap-2" disabled={guardando}>
+                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar'}
                     </Button>
                 </div>
             </div>

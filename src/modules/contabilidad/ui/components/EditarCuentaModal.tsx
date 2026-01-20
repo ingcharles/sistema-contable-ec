@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
-import { PLAN_CUENTAS } from '@/shared/constants';
+
 import { CuentaContable } from '@/shared/types';
 
 interface EditarCuentaModalProps {

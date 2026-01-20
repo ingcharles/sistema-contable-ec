@@ -1,4 +1,4 @@
-import { Empresa, ComprobanteElectronico, EstadoSRI, TipoComprobante, CuentaContable } from './types';
+import { Empresa, ComprobanteElectronico, EstadoSRI, TipoComprobante } from './types';
 import {
     LayoutDashboard, FileText, ShoppingCart, TrendingUp, Users, Settings,
     PieChart, Landmark, Package, Wallet, FileBarChart, Contact2, Monitor,

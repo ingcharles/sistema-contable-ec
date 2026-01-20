@@ -3,42 +3,44 @@
 import React, { useState } from 'react';
 import { X, ArrowRightLeft, Save } from 'lucide-react';
 import { CuentaBancaria, TipoMovimientoBancario } from '../../domain/types';
-import { InMemoryBancosRepository } from '../../infrastructure/BancosRepository';
+import { BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
 
 interface Props {
     cuentas: CuentaBancaria[];
-    empresaId: string;
     onClose: () => void;
     onSave: () => void;
 }
 
-export const DepositoModal: React.FC<Props> = ({ cuentas, empresaId: _empresaId, onClose, onSave }) => {
+export const DepositoModal: React.FC<Props> = ({ cuentas, onClose, onSave }) => {
     const [cuentaId, setCuentaId] = useState(cuentas[0]?.id || '');
     const [monto, setMonto] = useState(0);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [referencia, setReferencia] = useState('');
+    const [guardando, setGuardando] = useState(false);
 
     const handleGuardar = async () => {
         if (!cuentaId || monto <= 0) return;
-        const repo = new InMemoryBancosRepository();
-        await repo.saveMovimiento({
-            id: Math.random().toString(36),
-            cuentaId,
-            fecha,
-            tipo: TipoMovimientoBancario.DEPOSITO,
-            referencia,
-            beneficiario: 'EMPRESA (CAJA CENTRAL)',
-            concepto: 'Depósito de ventas en efectivo',
-            monto,
-            esEgreso: false,
-            conciliado: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'user'
-        });
-        onSave();
-        onClose();
+        setGuardando(true);
+        try {
+            await BancosUseCases.registrarTransaccion({
+                cuentaId,
+                fecha,
+                tipo: TipoMovimientoBancario.DEPOSITO,
+                referencia,
+                beneficiario: 'EMPRESA (CAJA CENTRAL)',
+                concepto: 'Depósito de ventas en efectivo',
+                monto,
+                esEgreso: false
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Error al registrar el depósito');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     return (
@@ -73,9 +75,9 @@ export const DepositoModal: React.FC<Props> = ({ cuentas, empresaId: _empresaId,
                     </div>
                 </div>
                 <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={monto <= 0} className="flex items-center gap-2">
-                        <Save size={18} /> Registrar Depósito
+                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+                    <Button onClick={handleGuardar} disabled={monto <= 0 || guardando} className="flex items-center gap-2">
+                        <Save size={18} /> {guardando ? 'Guardando...' : 'Registrar Depósito'}
                     </Button>
                 </div>
             </div>

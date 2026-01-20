@@ -4,9 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { CategoriaProducto } from '../../domain/types';
 import { Button } from '@/shared/ui/Button';
-import { InMemoryInventarioRepository } from '@/modules/inventario/infrastructure/InventarioRepository';
-import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
-import { CuentaContable } from '@/shared/types';
+import { InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useCuentasContables } from '@/modules/contabilidad/hooks/useContabilidad';
 
 interface Props {
     onClose: () => void;
@@ -16,23 +15,18 @@ interface Props {
 }
 
 export const CategoriaModal: React.FC<Props> = ({ onClose, onSave, empresaId, categoriaEditar }) => {
+    const { cuentas: planCuentas, cargarCuentas } = useCuentasContables();
     const [formData, setFormData] = useState<Partial<CategoriaProducto>>({
         nombre: '',
         cuentaInventario: '',
         cuentaCostoVenta: '',
         cuentaVenta: ''
     });
-    const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
     const [guardando, setGuardando] = useState(false);
 
     useEffect(() => {
-        const loadPlan = async () => {
-            const repo = new InMemoryContabilidadRepository();
-            const pc = await repo.getPlanCuentas(empresaId);
-            setPlanCuentas(pc);
-        };
-        loadPlan();
-    }, [empresaId]);
+        cargarCuentas();
+    }, [cargarCuentas]);
 
     useEffect(() => {
         if (categoriaEditar) {
@@ -50,18 +44,25 @@ export const CategoriaModal: React.FC<Props> = ({ onClose, onSave, empresaId, ca
 
         setGuardando(true);
         try {
-            const repo = new InMemoryInventarioRepository();
-            await repo.saveCategoria({
-                id: categoriaEditar?.id || Math.random().toString(36).substr(2, 9),
-                empresaId,
-                nombre: formData.nombre || '',
-                cuentaInventario: formData.cuentaInventario || '',
-                cuentaCostoVenta: formData.cuentaCostoVenta || '',
-                cuentaVenta: formData.cuentaVenta || '',
-                createdAt: categoriaEditar?.createdAt || new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                createdBy: categoriaEditar?.createdBy || 'admin'
-            });
+            if (categoriaEditar && categoriaEditar.id) {
+                await InventarioUseCases.actualizarCategoria(categoriaEditar.id, {
+                    empresaId,
+                    nombre: formData.nombre || '',
+                    cuentaInventario: formData.cuentaInventario || '',
+                    cuentaCostoVenta: formData.cuentaCostoVenta || '',
+                    cuentaVenta: formData.cuentaVenta || '',
+                    activa: true
+                });
+            } else {
+                await InventarioUseCases.guardarCategoria({
+                    empresaId,
+                    nombre: formData.nombre || '',
+                    cuentaInventario: formData.cuentaInventario || '',
+                    cuentaCostoVenta: formData.cuentaCostoVenta || '',
+                    cuentaVenta: formData.cuentaVenta || '',
+                    activa: true
+                });
+            }
 
             onSave();
             onClose();

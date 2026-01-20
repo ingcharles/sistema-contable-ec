@@ -82,7 +82,7 @@ export const BalanceComprobacionTable = ({ asientos, fechaInicio, fechaFin, load
                     <p className="text-xs text-slate-500 mt-1">{empresa.direccionMatriz}</p>
                     <h3 className="text-lg font-bold text-sri-blue uppercase mt-3">Balance de Comprobación de Sumas y Saldos</h3>
                     <p className="text-slate-500 font-medium text-sm mt-1">
-                        Del {new Date(fechaInicio).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        Del {new Date(fechaInicio + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
                 </div>

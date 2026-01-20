@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, User, Mail, Briefcase, DollarSign, Calendar, Save, CreditCard, Landmark } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { Empleado, EstadoEmpleado, TipoContrato } from '../../domain/types';
-import { InMemoryNominaRepository } from '../../infrastructure/NominaRepository';
+import { useNominaMutations } from '../../hooks/useNomina';
 
 interface EmpleadoModalProps {
     empleado?: Empleado;
@@ -12,6 +12,7 @@ interface EmpleadoModalProps {
 }
 
 export const EmpleadoModal = ({ empleado, onClose, onSave, empresaId }: EmpleadoModalProps) => {
+    const { guardarEmpleado, procesando: guardando } = useNominaMutations();
     const [formData, setFormData] = useState<Partial<Empleado>>({
         identificacion: '',
         nombres: '',
@@ -26,8 +27,6 @@ export const EmpleadoModal = ({ empleado, onClose, onSave, empresaId }: Empleado
         cuentaBancaria: ''
     });
 
-    const [guardando, setGuardando] = useState(false);
-
     useEffect(() => {
         if (empleado) {
             setFormData(empleado);
@@ -40,21 +39,26 @@ export const EmpleadoModal = ({ empleado, onClose, onSave, empresaId }: Empleado
             return;
         }
 
-        setGuardando(true);
-        const repo = new InMemoryNominaRepository();
-
-        const empleadoToSave: Empleado = {
-            ...formData as Empleado,
-            id: empleado?.id || Math.random().toString(36).substr(2, 9),
-            empresaId,
-            createdAt: empleado?.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: empleado?.createdBy || 'user'
-        };
-
-        await repo.saveEmpleado(empleadoToSave);
-        onSave();
-        onClose();
+        try {
+            await guardarEmpleado({
+                cedula: formData.identificacion,
+                nombres: formData.nombres,
+                apellidos: formData.apellidos,
+                email: formData.email || '',
+                telefono: '', // Add telefono if needed in form
+                fechaIngreso: formData.fechaIngreso,
+                cargo: formData.cargo || '',
+                departamento: '', // Add departamento if needed in form
+                sueldoBase: formData.sueldoBase,
+                tipoContrato: formData.tipoContrato,
+                activo: formData.estado === EstadoEmpleado.ACTIVO
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error('Error al guardar empleado:', error);
+            alert('Error al guardar el empleado');
+        }
     };
 
     return (

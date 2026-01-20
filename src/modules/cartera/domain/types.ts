@@ -40,11 +40,13 @@ export interface Anticipo extends Auditable {
 }
 
 export interface TransaccionCartera {
+    id: string;
+    empresaId: string;
     documentoId?: string; // Opcional si es solo registro de anticipo
     anticipoId?: string; // Si es cruce
     fecha: string;
     valorEfectivo: number; // Lo que entra/sale de banco/caja
-    valorRetencion: number; // Retención recibida (solo CxC) o aplicada (CxP ya descontada)
+    valorRetencion?: number; // Retención recibida (solo CxC) o aplicada (CxP ya descontada)
     valorCruce?: number; // Valor usado del anticipo
     formaPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'CHEQUE' | 'CRUCE_ANTICIPO';
     bancoId?: string; // Cuenta afectada

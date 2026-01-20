@@ -2,13 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Save, Search, User } from 'lucide-react';
-import { TipoCartera, Anticipo } from '../../domain/types';
-import { InMemoryCarteraRepository } from '../../infrastructure/CarteraRepository';
-import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
-import { InMemoryBancosRepository } from '@/modules/bancos/infrastructure/BancosRepository';
-import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
-import { InMemoryDirectorioRepository } from '@/modules/directorio/infrastructure/DirectorioRepository';
+import { TipoCartera } from '../../domain/types';
 import { TipoTercero, Tercero } from '@/modules/directorio/domain/types';
+import { DirectorioUseCases, ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { TipoMovimientoBancario } from '@/modules/bancos/domain/types';
 import { Button } from '@/shared/ui/Button';
 
@@ -16,10 +12,9 @@ interface Props {
     tipo: TipoCartera;
     onClose: () => void;
     onSave: () => void;
-    empresaId: string;
 }
 
-export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, empresaId }) => {
+export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }) => {
     const esCliente = tipo === TipoCartera.CXC;
     const [terceroId, setTerceroId] = useState('');
     const [terceroNombre, setTerceroNombre] = useState('');
@@ -32,19 +27,15 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
     const [terceros, setTerceros] = useState<Tercero[]>([]);
     const [mostrarResultados, setMostrarResultados] = useState(false);
     const [cargandoTerceros, setCargandoTerceros] = useState(false);
+    const [guardando, setGuardando] = useState(false);
 
     useEffect(() => {
         if (busqueda.length > 2) {
             const buscar = async () => {
                 setCargandoTerceros(true);
-                const repo = new InMemoryDirectorioRepository();
                 const tipoBusqueda = esCliente ? TipoTercero.CLIENTE : TipoTercero.PROVEEDOR;
-                const data = await repo.getTerceros(empresaId, tipoBusqueda);
-                const filtrados = data.filter(t =>
-                    t.razonSocial.toLowerCase().includes(busqueda.toLowerCase()) ||
-                    t.identificacion.includes(busqueda)
-                );
-                setTerceros(filtrados);
+                const data = await DirectorioUseCases.listarTerceros(tipoBusqueda, busqueda);
+                setTerceros(data);
                 setCargandoTerceros(false);
                 setMostrarResultados(true);
             };
@@ -53,7 +44,7 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
         } else {
             setMostrarResultados(false);
         }
-    }, [busqueda, empresaId, esCliente]);
+    }, [busqueda, esCliente]);
 
     const seleccionarTercero = (t: Tercero) => {
         setTerceroId(t.identificacion);
@@ -65,76 +56,61 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
     const handleGuardar = async () => {
         if (!terceroId || monto <= 0) return;
 
-        const anticipo: Anticipo = {
-            id: Math.random().toString(36).substr(2, 9),
-            empresaId,
-            tipo,
-            terceroId,
-            terceroNombre,
-            fecha,
-            referencia,
-            montoOriginal: monto,
-            montoUsado: 0,
-            saldoDisponible: monto,
-            estado: 'DISPONIBLE',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'user'
-        };
+        setGuardando(true);
+        try {
+            // 1. Registrar Anticipo en Cartera
+            await CarteraUseCases.registrarAnticipo({
+                tipo,
+                fecha,
+                terceroId,
+                terceroNombre,
+                referencia,
+                monto,
+                moneda: 'USD',
+                observaciones: `Registro de anticipo ${esCliente ? 'recibido' : 'entregado'}`
+            });
 
-        const repoCartera = new InMemoryCarteraRepository();
-        await repoCartera.saveAnticipo(anticipo);
+            // 2. Registrar Movimiento Bancario
+            await BancosUseCases.registrarTransaccion({
+                cuentaId: bancoId,
+                fecha,
+                tipo: esCliente ? TipoMovimientoBancario.TRANSFERENCIA_RECIBIDA : TipoMovimientoBancario.TRANSFERENCIA_ENVIADA,
+                referencia: referencia || 'ANTICIPO',
+                beneficiario: terceroNombre,
+                concepto: `Anticipo ${esCliente ? 'de Cliente' : 'a Proveedor'} - ${referencia}`,
+                monto,
+                esEgreso: !esCliente
+            });
 
-        const repoBancos = new InMemoryBancosRepository();
-        await repoBancos.saveMovimiento({
-            id: Math.random().toString(36).substr(2, 9),
-            cuentaId: bancoId,
-            fecha,
-            tipo: esCliente ? TipoMovimientoBancario.TRANSFERENCIA_RECIBIDA : TipoMovimientoBancario.TRANSFERENCIA_ENVIADA,
-            referencia: referencia || 'ANTICIPO',
-            beneficiario: terceroNombre,
-            concepto: `Anticipo ${esCliente ? 'de Cliente' : 'a Proveedor'} - ${referencia}`,
-            monto,
-            esEgreso: !esCliente,
-            conciliado: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'user'
-        });
+            // 3. Registrar Asiento Contable
+            const params = await ConfiguracionUseCases.obtenerParametros();
+            const ctaBanco = params.cuentaCaja || '1.1.01.01';
+            const ctaAnticipo = esCliente ? params.cuentaAnticipoClientes : params.cuentaAnticipoProveedores;
 
-        const repoConfig = new InMemoryConfiguracionRepository();
-        const params = await repoConfig.getParametros(empresaId);
+            const detalles = esCliente ? [
+                { cuentaCodigo: ctaBanco, debe: monto, haber: 0 },
+                { cuentaCodigo: ctaAnticipo, debe: 0, haber: monto }
+            ] : [
+                { cuentaCodigo: ctaAnticipo, debe: monto, haber: 0 },
+                { cuentaCodigo: ctaBanco, debe: 0, haber: monto }
+            ];
 
-        const repoCont = new InMemoryContabilidadRepository();
-        const ctaBanco = params.cuentaCaja || '1.1.01.01';
-        const ctaAnticipo = esCliente ? params.cuentaAnticipoClientes : params.cuentaAnticipoProveedores;
+            await ContabilidadUseCases.registrarAsiento({
+                numero: `ANT-${crypto.randomUUID().slice(0, 8)}`,
+                fecha,
+                glosa: `Reg. Anticipo ${esCliente ? 'Cliente' : 'Proveedor'} ${terceroNombre}`,
+                tipo: esCliente ? 'INGRESO' : 'EGRESO',
+                detalles
+            });
 
-        const detalles = esCliente ? [
-            { cuentaCodigo: ctaBanco, cuentaNombre: 'CAJA/BANCOS', debe: monto, haber: 0 },
-            { cuentaCodigo: ctaAnticipo, cuentaNombre: 'ANTICIPO DE CLIENTES', debe: 0, haber: monto }
-        ] : [
-            { cuentaCodigo: ctaAnticipo, cuentaNombre: 'ANTICIPO A PROVEEDORES', debe: monto, haber: 0 },
-            { cuentaCodigo: ctaBanco, cuentaNombre: 'CAJA/BANCOS', debe: 0, haber: monto }
-        ];
-
-        await repoCont.saveAsiento({
-            id: Math.random().toString(36).substr(2, 9),
-            empresaId,
-            numero: `ANT-${Math.floor(Math.random() * 1000)}`,
-            fecha,
-            glosa: `Reg. Anticipo ${esCliente ? 'Cliente' : 'Proveedor'} ${terceroNombre}`,
-            tipo: esCliente ? 'INGRESO' : 'EGRESO',
-            estado: 'MAYORIZADO',
-            totalDebe: monto,
-            totalHaber: monto,
-            detalles,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'system'
-        });
-
-        onSave();
-        onClose();
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Error al registrar el anticipo');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     return (
@@ -217,9 +193,9 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
                     </div>
                 </div>
                 <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={monto <= 0 || !terceroId} className="flex items-center gap-2">
-                        <Save size={18} /> Guardar Anticipo
+                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+                    <Button onClick={handleGuardar} disabled={monto <= 0 || !terceroId || guardando} className="flex items-center gap-2">
+                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar Anticipo'}
                     </Button>
                 </div>
             </div>

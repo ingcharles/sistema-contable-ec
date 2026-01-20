@@ -27,7 +27,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     // Proveedor
     const [nombre, setNombre] = useState('');
     const [identificacion, setIdentificacion] = useState('');
-    const [direccion, setDireccion] = useState('');
+    const [direccion] = useState('');
     const [tipoIdentificacion, setTipoIdentificacion] = useState(TIPO_IDENTIFICACION.CEDULA);
 
     // Detalles
@@ -227,8 +227,8 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                                         value={identificacion}
                                         onChange={e => setIdentificacion(e.target.value)}
                                         className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm pr-10 ${errorIdentificacion ? 'border-red-300 focus:ring-red-200' :
-                                                identificacionValida ? 'border-green-300 focus:ring-green-200' :
-                                                    'border-slate-200'
+                                            identificacionValida ? 'border-green-300 focus:ring-green-200' :
+                                                'border-slate-200'
                                             }`}
                                         placeholder="17..."
                                     />

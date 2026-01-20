@@ -1,0 +1,438 @@
+openapi: 3.0.3
+info:
+  title: EcuContable Pro API
+  description: |
+    API REST para el sistema contable empresarial ecuatoriano.
+    
+    ## Autenticación
+    - Usa JWT Bearer tokens
+    - Obtén un token con `POST /api/auth/login`
+    - Incluye el token en el header: `Authorization: Bearer {token}`
+    
+    ## Contexto Multi-Tenant
+    - Todas las peticiones requieren `x-empresa-id` (enviado automáticamente con JWT)
+    - `x-usuario-id` se extrae automáticamente del JWT
+    
+    ## Paginación
+    - Parámetros: `?page=1&limit=20`
+    - Máximo: 100 items por página
+    
+  version: 2.0.0
+  contact:
+    name: Soporte EcuContable
+    email: soporte@ecucontable.com
+  license:
+    name: Propietario
+    
+servers:
+  - url: http://localhost:3000/api
+    description: Desarrollo
+  - url: https://api.ecucontable.com
+    description: Producción
+
+tags:
+  - name: Autenticación
+    description: Login y gestión de sesiones
+  - name: Contabilidad
+    description: Plan de cuentas y asientos contables
+  - name: Inventario
+    description: Productos, kardex y bodegas
+  - name: Nómina
+    description: Empleados y roles de pago
+  - name: Bancos
+    description: Cuentas bancarias y movimientos
+  - name: Cartera
+    description: Cuentas por cobrar y pagar
+  - name: Facturación
+    description: Comprobantes electrónicos SRI
+  - name: Auditoría
+    description: Logs de sistema
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtenido desde /api/auth/login
+      
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Error interno del servidor"
+        details:
+          type: string
+          example: "Descripción detallada del error"
+          
+    PaginationParams:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: {}
+        pagination:
+          type: object
+          properties:
+            currentPage:
+              type: integer
+            totalPages:
+              type: integer
+            totalItems:
+              type: integer
+            itemsPerPage:
+              type: integer
+            hasNextPage:
+              type: boolean
+            hasPrevPage:
+              type: boolean
+              
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "admin@empresa.com"
+        password:
+          type: string
+          format: password
+          example: "password123"
+        empresaId:
+          type: string
+          format: uuid
+          description: "Opcional. Si no se envía, se usa la primera empresa del usuario"
+          
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            nombre:
+              type: string
+            rol:
+              type: string
+              enum: [ADMIN, CONTADOR, OPERADOR, CONSULTA]
+        empresaId:
+          type: string
+          format: uuid
+        accessToken:
+          type: string
+          description: "JWT token para autenticación (válido 8h)"
+        refreshToken:
+          type: string
+          description: "Token para renovar el access token (válido 7d)"
+        expiresIn:
+          type: string
+          example: "8h"
+          
+    CuentaContable:
+      type: object
+      required:
+        - codigo
+        - nombre
+        - tipo
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: "1.1.01.05"
+        nombre:
+          type: string
+          example: "Bancos"
+        tipo:
+          type: string
+          enum: [ACTIVO, PASIVO, PATRIMONIO, INGRESO, GASTO]
+        nivel:
+          type: integer
+          example: 4
+        saldo:
+          type: number
+          format: double
+          example: 15000.50
+        activa:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          
+    Producto:
+      type: object
+      required:
+        - codigo_principal
+        - nombre
+        - precio_venta
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo_principal:
+          type: string
+          example: "PROD-001"
+        codigo_auxiliar:
+          type: string
+        nombre:
+          type: string
+          example: "Laptop Dell Inspiron 15"
+        descripcion:
+          type: string
+        stock_actual:
+          type: number
+          example: 10
+        stock_minimo:
+          type: number
+          example: 5
+        costo_promedio:
+          type: number
+          format: double
+        precio_venta:
+          type: number
+          format: double
+          example: 899.99
+        graba_iva:
+          type: boolean
+          default: true
+        categoria_id:
+          type: string
+          format: uuid
+        activo:
+          type: boolean
+          default: true
+          
+    MovimientoKardex:
+      type: object
+      required:
+        - productoId
+        - bodegaId
+        - tipo
+        - cantidad
+      properties:
+        productoId:
+          type: string
+          format: uuid
+        bodegaId:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [ENTRADA, SALIDA, AJUSTE_POSITIVO, AJUSTE_NEGATIVO]
+        cantidad:
+          type: number
+          minimum: 0.01
+        costoUnitario:
+          type: number
+          format: double
+          description: "Requerido para ENTRADA"
+        referencia:
+          type: string
+        observaciones:
+          type: string
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Autenticación
+      summary: Iniciar sesión
+      description: Autentica un usuario y devuelve tokens JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Usuario inactivo o sin acceso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /auth/refresh:
+    post:
+      tags:
+        - Autenticación
+      summary: Renovar access token
+      description: Genera un nuevo access token usando el refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token renovado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  accessToken:
+                    type: string
+                  expiresIn:
+                    type: string
+        '401':
+          description: Refresh token inválido
+          
+  /contabilidad/cuentas:
+    get:
+      tags:
+        - Contabilidad
+      summary: Listar plan de cuentas
+      description: Obtiene todas las cuentas contables con paginación
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: incluirInactivas
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Lista de cuentas paginada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CuentaContable'
+        '401':
+          description: No autenticado
+          
+    post:
+      tags:
+        - Contabilidad
+      summary: Crear/actualizar cuenta
+      description: Crea una nueva cuenta o actualiza una existente (upsert)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuentaContable'
+      responses:
+        '200':
+          description: Cuenta guardada exitosamente
+          
+  /inventario/kardex:
+    post:
+      tags:
+        - Inventario
+      summary: Registrar movimiento de inventario
+      description: |
+        Registra un movimiento de entrada/salida y actualiza automáticamente:
+        - Stock del producto
+        - Costo promedio ponderado (en entradas)
+        
+        **Tipos de Movimiento:**
+        - ENTRADA: Aumenta stock, recalcula costo promedio
+        - SALIDA: Disminuye stock, valida existencias
+        - AJUSTE_POSITIVO: Ajuste de inventario (aumenta)
+        - AJUSTE_NEGATIVO: Ajuste de inventario (disminuye)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoKardex'
+      responses:
+        '200':
+          description: Movimiento registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: string
+                  stockResultante:
+                    type: number
+                  mensaje:
+                    type: string
+        '400':
+          description: Datos inválidos o stock insuficiente

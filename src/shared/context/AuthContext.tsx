@@ -29,7 +29,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Verificar sesión persistente al cargar
         const storedUser = localStorage.getItem('ecu_user');
         if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            localStorage.setItem('current_usuario_id', parsedUser.id);
         }
         setLoading(false);
     }, []);
@@ -42,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const userToSave = { ...MOCK_USER, email };
             setUser(userToSave);
             localStorage.setItem('ecu_user', JSON.stringify(userToSave));
+            localStorage.setItem('current_usuario_id', userToSave.id);
             return true;
         }
         return false;
@@ -50,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = () => {
         setUser(null);
         localStorage.removeItem('ecu_user');
+        localStorage.removeItem('current_usuario_id');
     };
 
     return (

@@ -3,17 +3,16 @@
 import React, { useState } from 'react';
 import { X, Save, Plus } from 'lucide-react';
 import { CuentaBancaria, TipoMovimientoBancario } from '../../domain/types';
-import { InMemoryBancosRepository } from '../../infrastructure/BancosRepository';
+import { BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
 
 interface Props {
     cuentas: CuentaBancaria[];
-    empresaId: string;
     onClose: () => void;
     onSave: () => void;
 }
 
-export const NuevaTransaccionModal: React.FC<Props> = ({ cuentas, empresaId: _empresaId, onClose, onSave }) => {
+export const NuevaTransaccionModal: React.FC<Props> = ({ cuentas, onClose, onSave }) => {
     const [cuentaId, setCuentaId] = useState(cuentas[0]?.id || '');
     const [tipo, setTipo] = useState<TipoMovimientoBancario>(TipoMovimientoBancario.TRANSFERENCIA_ENVIADA);
     const [monto, setMonto] = useState(0);
@@ -21,29 +20,32 @@ export const NuevaTransaccionModal: React.FC<Props> = ({ cuentas, empresaId: _em
     const [beneficiario, setBeneficiario] = useState('');
     const [concepto, setConcepto] = useState('');
     const [referencia, setReferencia] = useState('');
+    const [guardando, setGuardando] = useState(false);
 
     const handleGuardar = async () => {
         if (!cuentaId || monto <= 0) return;
-        const repo = new InMemoryBancosRepository();
+        setGuardando(true);
         const esEgreso = [TipoMovimientoBancario.TRANSFERENCIA_ENVIADA, TipoMovimientoBancario.CHEQUE, TipoMovimientoBancario.NOTA_DEBITO].includes(tipo);
 
-        await repo.saveMovimiento({
-            id: Math.random().toString(36),
-            cuentaId,
-            fecha,
-            tipo,
-            referencia,
-            beneficiario,
-            concepto,
-            monto,
-            esEgreso,
-            conciliado: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'user'
-        });
-        onSave();
-        onClose();
+        try {
+            await BancosUseCases.registrarTransaccion({
+                cuentaId,
+                fecha,
+                tipo,
+                referencia,
+                beneficiario,
+                concepto,
+                monto,
+                esEgreso
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Error al registrar la transacción');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     return (
@@ -92,9 +94,9 @@ export const NuevaTransaccionModal: React.FC<Props> = ({ cuentas, empresaId: _em
                     </div>
                 </div>
                 <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={monto <= 0} className="flex items-center gap-2">
-                        <Save size={18} /> Guardar Transacción
+                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+                    <Button onClick={handleGuardar} disabled={monto <= 0 || guardando} className="flex items-center gap-2">
+                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar Transacción'}
                     </Button>
                 </div>
             </div>

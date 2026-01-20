@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Receipt, Wallet, ArrowRightLeft, History, CheckCircle2, Trash2, X } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Download, Receipt, Wallet, ArrowRightLeft, History, CheckCircle2, Trash2, X, Search } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { ValeCajaChica, CajaChicaInfo } from '@/modules/caja-chica/domain/types';
 import { InMemoryCajaChicaRepository } from '@/modules/caja-chica/infrastructure/CajaChicaRepository';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
+import { DataTable, Column } from '@/shared/ui/DataTable';
 
 import { MovimientoCajaModal } from '@/modules/caja-chica/ui/components/MovimientoCajaModal';
 
@@ -49,11 +50,97 @@ export default function CajaChicaPage() {
         setShowVerModal(true);
     };
 
-    const filteredVales = vales.filter(v =>
-        v.beneficiario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.concepto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.numero.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredVales = useMemo(() => {
+        return vales.filter(v =>
+            v.beneficiario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            v.concepto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            v.numero.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [vales, searchTerm]);
+
+    const handleExportExcel = () => {
+        if (filteredVales.length === 0) return;
+
+        const headers = ['Número', 'Fecha', 'Beneficiario', 'Concepto', 'Monto', 'Estado'];
+        const rows = filteredVales.map(v => [
+            v.numero,
+            v.fecha,
+            `"${v.beneficiario.replace(/"/g, '""')}"`,
+            `"${v.concepto.replace(/"/g, '""')}"`,
+            v.monto,
+            v.estado
+        ]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `caja_chica_${currentEmpresa?.razonSocial.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const columns: Column<ValeCajaChica>[] = [
+        {
+            header: 'Vale / Fecha',
+            cell: (vale) => (
+                <div className="flex flex-col">
+                    <span className="font-bold text-slate-800">{vale.numero}</span>
+                    <span className="text-[10px] font-mono text-slate-400">{vale.fecha}</span>
+                </div>
+            ),
+            sortable: true,
+            accessorKey: 'numero'
+        },
+        { header: 'Beneficiario', accessorKey: 'beneficiario', className: 'font-medium', sortable: true },
+        { header: 'Concepto', accessorKey: 'concepto', className: 'max-w-xs truncate' },
+        {
+            header: 'Monto',
+            accessorKey: 'monto',
+            className: 'text-right font-black',
+            cell: (vale) => formatMoney(vale.monto),
+            sortable: true
+        },
+        {
+            header: 'Estado',
+            accessorKey: 'estado',
+            className: 'text-center',
+            cell: (vale) => (
+                <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${vale.estado === 'PENDIENTE' ? 'bg-amber-100 text-amber-700' :
+                    vale.estado === 'ANULADO' ? 'bg-rose-100 text-rose-700' :
+                        'bg-emerald-100 text-emerald-700'
+                    }`}>
+                    {vale.estado}
+                </span>
+            )
+        },
+        {
+            header: 'Acciones',
+            className: 'text-right',
+            cell: (vale) => (
+                <div className="flex justify-end gap-1">
+                    <button
+                        onClick={() => handleVerComprobante(vale)}
+                        className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-all"
+                        title="Ver Comprobante"
+                    >
+                        <Receipt size={16} />
+                    </button>
+                    {vale.estado !== 'ANULADO' && (
+                        <button
+                            onClick={() => handleAnular(vale.id)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                            title="Anular"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
+                </div>
+            )
+        }
+    ];
 
     if (!currentEmpresa) return null;
 
@@ -111,8 +198,8 @@ export default function CajaChicaPage() {
                 </div>
             )}
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between bg-slate-50/30">
+            <div className="space-y-4">
+                <div className="flex flex-wrap gap-4 items-center justify-between">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
@@ -120,80 +207,22 @@ export default function CajaChicaPage() {
                             placeholder="Buscar por beneficiario, concepto o número..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20"
+                            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 bg-white"
                         />
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="secondary" size="sm" className="flex items-center gap-2">
-                            <Filter size={16} /> Filtros
-                        </Button>
-                        <Button variant="secondary" size="sm" className="flex items-center gap-2">
-                            <Download size={16} /> Exportar
-                        </Button>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 text-slate-600 font-bold border-b">
-                            <tr>
-                                <th className="px-6 py-4">Vale / Fecha</th>
-                                <th className="px-6 py-4">Beneficiario</th>
-                                <th className="px-6 py-4">Concepto</th>
-                                <th className="px-6 py-4 text-right">Monto</th>
-                                <th className="px-6 py-4 text-center">Estado</th>
-                                <th className="px-6 py-4 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {loading ? (
-                                <tr><td colSpan={6} className="p-12 text-center text-slate-400">Cargando vales...</td></tr>
-                            ) : filteredVales.length === 0 ? (
-                                <tr><td colSpan={6} className="p-12 text-center text-slate-400">No hay movimientos registrados.</td></tr>
-                            ) : filteredVales.map(vale => (
-                                <tr key={vale.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-slate-800">{vale.numero}</span>
-                                            <span className="text-[10px] font-mono text-slate-400">{vale.fecha}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600 font-medium">{vale.beneficiario}</td>
-                                    <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{vale.concepto}</td>
-                                    <td className="px-6 py-4 text-right font-black text-slate-800">{formatMoney(vale.monto)}</td>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${vale.estado === 'PENDIENTE' ? 'bg-amber-100 text-amber-700' :
-                                            vale.estado === 'ANULADO' ? 'bg-rose-100 text-rose-700' :
-                                                'bg-emerald-100 text-emerald-700'
-                                            }`}>
-                                            {vale.estado}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <button
-                                                onClick={() => handleVerComprobante(vale)}
-                                                className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-all"
-                                                title="Ver Comprobante"
-                                            >
-                                                <Receipt size={16} />
-                                            </button>
-                                            {vale.estado !== 'ANULADO' && (
-                                                <button
-                                                    onClick={() => handleAnular(vale.id)}
-                                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                                    title="Anular"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    data={filteredVales}
+                    columns={columns}
+                    loading={loading}
+                    itemsPerPage={5}
+                    actions={
+                        <Button variant="secondary" size="sm" onClick={handleExportExcel} className="flex items-center gap-2">
+                            <Download size={16} /> Exportar Excel
+                        </Button>
+                    }
+                />
             </div>
 
             {showModal && (

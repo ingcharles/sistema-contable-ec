@@ -3,10 +3,7 @@ import { X, DollarSign, Calendar, CreditCard, Save } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { DocumentoPendiente, TipoCartera } from '../../domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { InMemoryCarteraRepository } from '../../infrastructure/CarteraRepository';
-import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
-import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
-import { InMemoryBancosRepository } from '@/modules/bancos/infrastructure/BancosRepository';
+import { ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { TipoMovimientoBancario } from '@/modules/bancos/domain/types';
 
 interface CobroPagoModalProps {
@@ -14,10 +11,9 @@ interface CobroPagoModalProps {
     tipo: TipoCartera;
     onClose: () => void;
     onSave: () => void;
-    empresaId: string;
 }
 
-export const CobroPagoModal = ({ documento, tipo, onClose, onSave, empresaId }: CobroPagoModalProps) => {
+export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoModalProps) => {
     const esCobro = tipo === TipoCartera.CXC;
     const [monto, setMonto] = useState(documento.saldoPendiente);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
@@ -30,23 +26,17 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave, empresaId }: 
         setGuardando(true);
 
         try {
-            const repoConfig = new InMemoryConfiguracionRepository();
-            const params = await repoConfig.getParametros(empresaId);
-
-            const repoCartera = new InMemoryCarteraRepository();
-            await repoCartera.savePago({
-                id: Math.random().toString(36),
-                empresaId,
+            // 1. Registrar Pago en Cartera (API Real)
+            await CarteraUseCases.registrarPago({
                 documentoId: documento.id,
                 fecha,
-                formaPago: formaPago as any,
+                formaPago,
                 valorEfectivo: monto,
                 referencia
             });
 
-            const repoBancos = new InMemoryBancosRepository();
-            await repoBancos.saveMovimiento({
-                id: Math.random().toString(36),
+            // 2. Registrar Movimiento Bancario (API Real)
+            await BancosUseCases.registrarTransaccion({
                 cuentaId: 'cta1',
                 fecha,
                 tipo: esCobro ? TipoMovimientoBancario.TRANSFERENCIA_RECIBIDA : TipoMovimientoBancario.TRANSFERENCIA_ENVIADA,
@@ -54,39 +44,28 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave, empresaId }: 
                 beneficiario: documento.terceroNombre,
                 concepto: `${esCobro ? 'Cobro' : 'Pago'} Factura ${documento.nroComprobante}`,
                 monto,
-                esEgreso: !esCobro,
-                conciliado: false,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                createdBy: 'user'
+                esEgreso: !esCobro
             });
 
-            const repoCont = new InMemoryContabilidadRepository();
+            // 3. Registrar Asiento Contable
+            const params = await ConfiguracionUseCases.obtenerParametros();
             const ctaBanco = params.cuentaCaja || '1.1.01.01';
-            const ctaCartera = esCobro ? params.cuentaCxcClientes : params.cuentaCxpProveedores;
+            const ctaCartera = esCobro ? params.cuentaCxcClientes || '1.1.02.01' : params.cuentaCxpProveedores || '2.1.01.01';
 
             const detalles = esCobro ? [
-                { cuentaCodigo: ctaBanco, cuentaNombre: 'CAJA/BANCOS', debe: monto, haber: 0 },
-                { cuentaCodigo: ctaCartera, cuentaNombre: 'CUENTAS POR COBRAR', debe: 0, haber: monto }
+                { cuentaCodigo: ctaBanco, debe: monto, haber: 0 },
+                { cuentaCodigo: ctaCartera, debe: 0, haber: monto }
             ] : [
-                { cuentaCodigo: ctaCartera, cuentaNombre: 'CUENTAS POR PAGAR', debe: monto, haber: 0 },
-                { cuentaCodigo: ctaBanco, cuentaNombre: 'CAJA/BANCOS', debe: 0, haber: monto }
+                { cuentaCodigo: ctaCartera, debe: monto, haber: 0 },
+                { cuentaCodigo: ctaBanco, debe: 0, haber: monto }
             ];
 
-            await repoCont.saveAsiento({
-                id: Math.random().toString(36),
-                empresaId,
-                numero: `${esCobro ? 'COB' : 'PAG'}-${Math.floor(Math.random() * 1000)}`,
+            await ContabilidadUseCases.registrarAsiento({
+                numero: `${esCobro ? 'COB' : 'PAG'}-${crypto.randomUUID().slice(0, 8)}`,
                 fecha,
                 glosa: `${esCobro ? 'Cobro' : 'Pago'} ${documento.terceroNombre} - Fact. ${documento.nroComprobante}`,
                 tipo: esCobro ? 'INGRESO' : 'EGRESO',
-                estado: 'MAYORIZADO',
-                totalDebe: monto,
-                totalHaber: monto,
-                detalles,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                createdBy: 'system'
+                detalles
             });
 
             onSave();

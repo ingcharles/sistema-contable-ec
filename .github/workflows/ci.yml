@@ -1,0 +1,57 @@
+name: EcuContable CI/CD
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Linting
+      run: npm run lint
+
+    - name: Type Checking
+      run: npx tsc --noEmit
+
+    - name: Build
+      run: npm run build
+
+    # - name: Run Unit Tests
+    #   run: npm test
+
+  security-scan:
+    name: Security Vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Audit Dependencies
+        run: npm audit --audit-level=high
+
+#  deploy:
+#    name: Deploy to Production
+#    needs: [build-and-test, security-scan]
+#    if: github.ref == 'refs/heads/main'
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Deploy
+#        run: echo "Deploy logic here (e.g. Vercel, Docker, AWS)"

@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Mail, Phone, MapPin, Edit2, Trash2, UserPlus, FileSpreadsheet } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Tercero, TipoTercero } from '@/modules/directorio/domain/types';
-import { InMemoryDirectorioRepository } from '@/modules/directorio/infrastructure/DirectorioRepository';
+import { DirectorioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { TerceroModal } from '@/modules/directorio/ui/components/TerceroModal';
@@ -21,9 +21,12 @@ export default function DirectorioPage() {
 
     const loadData = async () => {
         if (!currentEmpresa) return;
-        const repo = new InMemoryDirectorioRepository();
-        const data = await repo.getTerceros(currentEmpresa.id, filtroTipo === 'TODOS' ? undefined : filtroTipo);
-        setTerceros(data);
+        try {
+            const data = await DirectorioUseCases.listarTerceros(filtroTipo === 'TODOS' ? undefined : filtroTipo);
+            setTerceros(data);
+        } catch (error) {
+            console.error('Error al cargar terceros:', error);
+        }
     };
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id, filtroTipo]);
@@ -39,15 +42,40 @@ export default function DirectorioPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (window.confirm('¿Está seguro de eliminar este contacto?')) {
-            const repo = new InMemoryDirectorioRepository();
-            await repo.deleteTercero(id);
-            loadData();
+        if (window.confirm('¿Está seguro de desactivar este contacto?')) {
+            try {
+                await DirectorioUseCases.eliminarTercero(id);
+                loadData();
+            } catch (error) {
+                console.error('Error al eliminar tercero:', error);
+                alert('No se pudo eliminar el tercero');
+            }
         }
     };
 
     const handleExport = () => {
-        alert('Generando archivo Excel de contactos...');
+        if (terceros.length === 0) return;
+
+        const headers = ['Identificación', 'Razón Social', 'Nombre Comercial', 'Tipo', 'Email', 'Teléfono', 'Dirección'];
+        const rows = terceros.map(t => [
+            t.identificacion,
+            `"${t.razonSocial.replace(/"/g, '""')}"`,
+            t.nombreComercial ? `"${t.nombreComercial.replace(/"/g, '""')}"` : '',
+            t.tipo,
+            t.email,
+            t.telefono || '',
+            `"${t.direccion.replace(/"/g, '""')}"`
+        ]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `directorio_${currentEmpresa?.razonSocial.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const columns: Column<Tercero>[] = [
@@ -133,28 +161,30 @@ export default function DirectorioPage() {
                     <h1 className="text-2xl font-bold text-slate-800">Directorio de Terceros</h1>
                     <p className="text-slate-500 text-sm mt-1">Gestione sus clientes, proveedores y contactos comerciales.</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="secondary" onClick={handleExport} className="flex items-center gap-2">
-                        <FileSpreadsheet size={18} /> Exportar Excel
-                    </Button>
-                    <Button onClick={handleNew} className="flex items-center gap-2 shadow-md">
-                        <UserPlus size={18} /> Nuevo Tercero
-                    </Button>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                    <button onClick={() => setFiltroTipo('TODOS')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filtroTipo === 'TODOS' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Todos</button>
+                    <button onClick={() => setFiltroTipo(TipoTercero.CLIENTE)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filtroTipo === TipoTercero.CLIENTE ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Clientes</button>
+                    <button onClick={() => setFiltroTipo(TipoTercero.PROVEEDOR)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filtroTipo === TipoTercero.PROVEEDOR ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Proveedores</button>
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 bg-slate-100 p-1 rounded-xl w-fit">
-                <button onClick={() => setFiltroTipo('TODOS')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filtroTipo === 'TODOS' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Todos</button>
-                <button onClick={() => setFiltroTipo(TipoTercero.CLIENTE)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filtroTipo === TipoTercero.CLIENTE ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Clientes</button>
-                <button onClick={() => setFiltroTipo(TipoTercero.PROVEEDOR)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filtroTipo === TipoTercero.PROVEEDOR ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Proveedores</button>
-            </div>
 
             <DataTable
                 data={terceros}
                 columns={columns}
-                itemsPerPage={8}
+                itemsPerPage={5}
                 searchPlaceholder="Buscar por Razón Social o RUC..."
                 searchable={true}
+                actions={
+                    <div className="flex gap-2">
+                        <Button variant="secondary" size="sm" onClick={handleExport} className="flex items-center gap-2">
+                            <FileSpreadsheet size={16} /> Exportar
+                        </Button>
+                        <Button size="sm" onClick={handleNew} className="flex items-center gap-2 shadow-sm">
+                            <UserPlus size={18} /> Nuevo
+                        </Button>
+                    </div>
+                }
             />
 
             {modalOpen && (

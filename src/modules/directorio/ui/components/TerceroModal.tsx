@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, AlertCircle } from 'lucide-react';
 import { Tercero, TipoTercero } from '../../domain/types';
 import { TipoIdentificacion } from '@/shared/types';
-import { InMemoryDirectorioRepository } from '../../infrastructure/DirectorioRepository';
+import { useDirectorioMutations } from '../../hooks/useDirectorio';
 import { Button } from '@/shared/ui/Button';
+
+import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 // Simple RUC validation (placeholder, replace with real service if needed)
 const validarRuc = (ruc: string) => {
@@ -20,8 +22,14 @@ interface TerceroModalProps {
 }
 
 export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: TerceroModalProps) => {
+    const { getCatalogo } = useCatalogos(['SRI_TIPO_IDENTIFICACION']);
+    const tiposIdentificacion = getCatalogo('SRI_TIPO_IDENTIFICACION');
+
+    // Hooks para mutaciones
+    const { guardarTercero, actualizarTercero, guardando, error: errorSaving } = useDirectorioMutations();
+
     const [formData, setFormData] = useState<Partial<Tercero>>(terceroEditar || {
-        tipoIdentificacion: TipoIdentificacion.RUC,
+        tipoIdentificacion: TipoIdentificacion.RUC, // Default RUC
         identificacion: '',
         razonSocial: '',
         nombreComercial: '',
@@ -54,19 +62,27 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
             return;
         }
 
-        const newTercero: Tercero = {
-            ...formData as Tercero,
-            id: terceroEditar?.id || Math.random().toString(36).substr(2, 9),
-            empresaId,
-            createdAt: terceroEditar?.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: terceroEditar?.createdBy || 'user'
-        };
+        try {
+            // Mapeo de campos para el API
+            const payload = {
+                ...formData,
+                tipoTercero: formData.tipo, // API espera tipoTercero
+                obligadoContabilidad: formData.llevaContabilidad, // API espera obligadoContabilidad
+                empresaId
+            };
 
-        const repo = new InMemoryDirectorioRepository();
-        await repo.saveTercero(newTercero);
-        onSave();
-        onClose();
+            if (terceroEditar?.id) {
+                await actualizarTercero(terceroEditar.id, payload);
+            } else {
+                await guardarTercero(payload);
+            }
+
+            onSave();
+            onClose();
+        } catch (error) {
+            // El error se muestra en la UI a través de errorSaving
+            console.error(error);
+        }
     };
 
     return (
@@ -80,6 +96,14 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
                 </div>
 
                 <div className="p-6 overflow-y-auto space-y-4">
+                    {/* Mensaje de Error */}
+                    {errorSaving && (
+                        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2 mb-4">
+                            <AlertCircle size={16} />
+                            {errorSaving}
+                        </div>
+                    )}
+
                     {/* Identificación */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -89,9 +113,19 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
                                 onChange={e => handleChange('tipoIdentificacion', e.target.value)}
                                 className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-sri-blue/20 outline-none"
                             >
-                                <option value={TipoIdentificacion.RUC}>RUC</option>
-                                <option value={TipoIdentificacion.CEDULA}>Cédula</option>
-                                <option value={TipoIdentificacion.PASAPORTE}>Pasaporte</option>
+                                {tiposIdentificacion && tiposIdentificacion.length > 0 ? (
+                                    tiposIdentificacion.map(tipo => (
+                                        <option key={tipo.codigo} value={tipo.codigo}>
+                                            {tipo.valor}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <>
+                                        <option value="04">RUC</option>
+                                        <option value="05">CEDULA</option>
+                                        <option value="06">PASAPORTE</option>
+                                    </>
+                                )}
                             </select>
                         </div>
                         <div>
@@ -194,12 +228,19 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
                 </div>
 
                 <div className="p-6 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl bg-slate-50">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleSubmit} className="flex items-center gap-2 shadow-sm">
-                        <Save size={18} /> Guardar
+                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+                    <Button onClick={handleSubmit} className="flex items-center gap-2 shadow-sm" disabled={guardando}>
+                        {guardando ? (
+                            <>Guardando...</>
+                        ) : (
+                            <>
+                                <Save size={18} /> Guardar
+                            </>
+                        )}
                     </Button>
                 </div>
             </div>
         </div>
     );
 };
+

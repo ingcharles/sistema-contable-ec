@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { History, X } from 'lucide-react';
-import { Producto, MovimientoKardex } from '../../domain/types';
-import { InMemoryInventarioRepository } from '../../infrastructure/InventarioRepository';
+import { Producto } from '../../domain/types';
+import { useKardex } from '../../hooks/useKardex';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
@@ -14,16 +14,11 @@ interface Props {
 }
 
 export const KardexModal: React.FC<Props> = ({ producto, onClose, empresaId: _empresaId }) => {
-    const [movimientos, setMovimientos] = useState<MovimientoKardex[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { movimientos, loading, listarMovimientos } = useKardex();
 
     useEffect(() => {
-        const repo = new InMemoryInventarioRepository();
-        repo.getKardex(producto.id, '2020-01-01', '2030-12-31').then(data => {
-            setMovimientos(data);
-            setLoading(false);
-        });
-    }, [producto.id]);
+        listarMovimientos(producto.id, '2020-01-01', '2030-12-31');
+    }, [producto.id, listarMovimientos]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">

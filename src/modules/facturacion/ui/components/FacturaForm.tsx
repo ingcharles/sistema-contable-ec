@@ -4,20 +4,21 @@
  * Formulario para crear/editar facturas cumpliendo con requisitos SRI
  * Integrado con módulos de Terceros (Directorio) e Inventario
  * Soporta múltiples formas de pago con plazos y unidades de tiempo
+ * UPDATED: Consume catálogos dinámicos desde la API.
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { FacturaViewModel, DetalleFactura, PagoFactura } from '../../application/models/FacturaViewModel';
-import { TIPO_IDENTIFICACION, TARIFA_IVA, FORMA_PAGO, AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
+import { AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
+import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 // Repositorios para integración
-import { InMemoryDirectorioRepository } from '@/modules/directorio/infrastructure/DirectorioRepository';
-import { InMemoryInventarioRepository } from '@/modules/inventario/infrastructure/InventarioRepository';
+import { DirectorioUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Producto } from '@/modules/inventario/domain/types';
 import { SriStandardizer } from '../../application/services/SriStandardizer';
@@ -37,17 +38,45 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
     const [busquedaCliente, setBusquedaCliente] = useState('');
     const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
 
+    // Cargar catálogos dinámicos
+    const { getCatalogo } = useCatalogos([
+        'SRI_TIPO_IDENTIFICACION',
+        'SRI_TIPO_IMPUESTO_IVA',
+        'SRI_FORMA_PAGO'
+    ]);
+
+    const tiposIdentificacion = getCatalogo('SRI_TIPO_IDENTIFICACION');
+    const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
+    const formasPago = getCatalogo('SRI_FORMA_PAGO');
+
     // Cargar datos de otros módulos
     useEffect(() => {
         if (currentEmpresa) {
             const loadData = async () => {
-                const dirRepo = new InMemoryDirectorioRepository();
-                const invRepo = new InMemoryInventarioRepository();
+                // Fetch users (real API) and products (real API)
+                const listaClientes = await DirectorioUseCases.listarTerceros('CLIENTE');
 
-                const [listaClientes, listaProductos] = await Promise.all([
-                    dirRepo.getTerceros(currentEmpresa.id),
-                    invRepo.getProductos(currentEmpresa.id)
-                ]);
+                // Fetch products (max 1000 for dropdown)
+                const productosResponse = await InventarioUseCases.listarProductos('?limit=1000');
+                const productosData = productosResponse.data || [];
+
+                const listaProductos: Producto[] = productosData.map((p: any) => ({
+                    id: p.id,
+                    empresaId: p.empresa_id || currentEmpresa.id,
+                    codigoPrincipal: p.codigo_principal,
+                    codigoAuxiliar: p.codigo_auxiliar || '',
+                    nombre: p.nombre,
+                    categoriaId: p.categoria_id,
+                    categoriaNombre: p.categoria_nombre || '',
+                    stockActual: Number(p.stock_actual),
+                    costoPromedio: Number(p.costo_promedio),
+                    precioVenta: Number(p.precio_venta),
+                    grabaIva: p.graba_iva,
+                    stockMinimo: Number(p.stock_minimo),
+                    createdAt: p.created_at || '',
+                    updatedAt: p.updated_at || '',
+                    createdBy: ''
+                }));
 
                 setClientes(listaClientes);
                 setProductos(listaProductos);
@@ -57,7 +86,8 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
     }, [currentEmpresa?.id]);
 
     // Datos del Cliente
-    const [tipoIdentificacion, setTipoIdentificacion] = useState(factura?.tipoIdentificacionAdquirente || TIPO_IDENTIFICACION.RUC);
+    // Default to '04' (RUC) if not provided
+    const [tipoIdentificacion, setTipoIdentificacion] = useState(factura?.tipoIdentificacionAdquirente || '04');
     const [identificacion, setIdentificacion] = useState(factura?.identificacionAdquirente || '');
     const [razonSocial, setRazonSocial] = useState(factura?.razonSocialAdquirente || '');
     const [direccion, setDireccion] = useState(factura?.direccionAdquirente || '');
@@ -81,7 +111,7 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
         cantidad: 1,
         precioUnitario: 0,
         descuento: 0,
-        codigoIVA: TARIFA_IVA.IVA_15,
+        codigoIVA: '2', // Default 12%/15%
         baseImponible: 0,
         valorIVA: 0,
         total: 0,
@@ -89,7 +119,7 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
 
     // Pagos
     const [pagos, setPagos] = useState<PagoFactura[]>(factura?.pagos || [{
-        formaPago: FORMA_PAGO.OTROS_CON_SISTEMA_FINANCIERO,
+        formaPago: '20', // Otros con sistema financiero es lo más común
         total: 0,
         plazo: 0,
         unidadTiempo: 'Dias'
@@ -114,19 +144,19 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
 
         // Si es consumidor final, asegurar que el tipo de identificación sea el correcto
         if (cliente.identificacion === '9999999999999') {
-            setTipoIdentificacion(TIPO_IDENTIFICACION.CONSUMIDOR_FINAL);
+            setTipoIdentificacion('07'); // Consumidor Final
         } else if (cliente.identificacion.length === 10) {
-            setTipoIdentificacion(TIPO_IDENTIFICACION.CEDULA);
+            setTipoIdentificacion('05'); // Cédula
         } else if (cliente.identificacion.length === 13) {
-            setTipoIdentificacion(TIPO_IDENTIFICACION.RUC);
+            setTipoIdentificacion('04'); // RUC
         }
     };
 
     // Validar identificación en tiempo real
     useEffect(() => {
-        if (!identificacion || tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL) {
+        if (!identificacion || tipoIdentificacion === '07') {
             setErrorIdentificacion('');
-            setIdentificacionValida(tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL);
+            setIdentificacionValida(tipoIdentificacion === '07');
             return;
         }
 
@@ -152,7 +182,7 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
 
     // Efecto para manejar el cambio manual a Consumidor Final
     useEffect(() => {
-        if (tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL) {
+        if (tipoIdentificacion === '07') {
             setIdentificacion('9999999999999');
             setRazonSocial('CONSUMIDOR FINAL');
             setDireccion('S/N');
@@ -168,7 +198,7 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
             cantidad: 1,
             precioUnitario: 0,
             descuento: 0,
-            codigoIVA: TARIFA_IVA.IVA_15,
+            codigoIVA: '2', // Default
             baseImponible: 0,
             valorIVA: 0,
             total: 0,
@@ -189,14 +219,26 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
                 detalle.productoId = producto.id;
                 detalle.descripcion = producto.nombre;
                 detalle.precioUnitario = producto.precioVenta;
-                detalle.codigoIVA = producto.grabaIva ? TARIFA_IVA.IVA_15 : TARIFA_IVA.IVA_0;
+                // Asumimos IVA 2 (12%/15%) si graba, 0 si no
+                detalle.codigoIVA = producto.grabaIva ? '2' : '0';
             }
         }
 
         detalle.baseImponible = (detalle.cantidad * detalle.precioUnitario) - detalle.descuento;
+
+        // Calcular IVA basado en el código seleccionado del catálogo
         let porcentajeIVA = 0;
-        if (detalle.codigoIVA === TARIFA_IVA.IVA_15) porcentajeIVA = 0.15;
-        else if (detalle.codigoIVA === TARIFA_IVA.IVA_12) porcentajeIVA = 0.12;
+        const tarifaSeleccionada = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
+
+        if (tarifaSeleccionada) {
+            // Extraer porcentaje del valor (ej: "15%") - Puede venir como "12%", "15%", "0%"
+            // Si el valor es numérico puro en el futuro, ajustar aquí.
+            const match = tarifaSeleccionada.valor.match(/(\d+)%/);
+            if (match) {
+                porcentajeIVA = parseInt(match[1]) / 100;
+            }
+        }
+
         detalle.valorIVA = detalle.baseImponible * porcentajeIVA;
         detalle.total = detalle.baseImponible + detalle.valorIVA;
 
@@ -206,7 +248,7 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
 
     const agregarPago = () => {
         setPagos([...pagos, {
-            formaPago: FORMA_PAGO.OTROS_CON_SISTEMA_FINANCIERO,
+            formaPago: '20',
             total: 0,
             plazo: 0,
             unidadTiempo: 'Dias'
@@ -224,9 +266,10 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
     };
 
     const calcularTotales = () => {
-        const totalSinImpuestos = detalles.reduce((sum, d) => sum + d.baseImponible, 0);
-        const totalDescuento = detalles.reduce((sum, d) => sum + d.descuento, 0);
-        const totalIVA = detalles.reduce((sum, d) => sum + d.valorIVA, 0);
+        // Aseguramos que son números antes de sumar
+        const totalSinImpuestos = detalles.reduce((sum, d) => sum + (Number(d.baseImponible) || 0), 0);
+        const totalDescuento = detalles.reduce((sum, d) => sum + (Number(d.descuento) || 0), 0);
+        const totalIVA = detalles.reduce((sum, d) => sum + (Number(d.valorIVA) || 0), 0);
         const importeTotal = totalSinImpuestos + totalIVA;
 
         return { totalSinImpuestos, totalDescuento, totalIVA, importeTotal };
@@ -236,17 +279,19 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
 
     // Sincronizar el total del primer pago con el total de la factura si solo hay un pago
     useEffect(() => {
-        if (pagos.length === 1 && pagos[0].total !== totales.importeTotal) {
-            actualizarPago(0, 'total', totales.importeTotal);
+        if (pagos.length === 1 && Math.abs(pagos[0].total - totales.importeTotal) > 0.001) {
+            actualizarPago(0, 'total', parseFloat(totales.importeTotal.toFixed(2)));
         }
-    }, [totales.importeTotal]);
+    }, [totales.importeTotal]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentEmpresa) return;
 
-        const totalPagos = pagos.reduce((sum, p) => sum + p.total, 0);
-        if (Math.abs(totalPagos - totales.importeTotal) > 0.01) {
+        const totalPagos = pagos.reduce((sum, p) => sum + (Number(p.total) || 0), 0);
+
+        // Pequeña tolerancia para errores de punto flotante
+        if (Math.abs(totalPagos - totales.importeTotal) > 0.02) {
             alert(`El total de las formas de pago ($${totalPagos.toFixed(2)}) debe ser igual al importe total de la factura ($${totales.importeTotal.toFixed(2)})`);
             return;
         }
@@ -352,10 +397,20 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
                                 onChange={(e) => setTipoIdentificacion(e.target.value)}
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sri-blue/20 outline-none"
                             >
-                                <option value={TIPO_IDENTIFICACION.RUC}>RUC</option>
-                                <option value={TIPO_IDENTIFICACION.CEDULA}>Cédula</option>
-                                <option value={TIPO_IDENTIFICACION.PASAPORTE}>Pasaporte</option>
-                                <option value={TIPO_IDENTIFICACION.CONSUMIDOR_FINAL}>Consumidor Final</option>
+                                {tiposIdentificacion && tiposIdentificacion.length > 0 ? (
+                                    tiposIdentificacion.map(tipo => (
+                                        <option key={tipo.codigo} value={tipo.codigo}>
+                                            {tipo.valor}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <>
+                                        <option value="04">RUC</option>
+                                        <option value="05">CEDULA</option>
+                                        <option value="06">PASAPORTE</option>
+                                        <option value="07">CONSUMIDOR FINAL</option>
+                                    </>
+                                )}
                             </select>
                         </div>
                         <div className="md:col-span-2">
@@ -484,15 +539,19 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
                                             onChange={(e) => actualizarDetalle(index, 'codigoIVA', e.target.value)}
                                             className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-sri-blue/10"
                                         >
-                                            <option value={TARIFA_IVA.IVA_15}>15%</option>
-                                            <option value={TARIFA_IVA.IVA_12}>12%</option>
-                                            <option value={TARIFA_IVA.IVA_0}>0%</option>
-                                            <option value={TARIFA_IVA.NO_OBJETO}>N/O</option>
-                                            <option value={TARIFA_IVA.EXENTO}>Exento</option>
+                                            {tarifasIVA && tarifasIVA.length > 0 ? (
+                                                tarifasIVA.map(tarifa => (
+                                                    <option key={tarifa.codigo} value={tarifa.codigo}>
+                                                        {tarifa.valor}
+                                                    </option>
+                                                ))
+                                            ) : (
+                                                <option value="2">12%</option>
+                                            )}
                                         </select>
                                     </td>
                                     <td className="px-4 py-3 text-right font-black text-slate-900">
-                                        ${detalle.total.toFixed(2)}
+                                        ${(Number(detalle.total) || 0).toFixed(2)}
                                     </td>
                                     <td className="px-4 py-3 text-center">
                                         <button
@@ -533,11 +592,15 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
                                         onChange={(e) => actualizarPago(idx, 'formaPago', e.target.value)}
                                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-sri-blue/20"
                                     >
-                                        <option value={FORMA_PAGO.OTROS_CON_SISTEMA_FINANCIERO}>Otros con Sist. Finan.</option>
-                                        <option value={FORMA_PAGO.SIN_SISTEMA_FINANCIERO}>Sin Utilización Sist. Finan.</option>
-                                        <option value={FORMA_PAGO.TARJETA_CREDITO}>Tarjeta de Crédito</option>
-                                        <option value={FORMA_PAGO.TARJETA_DEBITO}>Tarjeta de Débito</option>
-                                        <option value={FORMA_PAGO.DINERO_ELECTRONICO}>Dinero Electrónico</option>
+                                        {formasPago && formasPago.length > 0 ? (
+                                            formasPago.map(forma => (
+                                                <option key={forma.codigo} value={forma.codigo}>
+                                                    {forma.valor}
+                                                </option>
+                                            ))
+                                        ) : (
+                                            <option value="20">Otros con Sist. Finan.</option>
+                                        )}
                                     </select>
                                 </div>
                                 <div>

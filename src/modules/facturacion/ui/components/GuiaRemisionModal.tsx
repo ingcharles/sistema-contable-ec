@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Truck, MapPin, Package, User, Plus } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
-import { Transportista, MotivoTraslado, GuiaRemision } from '../../domain/guias';
-import { InMemoryGuiaRemisionRepository } from '../../infrastructure/GuiaRemisionRepository';
-import { EstadoSRI } from '@/shared/types';
+import { Transportista, MotivoTraslado } from '../../domain/guias';
+import { useFacturacionMutations } from '../../hooks/useFacturacion';
+import { TransportistaModal } from './TransportistaModal';
+import { TransportistaUseCases } from '../../application/useCases/transportistaUseCases';
 
 interface GuiaRemisionModalProps {
     facturaReferencia?: any;
@@ -15,6 +16,7 @@ interface GuiaRemisionModalProps {
 }
 
 export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave, empresaId }: GuiaRemisionModalProps) => {
+    const { guardarGuiaRemision, emitiendo: guardando } = useFacturacionMutations();
     const [transportistas, setTransportistas] = useState<Transportista[]>([]);
     const [transportistaId, setTransportistaId] = useState('');
     const [puntoPartida, setPuntoPartida] = useState('Matriz / Bodega Principal');
@@ -22,15 +24,19 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave, empresaI
     const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().split('T')[0]);
     const [fechaFin, setFechaFin] = useState(new Date().toISOString().split('T')[0]);
     const [motivo, setMotivo] = useState(MotivoTraslado.VENTA);
-    const [guardando, setGuardando] = useState(false);
+    const [showNuevoTransportista, setShowNuevoTransportista] = useState(false);
+
+    const loadTransportistas = async () => {
+        try {
+            const data = await TransportistaUseCases.listar();
+            setTransportistas(data);
+            if (data.length > 0 && !transportistaId) setTransportistaId(data[0].id);
+        } catch (error) {
+            console.error('Error cargando transportistas:', error);
+        }
+    };
 
     useEffect(() => {
-        const loadTransportistas = async () => {
-            const repo = new InMemoryGuiaRemisionRepository();
-            const data = await repo.getTransportistas(empresaId);
-            setTransportistas(data);
-            if (data.length > 0) setTransportistaId(data[0].id);
-        };
         loadTransportistas();
     }, [empresaId]);
 
@@ -40,44 +46,35 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave, empresaI
             return;
         }
 
-        setGuardando(true);
-        const repo = new InMemoryGuiaRemisionRepository();
-        const transportista = transportistas.find(t => t.id === transportistaId)!;
+        const transportista = transportistas.find(t => t.id === transportistaId);
+        if (!transportista) {
+            alert('Seleccione un transportista válido');
+            return;
+        }
 
-        const nuevaGuia: GuiaRemision = {
-            id: Math.random().toString(36).substr(2, 9),
-            empresaId,
-            secuencial: `001-001-${Math.floor(Math.random() * 1000000).toString().padStart(9, '0')}`,
-            fechaEmision: new Date().toISOString().split('T')[0],
-            fechaInicioTraslado: fechaInicio,
-            fechaFinTraslado: fechaFin,
-            puntoPartida,
-            transportista,
-            destinatarios: [
-                {
-                    identificacion: facturaReferencia?.terceroId || '9999999999999',
-                    razonSocial: facturaReferencia?.terceroNombre || 'CONSUMIDOR FINAL',
-                    direccionDestino: puntoDestino,
-                    motivoTraslado: motivo,
-                    documentoReferencia: facturaReferencia?.secuencial,
-                    ruta: `${puntoPartida} - ${puntoDestino}`,
-                    items: facturaReferencia?.items?.map((i: any) => ({
-                        codigo: i.codigo || 'S/N',
-                        descripcion: i.nombre || i.descripcion,
-                        cantidad: i.cantidad || 1
-                    })) || []
-                }
-            ],
-            estado: EstadoSRI.PENDIENTE,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'admin'
-        };
-
-        await repo.saveGuia(nuevaGuia);
-        setGuardando(false);
-        onSave();
-        onClose();
+        try {
+            await guardarGuiaRemision({
+                clienteId: facturaReferencia?.terceroId || '9999999999999',
+                clienteNombre: facturaReferencia?.terceroNombre || 'CONSUMIDOR FINAL',
+                clienteIdentificacion: facturaReferencia?.terceroId || '9999999999999',
+                fechaEmision: new Date().toISOString().split('T')[0],
+                direccionPartida: puntoPartida,
+                direccionDestino: puntoDestino,
+                transportistaNombre: transportista.razonSocial,
+                transportistaIdentificacion: transportista.ruc,
+                placaVehiculo: transportista.placa || '',
+                detalles: facturaReferencia?.items?.map((i: any) => ({
+                    codigo: i.codigo || 'S/N',
+                    descripcion: i.nombre || i.descripcion,
+                    cantidad: i.cantidad || 1
+                })) || []
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error('Error al guardar guía:', error);
+            alert('Error al guardar la guía de remisión');
+        }
     };
 
     return (
@@ -118,7 +115,11 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave, empresaI
                                 </select>
                             </div>
                             <div className="flex items-end">
-                                <Button variant="secondary" className="w-full flex items-center gap-2 justify-center">
+                                <Button
+                                    variant="secondary"
+                                    className="w-full flex items-center gap-2 justify-center"
+                                    onClick={() => setShowNuevoTransportista(true)}
+                                >
                                     <Plus size={16} /> Nuevo Transportista
                                 </Button>
                             </div>
@@ -224,6 +225,16 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave, empresaI
                     </Button>
                 </div>
             </div>
+            {showNuevoTransportista && (
+                <TransportistaModal
+                    onClose={() => setShowNuevoTransportista(false)}
+                    onSave={(nuevo) => {
+                        setTransportistas(prev => [...prev, nuevo]);
+                        setTransportistaId(nuevo.id);
+                        setShowNuevoTransportista(false);
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Package, AlertTriangle, Download, Plus, Tag, History, Warehouse, Settings, Layers } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Producto, CategoriaProducto, Bodega } from '@/modules/inventario/domain/types';
-import { InMemoryInventarioRepository } from '@/modules/inventario/infrastructure/InventarioRepository';
+import { InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { KardexModal } from '@/modules/inventario/ui/components/KardexModal';
 import { CategoriaModal } from '@/modules/inventario/ui/components/CategoriaModal';
@@ -31,24 +31,55 @@ export default function InventarioPage() {
 
     const loadData = async () => {
         if (!currentEmpresa) return;
-        const repo = new InMemoryInventarioRepository();
-        const [dataProductos, dataCategorias, dataBodegas] = await Promise.all([
-            repo.getProductos(currentEmpresa.id),
-            repo.getCategorias(currentEmpresa.id),
-            repo.getBodegas(currentEmpresa.id)
-        ]);
-        setProductos(dataProductos);
-        setCategorias(dataCategorias);
-        setBodegas(dataBodegas);
+        try {
+            const [dataProductos, dataCategorias, dataBodegas] = await Promise.all([
+                InventarioUseCases.listarProductos(),
+                InventarioUseCases.listarCategorias(),
+                InventarioUseCases.listarBodegas()
+            ]);
+            setProductos(dataProductos);
+            setCategorias(dataCategorias);
+            setBodegas(dataBodegas);
+        } catch (error) {
+            console.error('Error cargando inventario:', error);
+        }
     };
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id]);
 
+    const handleExport = () => {
+        if (productos.length === 0) return;
+
+        const headers = ['Código', 'Producto', 'Categoría', 'Stock', 'Stock Mínimo', 'Costo Promedio', 'Precio Venta'];
+        const rows = productos.map(p => [
+            p.codigoPrincipal,
+            `"${p.nombre.replace(/"/g, '""')}"`,
+            `"${(p.categoriaNombre || '').replace(/"/g, '""')}"`,
+            p.stockActual,
+            p.stockMinimo,
+            p.costoPromedio,
+            p.precioVenta
+        ]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `inventario_${currentEmpresa?.razonSocial.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const handleDeleteBodega = async (id: string) => {
         if (window.confirm('¿Está seguro de eliminar esta bodega?')) {
-            const repo = new InMemoryInventarioRepository();
-            await repo.deleteBodega(id);
-            loadData();
+            try {
+                await InventarioUseCases.eliminarBodega(id);
+                loadData();
+            } catch (error) {
+                alert('Error al eliminar bodega');
+            }
         }
     };
 
@@ -177,21 +208,25 @@ export default function InventarioPage() {
             {activeTab === 'kardex' && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex justify-end gap-2">
-                        <Button variant="secondary" className="flex items-center gap-2">
-                            <Download size={16} /> Reporte Stock
-                        </Button>
-                        <Button onClick={() => setShowModalProd(true)} className="flex items-center gap-2 shadow-sm">
-                            <Plus size={16} /> Nuevo Producto
-                        </Button>
                     </div>
 
                     <DataTable
                         data={productos}
                         columns={productoColumns}
-                        itemsPerPage={10}
+                        itemsPerPage={5}
                         searchable
                         searchKeys={['nombre', 'codigoPrincipal', 'categoriaNombre']}
                         searchPlaceholder="Buscar por código, nombre o categoría..."
+                        actions={
+                            <div className="flex gap-2">
+                                <Button variant="secondary" size="sm" onClick={handleExport} className="flex items-center gap-2">
+                                    <Download size={16} /> Exportar Excel
+                                </Button>
+                                <Button size="sm" onClick={() => setShowModalProd(true)} className="flex items-center gap-1 shadow-sm">
+                                    <Plus size={14} /> Nuevo
+                                </Button>
+                            </div>
+                        }
                     />
                 </div>
             )}

@@ -4,8 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { Bodega } from '../../domain/types';
 import { Sucursal } from '@/modules/configuracion/domain/types';
-import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
-import { InMemoryInventarioRepository } from '../../infrastructure/InventarioRepository';
+import { ConfiguracionUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
 
 interface Props {
@@ -22,8 +21,7 @@ export const BodegaModal: React.FC<Props> = ({ bodega, onClose, onSave, empresaI
     });
 
     useEffect(() => {
-        const repo = new InMemoryConfiguracionRepository();
-        repo.getSucursales(empresaId).then(setSucursales);
+        ConfiguracionUseCases.listarSucursales().then(setSucursales);
 
         if (bodega) {
             setFormData(bodega);
@@ -36,21 +34,20 @@ export const BodegaModal: React.FC<Props> = ({ bodega, onClose, onSave, empresaI
             return;
         }
 
-        const repo = new InMemoryInventarioRepository();
-        const bodegaToSave: Bodega = {
-            id: bodega?.id || Math.random().toString(36).substr(2, 9),
-            empresaId,
-            sucursalId: formData.sucursalId!,
-            codigo: formData.codigo || '',
-            nombre: formData.nombre!,
-            responsable: formData.responsable || '',
-            ubicacion: formData.ubicacion || '',
-            createdAt: bodega?.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: bodega?.createdBy || 'user'
-        };
+        if (bodega && bodega.id) {
+            // Si es edicion, el backend manejara POST como update o create nuevo (pendiente implementar PUT)
+        }
 
-        await repo.saveBodega(bodegaToSave);
+        await InventarioUseCases.guardarBodega({
+            id: bodega?.id, // Backend ignorará si user uuid_generate_v4(), pero enviamos por si acaso
+            empresaId,
+            sucursalId: formData.sucursalId,
+            codigo: formData.codigo,
+            nombre: formData.nombre,
+            responsable: formData.responsable,
+            ubicacion: formData.ubicacion,
+            activo: true
+        });
         onSave();
         onClose();
     };

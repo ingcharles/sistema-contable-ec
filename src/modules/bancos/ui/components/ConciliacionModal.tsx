@@ -11,10 +11,9 @@ interface Props {
     movimientos: MovimientoBancario[];
     onClose: () => void;
     onSave: () => void;
-    empresaId: string;
 }
 
-export const ConciliacionModal: React.FC<Props> = ({ cuenta, movimientos, onClose, onSave, empresaId: _empresaId }) => {
+export const ConciliacionModal: React.FC<Props> = ({ cuenta, movimientos, onClose, onSave }) => {
     const [fechaCorte, setFechaCorte] = useState(new Date().toISOString().split('T')[0]);
     const [saldoExtracto, setSaldoExtracto] = useState<number>(0);
     const [marcados, setMarcados] = useState<Set<string>>(new Set());

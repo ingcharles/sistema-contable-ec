@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Filter, Layers, FileText, BookOpen, TrendingUp, List, Edit2, Trash2, Download, Printer, Sparkles } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { AsientoContable, CentroCosto, BalanceGeneral, EstadoResultados } from '@/modules/contabilidad/domain/types';
-import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
+import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { CentroCostoModal } from '@/modules/contabilidad/ui/components/CentroCostoModal';
 import { PlanCuentasTree } from '@/modules/contabilidad/ui/components/PlanCuentasTree';
@@ -16,16 +16,23 @@ import { CuentaContable } from '@/shared/types';
 
 export default function ContabilidadPage() {
     const { currentEmpresa } = useEmpresa();
-    const [activeTab, setActiveTab] = useState<'plan' | 'diario' | 'mayor' | 'comprobacion' | 'balance' | 'resultados' | 'costos'>('mayor');
+    const [activeTab, setActiveTab] = useState<'plan' | 'diario' | 'mayor' | 'comprobacion' | 'balance' | 'resultados' | 'costos'>('diario');
     const [asientos, setAsientos] = useState<AsientoContable[]>([]);
     const [centros, setCentros] = useState<CentroCosto[]>([]);
     const [showModalCentro, setShowModalCentro] = useState(false);
     const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
     const [loading, setLoading] = useState(true);
+    const [mounted, setMounted] = useState(false);
 
-    const [fechaInicio, setFechaInicio] = useState(`${new Date().getFullYear()}-01-01`);
-    const [fechaFin, setFechaFin] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaInicio, setFechaInicio] = useState<string>('');
+    const [fechaFin, setFechaFin] = useState<string>('');
     const [cuentaMayorSeleccionada, setCuentaMayorSeleccionada] = useState<string>('1.1.01.02');
+
+    useEffect(() => {
+        setMounted(true);
+        setFechaInicio(`${new Date().getFullYear()}-01-01`);
+        setFechaFin(new Date().toISOString().split('T')[0]);
+    }, []);
 
     // Estados Financieros
     const [balance, setBalance] = useState<BalanceGeneral | null>(null);
@@ -34,23 +41,31 @@ export default function ContabilidadPage() {
     const loadData = async () => {
         if (!currentEmpresa) return;
         setLoading(true);
-        const repo = new InMemoryContabilidadRepository();
-        const [dataAsientos, dataCentros, balanceData, resultadosData, dataPC] = await Promise.all([
-            repo.getAsientos(currentEmpresa.id),
-            repo.getCentrosCostos(currentEmpresa.id),
-            repo.getBalanceGeneral(currentEmpresa.id, fechaFin),
-            repo.getEstadoResultados(currentEmpresa.id, fechaInicio, fechaFin),
-            repo.getPlanCuentas(currentEmpresa.id)
-        ]);
-        setAsientos(dataAsientos);
-        setCentros(dataCentros);
-        setBalance(balanceData);
-        setEstadoResultados(resultadosData);
-        setPlanCuentas(dataPC);
-        setLoading(false);
+        try {
+            const [dataAsientos, dataCentros, balanceData, resultadosData, dataPC] = await Promise.all([
+                ContabilidadUseCases.listarAsientos(),
+                ContabilidadUseCases.listarCentrosCostos(),
+                ContabilidadUseCases.obtenerBalanceGeneral(fechaFin),
+                ContabilidadUseCases.obtenerEstadoResultados(fechaInicio, fechaFin),
+                ContabilidadUseCases.listarCuentas()
+            ]);
+            setAsientos(dataAsientos);
+            setCentros(dataCentros);
+            setBalance(balanceData);
+            setEstadoResultados(resultadosData);
+            setPlanCuentas(dataPC);
+        } catch (error) {
+            console.error('Error al cargar datos contables:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    useEffect(() => { loadData(); }, [currentEmpresa?.id]);
+    useEffect(() => {
+        if (mounted && currentEmpresa?.id) {
+            loadData();
+        }
+    }, [currentEmpresa?.id, mounted]);
 
     const datosMayor = useMemo(() => {
         const cuenta = planCuentas.find(c => c.codigo === cuentaMayorSeleccionada);
@@ -90,7 +105,64 @@ export default function ContabilidadPage() {
         return { movimientos: filas, saldoInicial, saldoFinal: saldoAcumulado, naturaleza };
     }, [asientos, cuentaMayorSeleccionada, fechaInicio, fechaFin]);
 
-    if (!currentEmpresa) return null;
+    const handleExportBalance = () => {
+        if (!balance) return;
+
+        const headers = ['Código', 'Cuenta', 'Saldo'];
+        const rows: any[] = [];
+
+        const addCuenta = (c: any) => {
+            rows.push([c.codigo, `"${c.nombre}"`, c.saldo]);
+            if (c.subcuentas) c.subcuentas.forEach(addCuenta);
+        };
+
+        addCuenta(balance.activos);
+        rows.push(['', 'TOTAL ACTIVOS', balance.totalActivos]);
+        addCuenta(balance.pasivos);
+        rows.push(['', 'TOTAL PASIVOS', balance.totalPasivos]);
+        addCuenta(balance.patrimonio);
+        rows.push(['', 'TOTAL PATRIMONIO', balance.totalPatrimonio]);
+        rows.push(['', 'TOTAL PASIVO + PATRIMONIO', balance.totalPasivos + balance.totalPatrimonio]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `balance_general_${currentEmpresa?.razonSocial.replace(/\s+/g, '_')}_${fechaFin}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportResultados = () => {
+        if (!estadoResultados) return;
+
+        const headers = ['Código', 'Cuenta', 'Saldo'];
+        const rows: any[] = [];
+
+        const addCuenta = (c: any) => {
+            rows.push([c.codigo, `"${c.nombre}"`, c.saldo]);
+            if (c.subcuentas) c.subcuentas.forEach(addCuenta);
+        };
+
+        addCuenta(estadoResultados.ingresos);
+        addCuenta(estadoResultados.gastos);
+        rows.push(['', 'UTILIDAD OPERATIVA', estadoResultados.utilidadOperativa]);
+        rows.push(['', 'UTILIDAD NETA', estadoResultados.utilidadNeta]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `estado_resultados_${currentEmpresa?.razonSocial.replace(/\s+/g, '_')}_${fechaInicio}_${fechaFin}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    if (!currentEmpresa || !mounted) return null;
 
     const empresaId = currentEmpresa.id;
 
@@ -102,6 +174,9 @@ export default function ContabilidadPage() {
                     <p className="text-slate-500 text-sm mt-1">Gestión del ciclo contable, libros oficiales y control de costos.</p>
                 </div>
                 <div className="flex bg-slate-100 p-1 rounded-lg overflow-x-auto">
+                    <button onClick={() => setActiveTab('diario')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'diario' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <BookOpen size={16} /> Libro Diario
+                    </button>
                     <button onClick={() => setActiveTab('mayor')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'mayor' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                         <Layers size={16} /> Libro Mayor
                     </button>
@@ -113,9 +188,6 @@ export default function ContabilidadPage() {
                     </button>
                     <button onClick={() => setActiveTab('resultados')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'resultados' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                         <TrendingUp size={16} /> Estado Resultados
-                    </button>
-                    <button onClick={() => setActiveTab('diario')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'diario' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                        <BookOpen size={16} /> Diario
                     </button>
                     <button onClick={() => setActiveTab('costos')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'costos' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                         <TrendingUp size={16} /> Centros Costos
@@ -167,7 +239,7 @@ export default function ContabilidadPage() {
                         <p className="text-xs text-slate-500 mt-1">{currentEmpresa?.direccionMatriz}</p>
                         <h3 className="text-lg font-bold text-sri-blue uppercase mt-3">Libro Mayor General</h3>
                         <p className="text-slate-500 font-medium text-sm mt-1">
-                            Del {new Date(fechaInicio).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
+                            Del {new Date(fechaInicio + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
                     </div>
@@ -228,6 +300,9 @@ export default function ContabilidadPage() {
                 <LibroDiarioTable
                     asientos={asientos}
                     loading={loading}
+                    empresa={currentEmpresa}
+                    fechaInicio={fechaInicio}
+                    fechaFin={fechaFin}
                 />
             )}
 
@@ -312,7 +387,7 @@ export default function ContabilidadPage() {
                             <p className="text-sm text-slate-600 mt-1">RUC: {currentEmpresa?.ruc}</p>
                             <p className="text-sm text-slate-500 mt-1">{currentEmpresa?.direccionMatriz}</p>
                             <h3 className="text-xl font-bold text-sri-blue uppercase mt-4">Estado de Situación Financiera</h3>
-                            <p className="text-slate-500 font-medium mt-1">Al {new Date(fechaFin).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                            <p className="text-slate-500 font-medium mt-1">Al {new Date(fechaFin + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                             <p className="text-sm text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
                         </div>
 
@@ -321,7 +396,7 @@ export default function ContabilidadPage() {
                             <Button variant="secondary" className="flex items-center gap-2">
                                 <Printer size={18} /> Imprimir
                             </Button>
-                            <Button variant="secondary" className="flex items-center gap-2">
+                            <Button variant="secondary" onClick={handleExportBalance} className="flex items-center gap-2">
                                 <Download size={18} /> Exportar Excel
                             </Button>
                         </div>
@@ -408,7 +483,7 @@ export default function ContabilidadPage() {
                             <p className="text-sm text-slate-500 mt-1">{currentEmpresa?.direccionMatriz}</p>
                             <h3 className="text-xl font-bold text-sri-blue uppercase mt-4">Estado de Resultados Integral</h3>
                             <p className="text-slate-500 font-medium mt-1">
-                                Del {new Date(fechaInicio).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                Del {new Date(fechaInicio + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
                             </p>
                             <p className="text-sm text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
                         </div>
@@ -418,7 +493,7 @@ export default function ContabilidadPage() {
                             <Button variant="secondary" className="flex items-center gap-2">
                                 <Printer size={18} /> Imprimir
                             </Button>
-                            <Button variant="secondary" className="flex items-center gap-2">
+                            <Button variant="secondary" onClick={handleExportResultados} className="flex items-center gap-2">
                                 <Download size={18} /> Exportar Excel
                             </Button>
                         </div>

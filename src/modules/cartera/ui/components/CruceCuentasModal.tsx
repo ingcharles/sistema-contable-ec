@@ -3,9 +3,7 @@
 import React, { useState } from 'react';
 import { X, ArrowRightLeft } from 'lucide-react';
 import { DocumentoPendiente, Anticipo, TipoCartera } from '../../domain/types';
-import { InMemoryCarteraRepository } from '../../infrastructure/CarteraRepository';
-import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
-import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
+import { ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
@@ -14,10 +12,9 @@ interface Props {
     anticipos: Anticipo[];
     onClose: () => void;
     onSave: () => void;
-    empresaId: string;
 }
 
-export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClose, onSave, empresaId }) => {
+export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClose, onSave }) => {
     const [selectedAnticipoId, setSelectedAnticipoId] = useState('');
     const [valorCruce, setValorCruce] = useState(0);
     const [fecha] = useState(new Date().toISOString().split('T')[0]);
@@ -25,56 +22,45 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
     const anticipoSeleccionado = anticipos.find(a => a.id === selectedAnticipoId);
     const maxCruce = anticipoSeleccionado ? Math.min(anticipoSeleccionado.saldoDisponible, documento.saldoPendiente) : 0;
 
+    const [guardando, setGuardando] = useState(false);
+
     const handleCruce = async () => {
         if (!anticipoSeleccionado || valorCruce <= 0 || valorCruce > maxCruce) return;
 
+        setGuardando(true);
         try {
-            const repoConfig = new InMemoryConfiguracionRepository();
-            const params = await repoConfig.getParametros(empresaId);
-
-            const repoCartera = new InMemoryCarteraRepository();
-            await repoCartera.savePago({
-                id: Math.random().toString(36),
-                empresaId,
+            const params = await ConfiguracionUseCases.obtenerParametros();
+            // 1. Registrar Cruce en Cartera
+            await CarteraUseCases.registrarPago({
                 documentoId: documento.id,
                 anticipoId: anticipoSeleccionado.id,
                 fecha,
                 valorEfectivo: 0,
                 valorRetencion: 0,
                 valorCruce,
-                formaPago: 'CRUCE_ANTICIPO' as any,
-                referencia: `Cruce con Ant. ${anticipoSeleccionado.referencia}`
+                formaPago: 'CRUCE_ANTICIPO'
             });
 
             const esCxC = documento.tipo === TipoCartera.CXC;
-            const ctaCxC = params.cuentaCxcClientes;
-            const ctaCxP = params.cuentaCxpProveedores;
-            const ctaAntCli = params.cuentaAnticipoClientes;
-            const ctaAntProv = params.cuentaAnticipoProveedores;
+            const ctaCxC = params.cuentaCxcClientes || '1.1.02.01';
+            const ctaCxP = params.cuentaCxpProveedores || '2.1.01.01';
+            const ctaAntCli = params.cuentaAnticipoClientes || '2.1.03.01';
+            const ctaAntProv = params.cuentaAnticipoProveedores || '1.1.03.01';
 
             const detalles = esCxC ? [
-                { cuentaCodigo: ctaAntCli, cuentaNombre: 'ANTICIPO DE CLIENTES', debe: valorCruce, haber: 0 },
-                { cuentaCodigo: ctaCxC, cuentaNombre: 'CUENTAS POR COBRAR CLIENTES', debe: 0, haber: valorCruce }
+                { cuentaCodigo: ctaAntCli, debe: valorCruce, haber: 0 },
+                { cuentaCodigo: ctaCxC, debe: 0, haber: valorCruce }
             ] : [
-                { cuentaCodigo: ctaCxP, cuentaNombre: 'CUENTAS POR PAGAR PROVEEDORES', debe: valorCruce, haber: 0 },
-                { cuentaCodigo: ctaAntProv, cuentaNombre: 'ANTICIPO A PROVEEDORES', debe: 0, haber: valorCruce }
+                { cuentaCodigo: ctaCxP, debe: valorCruce, haber: 0 },
+                { cuentaCodigo: ctaAntProv, debe: 0, haber: valorCruce }
             ];
 
-            const repoCont = new InMemoryContabilidadRepository();
-            await repoCont.saveAsiento({
-                id: Math.random().toString(36),
-                empresaId,
-                numero: `CRU-${Math.floor(Math.random() * 1000)}`,
+            await ContabilidadUseCases.registrarAsiento({
+                numero: `CRU-${crypto.randomUUID().slice(0, 8)}`,
                 fecha,
                 glosa: `Cruce Fac/${documento.nroComprobante} con Anticipo ${anticipoSeleccionado.referencia}`,
                 tipo: 'DIARIO',
-                estado: 'MAYORIZADO',
-                totalDebe: valorCruce,
-                totalHaber: valorCruce,
-                detalles,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                createdBy: 'system'
+                detalles
             });
 
             onSave();
@@ -82,6 +68,8 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
         } catch (error) {
             console.error('Error al procesar cruce:', error);
             alert('Error al procesar el cruce de cuentas.');
+        } finally {
+            setGuardando(false);
         }
     };
 
@@ -135,9 +123,9 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
                     )}
                 </div>
                 <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleCruce} disabled={!selectedAnticipoId || valorCruce <= 0} className="flex items-center gap-2 disabled:opacity-50">
-                        <ArrowRightLeft size={18} /> Procesar Cruce
+                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+                    <Button onClick={handleCruce} disabled={!selectedAnticipoId || valorCruce <= 0 || guardando} className="flex items-center gap-2 disabled:opacity-50">
+                        <ArrowRightLeft size={18} /> {guardando ? 'Procesando...' : 'Procesar Cruce'}
                     </Button>
                 </div>
             </div>

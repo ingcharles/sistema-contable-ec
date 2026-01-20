@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { CodigoRetencion } from '../../domain/types';
-import { InMemoryConfiguracionRepository } from '../../infrastructure/ConfiguracionRepository';
+import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
 
 interface RetencionModalProps {
@@ -22,25 +22,29 @@ export const RetencionModal = ({ onClose, onSave, empresaId, retencionEditar }: 
         activo: true
     });
 
+    const [guardando, setGuardando] = useState(false);
+
     const handleSubmit = async () => {
         if (!formData.codigo || !formData.concepto) {
             alert('Complete los campos obligatorios');
             return;
         }
 
-        const newRet: CodigoRetencion = {
-            ...formData as CodigoRetencion,
-            id: retencionEditar?.id || Math.random().toString(36).substr(2, 9),
-            empresaId,
-            createdAt: retencionEditar?.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: retencionEditar?.createdBy || 'user'
-        };
-
-        const repo = new InMemoryConfiguracionRepository();
-        await repo.saveCodigoRetencion(newRet);
-        onSave();
-        onClose();
+        setGuardando(true);
+        try {
+            await ConfiguracionUseCases.guardarRetencion({
+                ...formData,
+                id: retencionEditar?.id,
+                empresaId
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Error al guardar la retención');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     return (
@@ -107,9 +111,9 @@ export const RetencionModal = ({ onClose, onSave, empresaId, retencionEditar }: 
                 </div>
 
                 <div className="p-6 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl bg-slate-50">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleSubmit} className="flex items-center gap-2">
-                        <Save size={18} /> Guardar
+                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+                    <Button onClick={handleSubmit} className="flex items-center gap-2" disabled={guardando}>
+                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar'}
                     </Button>
                 </div>
             </div>

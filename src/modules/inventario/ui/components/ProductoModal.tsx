@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Package, Tag, DollarSign, BarChart2 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
-import { InMemoryInventarioRepository } from '@/modules/inventario/infrastructure/InventarioRepository';
-import { CategoriaProducto } from '@/modules/inventario/domain/types';
+import { useCategorias, useInventarioMutations } from '../../hooks/useInventario';
+import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 interface ProductoModalProps {
     onClose: () => void;
@@ -13,24 +13,42 @@ interface ProductoModalProps {
 }
 
 export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps) => {
-    const [categorias, setCategorias] = useState<CategoriaProducto[]>([]);
+    // Hooks de Negocio
+    const { categorias } = useCategorias(empresaId);
+    const { guardarProducto, guardando } = useInventarioMutations();
     const [nombre, setNombre] = useState('');
     const [codigo, setCodigo] = useState('');
     const [categoriaId, setCategoriaId] = useState('');
     const [precioVenta, setPrecioVenta] = useState(0);
     const [stockMinimo, setStockMinimo] = useState(1);
-    const [grabaIva, setGrabaIva] = useState(true);
-    const [guardando, setGuardando] = useState(false);
 
+    // Manejo de IVA con catálogos dinámicos
+    const { getCatalogo, loading: loadingCatalogos } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA']);
+    const tarifasIva = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
+    const [codigoTarifaIva, setCodigoTarifaIva] = useState('4'); // Por defecto 15% (código 4)
+
+
+
+    // Seleccionar primera categoría cuando carguen
     useEffect(() => {
-        const loadCategorias = async () => {
-            const repo = new InMemoryInventarioRepository();
-            const data = await repo.getCategorias(empresaId);
-            setCategorias(data);
-            if (data.length > 0) setCategoriaId(data[0].id);
-        };
-        loadCategorias();
-    }, [empresaId]);
+        if (!categoriaId && categorias.length > 0) {
+            setCategoriaId(categorias[0].id);
+        }
+    }, [categorias, categoriaId]);
+
+    // Actualizar default tarifa cuando carguen los catálogos si el actual no existe o es inválido
+    useEffect(() => {
+        if (!loadingCatalogos && tarifasIva.length > 0) {
+            // Si el código actual (ej '4') no está en la lista (raro), poner el primero
+            const existe = tarifasIva.some(t => t.codigo === codigoTarifaIva);
+            if (!existe) {
+                // Intentar buscar el de 15% por string
+                const tarifa15 = tarifasIva.find(t => t.valor.includes('15%'));
+                if (tarifa15) setCodigoTarifaIva(tarifa15.codigo);
+                else setCodigoTarifaIva(tarifasIva[0].codigo);
+            }
+        }
+    }, [loadingCatalogos, tarifasIva, codigoTarifaIva]);
 
     const handleGuardar = async () => {
         if (!nombre || !codigo || !categoriaId) {
@@ -38,36 +56,30 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
             return;
         }
 
-        setGuardando(true);
-        try {
-            const repo = new InMemoryInventarioRepository();
-            const cat = categorias.find(c => c.id === categoriaId);
+        // Determinar booleano de IVA basado en código SRI
+        // 0, 6, 7 son tarifas 0% o exentas. 2, 3, 4, 5, 8 son gravadas.
+        const codigosNoGraban = ['0', '6', '7'];
+        const grabaIva = !codigosNoGraban.includes(codigoTarifaIva);
 
-            await repo.saveProducto({
-                id: Math.random().toString(36).substr(2, 9),
-                empresaId,
-                codigoPrincipal: codigo,
-                codigoAuxiliar: '',
-                nombre,
-                categoriaId,
-                categoriaNombre: cat?.nombre || '',
-                stockActual: 0,
-                costoPromedio: 0,
-                precioVenta,
-                grabaIva,
-                stockMinimo,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                createdBy: 'admin'
-            });
+        const resultado = await guardarProducto({
+            empresaId,
+            codigoPrincipal: codigo,
+            codigoAuxiliar: '',
+            nombre,
+            categoriaId,
+            stockActual: 0,
+            costoPromedio: 0,
+            precioVenta,
+            grabaIva,
+            stockMinimo,
+            activo: true
+        });
 
+        if (resultado.success) {
             onSave();
             onClose();
-        } catch (error) {
-            console.error('Error al guardar producto:', error);
-            alert('Error al guardar el producto.');
-        } finally {
-            setGuardando(false);
+        } else {
+            alert(resultado.error);
         }
     };
 
@@ -154,17 +166,18 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
                             />
                         </div>
-                        <div className="flex items-center gap-3 pt-8">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={grabaIva}
-                                    onChange={(e) => setGrabaIva(e.target.checked)}
-                                    className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sri-blue"></div>
-                                <span className="ml-3 text-sm font-medium text-slate-700">Graba IVA (15%)</span>
-                            </label>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Graba IVA</label>
+                            <select
+                                value={codigoTarifaIva}
+                                onChange={(e) => setCodigoTarifaIva(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                                disabled={loadingCatalogos}
+                            >
+                                {tarifasIva.map(t => (
+                                    <option key={t.codigo} value={t.codigo}>{t.valor} {t.descripcion ? `- ${t.descripcion}` : ''}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </div>

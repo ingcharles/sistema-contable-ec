@@ -13,7 +13,20 @@ interface EmpresaContextType {
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined);
 
 export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [currentEmpresa, setCurrentEmpresa] = useState<Empresa>(MOCK_EMPRESAS[0]);
+    const [currentEmpresa, _setCurrentEmpresa] = useState<Empresa>(MOCK_EMPRESAS[0]);
+
+    const setCurrentEmpresa = (empresa: Empresa) => {
+        _setCurrentEmpresa(empresa);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('current_empresa_id', empresa.id);
+        }
+    };
+
+    React.useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('current_empresa_id', currentEmpresa.id);
+        }
+    }, [currentEmpresa.id]);
 
     return (
         <EmpresaContext.Provider value={{
