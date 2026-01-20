@@ -5,6 +5,7 @@ import { X, ArrowRightLeft } from 'lucide-react';
 import { DocumentoPendiente, Anticipo, TipoCartera } from '../../domain/types';
 import { InMemoryCarteraRepository } from '../../infrastructure/CarteraRepository';
 import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
+import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
@@ -27,51 +28,61 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
     const handleCruce = async () => {
         if (!anticipoSeleccionado || valorCruce <= 0 || valorCruce > maxCruce) return;
 
-        const repoCartera = new InMemoryCarteraRepository();
-        await repoCartera.savePago({
-            documentoId: documento.id,
-            anticipoId: anticipoSeleccionado.id,
-            fecha,
-            valorEfectivo: 0,
-            valorRetencion: 0,
-            valorCruce,
-            formaPago: 'CRUCE_ANTICIPO',
-            referencia: `Cruce con Ant. ${anticipoSeleccionado.referencia}`
-        });
+        try {
+            const repoConfig = new InMemoryConfiguracionRepository();
+            const params = await repoConfig.getParametros(empresaId);
 
-        const esCxC = documento.tipo === TipoCartera.CXC;
-        const ctaCxC = '1.1.02.01';
-        const ctaCxP = '2.1.01.01';
-        const ctaAntCli = '2.1.01.05';
-        const ctaAntProv = '1.1.02.05';
+            const repoCartera = new InMemoryCarteraRepository();
+            await repoCartera.savePago({
+                id: Math.random().toString(36),
+                empresaId,
+                documentoId: documento.id,
+                anticipoId: anticipoSeleccionado.id,
+                fecha,
+                valorEfectivo: 0,
+                valorRetencion: 0,
+                valorCruce,
+                formaPago: 'CRUCE_ANTICIPO' as any,
+                referencia: `Cruce con Ant. ${anticipoSeleccionado.referencia}`
+            });
 
-        const detalles = esCxC ? [
-            { cuentaCodigo: ctaAntCli, cuentaNombre: 'ANTICIPO DE CLIENTES', debe: valorCruce, haber: 0 },
-            { cuentaCodigo: ctaCxC, cuentaNombre: 'CUENTAS POR COBRAR CLIENTES', debe: 0, haber: valorCruce }
-        ] : [
-            { cuentaCodigo: ctaCxP, cuentaNombre: 'CUENTAS POR PAGAR PROVEEDORES', debe: valorCruce, haber: 0 },
-            { cuentaCodigo: ctaAntProv, cuentaNombre: 'ANTICIPO A PROVEEDORES', debe: 0, haber: valorCruce }
-        ];
+            const esCxC = documento.tipo === TipoCartera.CXC;
+            const ctaCxC = params.cuentaCxcClientes;
+            const ctaCxP = params.cuentaCxpProveedores;
+            const ctaAntCli = params.cuentaAnticipoClientes;
+            const ctaAntProv = params.cuentaAnticipoProveedores;
 
-        const repoCont = new InMemoryContabilidadRepository();
-        await repoCont.saveAsiento({
-            id: Math.random().toString(36),
-            empresaId,
-            numero: `CRU-${Math.floor(Math.random() * 1000)}`,
-            fecha,
-            glosa: `Cruce Fac/${documento.nroComprobante} con Anticipo ${anticipoSeleccionado.referencia}`,
-            tipo: 'DIARIO',
-            estado: 'MAYORIZADO',
-            totalDebe: valorCruce,
-            totalHaber: valorCruce,
-            detalles,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'system'
-        });
+            const detalles = esCxC ? [
+                { cuentaCodigo: ctaAntCli, cuentaNombre: 'ANTICIPO DE CLIENTES', debe: valorCruce, haber: 0 },
+                { cuentaCodigo: ctaCxC, cuentaNombre: 'CUENTAS POR COBRAR CLIENTES', debe: 0, haber: valorCruce }
+            ] : [
+                { cuentaCodigo: ctaCxP, cuentaNombre: 'CUENTAS POR PAGAR PROVEEDORES', debe: valorCruce, haber: 0 },
+                { cuentaCodigo: ctaAntProv, cuentaNombre: 'ANTICIPO A PROVEEDORES', debe: 0, haber: valorCruce }
+            ];
 
-        onSave();
-        onClose();
+            const repoCont = new InMemoryContabilidadRepository();
+            await repoCont.saveAsiento({
+                id: Math.random().toString(36),
+                empresaId,
+                numero: `CRU-${Math.floor(Math.random() * 1000)}`,
+                fecha,
+                glosa: `Cruce Fac/${documento.nroComprobante} con Anticipo ${anticipoSeleccionado.referencia}`,
+                tipo: 'DIARIO',
+                estado: 'MAYORIZADO',
+                totalDebe: valorCruce,
+                totalHaber: valorCruce,
+                detalles,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                createdBy: 'system'
+            });
+
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error('Error al procesar cruce:', error);
+            alert('Error al procesar el cruce de cuentas.');
+        }
     };
 
     return (

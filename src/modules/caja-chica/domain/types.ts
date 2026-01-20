@@ -39,4 +39,5 @@ export interface CajaChicaRepository {
     getVales(empresaId: string): Promise<ValeCajaChica[]>;
     saveVale(vale: ValeCajaChica): Promise<void>;
     liquidarVales(ids: string[]): Promise<void>;
+    anularVale(id: string): Promise<void>;
 }

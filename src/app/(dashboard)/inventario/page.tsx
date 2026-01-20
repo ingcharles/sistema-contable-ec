@@ -23,6 +23,8 @@ export default function InventarioPage() {
     const [bodegas, setBodegas] = useState<Bodega[]>([]);
 
     const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null);
+    const [selectedCategoria, setSelectedCategoria] = useState<CategoriaProducto | null>(null);
+    const [selectedBodega, setSelectedBodega] = useState<Bodega | null>(null);
     const [showModalProd, setShowModalProd] = useState(false);
     const [showModalCat, setShowModalCat] = useState(false);
     const [showModalBod, setShowModalBod] = useState(false);
@@ -41,6 +43,14 @@ export default function InventarioPage() {
     };
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id]);
+
+    const handleDeleteBodega = async (id: string) => {
+        if (window.confirm('¿Está seguro de eliminar esta bodega?')) {
+            const repo = new InMemoryInventarioRepository();
+            await repo.deleteBodega(id);
+            loadData();
+        }
+    };
 
     const productoColumns: Column<Producto>[] = [
         {
@@ -116,7 +126,22 @@ export default function InventarioPage() {
         {
             header: 'Acciones',
             className: 'text-right',
-            cell: () => <button className="text-sri-blue hover:underline text-xs">Editar</button>
+            cell: (row) => (
+                <div className="flex justify-end gap-2">
+                    <button
+                        onClick={() => { setSelectedBodega(row); setShowModalBod(true); }}
+                        className="text-sri-blue hover:underline text-xs"
+                    >
+                        Editar
+                    </button>
+                    <button
+                        onClick={() => handleDeleteBodega(row.id)}
+                        className="text-red-500 hover:underline text-xs"
+                    >
+                        Eliminar
+                    </button>
+                </div>
+            )
         }
     ];
 
@@ -199,7 +224,12 @@ export default function InventarioPage() {
                                         <div key={cat.id} className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                                             <div className="flex justify-between items-start mb-2">
                                                 <h4 className="font-bold text-slate-700">{cat.nombre}</h4>
-                                                <button className="text-xs text-sri-blue hover:underline">Editar</button>
+                                                <button
+                                                    onClick={() => { setSelectedCategoria(cat); setShowModalCat(true); }}
+                                                    className="text-xs text-sri-blue hover:underline"
+                                                >
+                                                    Editar
+                                                </button>
                                             </div>
                                             <div className="grid grid-cols-3 gap-2 text-xs">
                                                 <div className="bg-slate-100 p-2 rounded">
@@ -259,14 +289,16 @@ export default function InventarioPage() {
             )}
             {showModalCat && (
                 <CategoriaModal
-                    onClose={() => setShowModalCat(false)}
+                    onClose={() => { setShowModalCat(false); setSelectedCategoria(null); }}
                     onSave={loadData}
                     empresaId={empresaId}
+                    categoriaEditar={selectedCategoria}
                 />
             )}
             {showModalBod && (
                 <BodegaModal
-                    onClose={() => setShowModalBod(false)}
+                    bodega={selectedBodega || undefined}
+                    onClose={() => { setShowModalBod(false); setSelectedBodega(null); }}
                     onSave={loadData}
                     empresaId={empresaId}
                 />
@@ -274,3 +306,4 @@ export default function InventarioPage() {
         </div>
     );
 }
+

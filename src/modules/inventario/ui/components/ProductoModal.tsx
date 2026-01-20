@@ -39,10 +39,36 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
         }
 
         setGuardando(true);
-        // Simular guardado
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        onSave();
-        onClose();
+        try {
+            const repo = new InMemoryInventarioRepository();
+            const cat = categorias.find(c => c.id === categoriaId);
+
+            await repo.saveProducto({
+                id: Math.random().toString(36).substr(2, 9),
+                empresaId,
+                codigoPrincipal: codigo,
+                codigoAuxiliar: '',
+                nombre,
+                categoriaId,
+                categoriaNombre: cat?.nombre || '',
+                stockActual: 0,
+                costoPromedio: 0,
+                precioVenta,
+                grabaIva,
+                stockMinimo,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                createdBy: 'admin'
+            });
+
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error('Error al guardar producto:', error);
+            alert('Error al guardar el producto.');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     return (

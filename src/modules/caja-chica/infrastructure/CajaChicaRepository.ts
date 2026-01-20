@@ -59,4 +59,11 @@ export class InMemoryCajaChicaRepository implements CajaChicaRepository {
             if (ids.includes(v.id)) v.estado = EstadoVale.LIQUIDADO;
         });
     }
+
+    async anularVale(id: string): Promise<void> {
+        const vale = MOCK_VALES.find(v => v.id === id);
+        if (vale) {
+            vale.estado = EstadoVale.ANULADO;
+        }
+    }
 }

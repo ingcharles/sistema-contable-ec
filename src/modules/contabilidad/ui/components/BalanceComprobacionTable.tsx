@@ -1,18 +1,20 @@
 import { useMemo } from 'react';
 import { Download, Printer } from 'lucide-react';
 import { AsientoContable } from '../../domain/types';
-import { PLAN_CUENTAS } from '@/shared/constants';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
+import { Empresa, CuentaContable } from '@/shared/types';
 
 interface BalanceComprobacionTableProps {
     asientos: AsientoContable[];
     fechaInicio: string;
     fechaFin: string;
     loading?: boolean;
+    empresa?: Empresa;
+    planCuentas: CuentaContable[];
 }
 
-export const BalanceComprobacionTable = ({ asientos, fechaInicio, fechaFin, loading }: BalanceComprobacionTableProps) => {
+export const BalanceComprobacionTable = ({ asientos, fechaInicio, fechaFin, loading, empresa, planCuentas }: BalanceComprobacionTableProps) => {
 
     const datosBalance = useMemo(() => {
         // Filter seats by date range and status
@@ -37,7 +39,7 @@ export const BalanceComprobacionTable = ({ asientos, fechaInicio, fechaFin, load
 
         // Map to Plan de Cuentas to get names and structure
         // Only show accounts with movement or balance
-        return PLAN_CUENTAS.map(cuenta => {
+        return planCuentas.map(cuenta => {
             const mov = movimientos[cuenta.codigo] || { debe: 0, haber: 0 };
             const saldoInicial = cuenta.saldo || 0; // Assuming this is initial balance
 
@@ -72,9 +74,23 @@ export const BalanceComprobacionTable = ({ asientos, fechaInicio, fechaFin, load
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            {/* Cabecera con datos de la empresa */}
+            {empresa && (
+                <div className="text-center p-6 pb-4 border-b-2 border-slate-200 bg-slate-50/30">
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{empresa.razonSocial}</h2>
+                    <p className="text-xs text-slate-600 mt-1">RUC: {empresa.ruc}</p>
+                    <p className="text-xs text-slate-500 mt-1">{empresa.direccionMatriz}</p>
+                    <h3 className="text-lg font-bold text-sri-blue uppercase mt-3">Balance de Comprobación de Sumas y Saldos</h3>
+                    <p className="text-slate-500 font-medium text-sm mt-1">
+                        Del {new Date(fechaInicio).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
+                </div>
+            )}
+
             {/* Toolbar */}
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="font-bold text-slate-700">Balance de Comprobación de Sumas y Saldos</h3>
+                <h3 className="font-bold text-slate-700">{!empresa && 'Balance de Comprobación de Sumas y Saldos'}</h3>
                 <div className="flex gap-2">
                     <Button variant="secondary" size="sm" className="flex items-center gap-2">
                         <Printer size={16} /> Imprimir

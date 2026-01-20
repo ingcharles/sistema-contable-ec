@@ -53,6 +53,10 @@ export interface ParametrosContables {
     cuentaIvaVentas: string;
     cuentaIvaCompras: string;
     cuentaRetRentaPorPagar: string;
+    cuentaCxcClientes: string;
+    cuentaAnticipoClientes: string;
+    cuentaCxpProveedores: string;
+    cuentaAnticipoProveedores: string;
 }
 
 export interface ConfiguracionRepository {

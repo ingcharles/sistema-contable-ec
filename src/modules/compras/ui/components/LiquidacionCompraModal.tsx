@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, FileText, UserPlus, Calculator, Plus, Trash2, CreditCard } from 'lucide-react';
+import { X, Save, FileText, UserPlus, Calculator, Plus, Trash2, CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { TARIFA_IVA, FORMA_PAGO, TIPO_IDENTIFICACION, AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
 import { SriStandardizer } from '@/modules/facturacion/application/services/SriStandardizer';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
+import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
 
 interface Props {
     onClose: () => void;
@@ -50,6 +51,10 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
 
     const [guardando, setGuardando] = useState(false);
 
+    // Estado de validación
+    const [errorIdentificacion, setErrorIdentificacion] = useState('');
+    const [identificacionValida, setIdentificacionValida] = useState(false);
+
     // Cálculos
     const calcularTotales = () => {
         let totalSinImpuestos = 0;
@@ -75,6 +80,34 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
             setPagos(nuevosPagos);
         }
     }, [totales.importeTotal]);
+
+    // Validar identificación en tiempo real
+    useEffect(() => {
+        if (!identificacion || tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL) {
+            setErrorIdentificacion('');
+            setIdentificacionValida(tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL);
+            return;
+        }
+
+        // Solo validar si tiene longitud mínima
+        if (identificacion.length >= 5) {
+            const resultado = validarIdentificacion(
+                tipoIdentificacion as '04' | '05' | '06' | '07' | '08',
+                identificacion
+            );
+
+            if (!resultado.isValid) {
+                setErrorIdentificacion(resultado.error || 'Identificación inválida');
+                setIdentificacionValida(false);
+            } else {
+                setErrorIdentificacion('');
+                setIdentificacionValida(true);
+            }
+        } else {
+            setErrorIdentificacion('');
+            setIdentificacionValida(false);
+        }
+    }, [identificacion, tipoIdentificacion]);
 
     const handleActualizarDetalle = (index: number, campo: string, valor: any) => {
         const nuevosDetalles = [...detalles];
@@ -188,7 +221,33 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-slate-500">Nro. Identificación *</label>
-                                <input type="text" value={identificacion} onChange={e => setIdentificacion(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" placeholder="17..." />
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={identificacion}
+                                        onChange={e => setIdentificacion(e.target.value)}
+                                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm pr-10 ${errorIdentificacion ? 'border-red-300 focus:ring-red-200' :
+                                                identificacionValida ? 'border-green-300 focus:ring-green-200' :
+                                                    'border-slate-200'
+                                            }`}
+                                        placeholder="17..."
+                                    />
+                                    {identificacion.length >= 5 && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            {identificacionValida ? (
+                                                <CheckCircle2 size={18} className="text-green-500" />
+                                            ) : errorIdentificacion ? (
+                                                <AlertCircle size={18} className="text-red-500" />
+                                            ) : null}
+                                        </div>
+                                    )}
+                                </div>
+                                {errorIdentificacion && (
+                                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                        <AlertCircle size={12} />
+                                        {errorIdentificacion}
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-slate-500">Nombre / Razón Social *</label>

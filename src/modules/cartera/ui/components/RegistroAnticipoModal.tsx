@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Save, Search, User } from 'lucide-react';
 import { TipoCartera, Anticipo } from '../../domain/types';
 import { InMemoryCarteraRepository } from '../../infrastructure/CarteraRepository';
 import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
 import { InMemoryBancosRepository } from '@/modules/bancos/infrastructure/BancosRepository';
+import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
+import { InMemoryDirectorioRepository } from '@/modules/directorio/infrastructure/DirectorioRepository';
+import { TipoTercero, Tercero } from '@/modules/directorio/domain/types';
 import { TipoMovimientoBancario } from '@/modules/bancos/domain/types';
 import { Button } from '@/shared/ui/Button';
 
@@ -25,11 +28,45 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
     const [referencia, setReferencia] = useState('');
     const [bancoId] = useState('cta1');
 
+    const [busqueda, setBusqueda] = useState('');
+    const [terceros, setTerceros] = useState<Tercero[]>([]);
+    const [mostrarResultados, setMostrarResultados] = useState(false);
+    const [cargandoTerceros, setCargandoTerceros] = useState(false);
+
+    useEffect(() => {
+        if (busqueda.length > 2) {
+            const buscar = async () => {
+                setCargandoTerceros(true);
+                const repo = new InMemoryDirectorioRepository();
+                const tipoBusqueda = esCliente ? TipoTercero.CLIENTE : TipoTercero.PROVEEDOR;
+                const data = await repo.getTerceros(empresaId, tipoBusqueda);
+                const filtrados = data.filter(t =>
+                    t.razonSocial.toLowerCase().includes(busqueda.toLowerCase()) ||
+                    t.identificacion.includes(busqueda)
+                );
+                setTerceros(filtrados);
+                setCargandoTerceros(false);
+                setMostrarResultados(true);
+            };
+            const timer = setTimeout(buscar, 300);
+            return () => clearTimeout(timer);
+        } else {
+            setMostrarResultados(false);
+        }
+    }, [busqueda, empresaId, esCliente]);
+
+    const seleccionarTercero = (t: Tercero) => {
+        setTerceroId(t.identificacion);
+        setTerceroNombre(t.razonSocial);
+        setBusqueda(t.razonSocial);
+        setMostrarResultados(false);
+    };
+
     const handleGuardar = async () => {
         if (!terceroId || monto <= 0) return;
 
         const anticipo: Anticipo = {
-            id: Math.random().toString(36),
+            id: Math.random().toString(36).substr(2, 9),
             empresaId,
             tipo,
             terceroId,
@@ -50,7 +87,7 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
 
         const repoBancos = new InMemoryBancosRepository();
         await repoBancos.saveMovimiento({
-            id: Math.random().toString(36),
+            id: Math.random().toString(36).substr(2, 9),
             cuentaId: bancoId,
             fecha,
             tipo: esCliente ? TipoMovimientoBancario.TRANSFERENCIA_RECIBIDA : TipoMovimientoBancario.TRANSFERENCIA_ENVIADA,
@@ -65,20 +102,23 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
             createdBy: 'user'
         });
 
+        const repoConfig = new InMemoryConfiguracionRepository();
+        const params = await repoConfig.getParametros(empresaId);
+
         const repoCont = new InMemoryContabilidadRepository();
-        const ctaBanco = '1.1.01.02';
-        const ctaAnticipo = esCliente ? '2.1.01.05' : '1.1.02.05';
+        const ctaBanco = params.cuentaCaja || '1.1.01.01';
+        const ctaAnticipo = esCliente ? params.cuentaAnticipoClientes : params.cuentaAnticipoProveedores;
 
         const detalles = esCliente ? [
-            { cuentaCodigo: ctaBanco, cuentaNombre: 'BANCOS', debe: monto, haber: 0 },
+            { cuentaCodigo: ctaBanco, cuentaNombre: 'CAJA/BANCOS', debe: monto, haber: 0 },
             { cuentaCodigo: ctaAnticipo, cuentaNombre: 'ANTICIPO DE CLIENTES', debe: 0, haber: monto }
         ] : [
             { cuentaCodigo: ctaAnticipo, cuentaNombre: 'ANTICIPO A PROVEEDORES', debe: monto, haber: 0 },
-            { cuentaCodigo: ctaBanco, cuentaNombre: 'BANCOS', debe: 0, haber: monto }
+            { cuentaCodigo: ctaBanco, cuentaNombre: 'CAJA/BANCOS', debe: 0, haber: monto }
         ];
 
         await repoCont.saveAsiento({
-            id: Math.random().toString(36),
+            id: Math.random().toString(36).substr(2, 9),
             empresaId,
             numero: `ANT-${Math.floor(Math.random() * 1000)}`,
             fecha,
@@ -108,14 +148,59 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
                     <div className="p-3 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
                         Este proceso registra un movimiento de dinero (Banco) sin asociarlo a una factura. Se creará un saldo a favor para cruzarlo posteriormente.
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">RUC / Identificación</label>
-                        <input type="text" value={terceroId} onChange={e => setTerceroId(e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="Ej: 179..." />
+
+                    <div className="relative">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Buscar {esCliente ? 'Cliente' : 'Proveedor'}</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input
+                                type="text"
+                                value={busqueda}
+                                onChange={e => setBusqueda(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-sri-blue/20 outline-none"
+                                placeholder="Nombre o RUC..."
+                            />
+                        </div>
+
+                        {mostrarResultados && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                                {cargandoTerceros ? (
+                                    <div className="p-4 text-center text-xs text-slate-500">Buscando...</div>
+                                ) : terceros.length > 0 ? (
+                                    terceros.map(t => (
+                                        <button
+                                            key={t.id}
+                                            onClick={() => seleccionarTercero(t)}
+                                            className="w-full p-3 text-left hover:bg-slate-50 border-b last:border-0 flex items-center gap-3"
+                                        >
+                                            <div className="bg-slate-100 p-2 rounded-full text-slate-500">
+                                                <User size={14} />
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-bold text-slate-800">{t.razonSocial}</div>
+                                                <div className="text-[10px] text-slate-500">{t.identificacion}</div>
+                                            </div>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="p-4 text-center text-xs text-slate-500">No se encontraron resultados</div>
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Nombre {esCliente ? 'Cliente' : 'Proveedor'}</label>
-                        <input type="text" value={terceroNombre} onChange={e => setTerceroNombre(e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="Razón Social" />
-                    </div>
+
+                    {terceroId && (
+                        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                            <div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase">Seleccionado:</div>
+                                <div className="text-sm font-bold text-slate-700">{terceroNombre}</div>
+                            </div>
+                            <button onClick={() => { setTerceroId(''); setTerceroNombre(''); setBusqueda(''); }} className="text-slate-400 hover:text-red-500">
+                                <X size={16} />
+                            </button>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">Monto ($)</label>
@@ -133,7 +218,7 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
                 </div>
                 <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
                     <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={monto <= 0} className="flex items-center gap-2">
+                    <Button onClick={handleGuardar} disabled={monto <= 0 || !terceroId} className="flex items-center gap-2">
                         <Save size={18} /> Guardar Anticipo
                     </Button>
                 </div>
@@ -141,3 +226,4 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave, 
         </div>
     );
 };
+

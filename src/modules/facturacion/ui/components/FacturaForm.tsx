@@ -12,7 +12,8 @@ import { Input } from '@/shared/ui/Input';
 import { FacturaViewModel, DetalleFactura, PagoFactura } from '../../application/models/FacturaViewModel';
 import { TIPO_IDENTIFICACION, TARIFA_IVA, FORMA_PAGO, AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search } from 'lucide-react';
+import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
 
 // Repositorios para integración
 import { InMemoryDirectorioRepository } from '@/modules/directorio/infrastructure/DirectorioRepository';
@@ -61,6 +62,10 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
     const [razonSocial, setRazonSocial] = useState(factura?.razonSocialAdquirente || '');
     const [direccion, setDireccion] = useState(factura?.direccionAdquirente || '');
     const [email, setEmail] = useState(factura?.emailAdquirente || '');
+
+    // Estado de validación
+    const [errorIdentificacion, setErrorIdentificacion] = useState('');
+    const [identificacionValida, setIdentificacionValida] = useState(false);
 
     // Datos del Comprobante
     const [estab, setEstab] = useState(factura?.estab || '001');
@@ -116,6 +121,34 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
             setTipoIdentificacion(TIPO_IDENTIFICACION.RUC);
         }
     };
+
+    // Validar identificación en tiempo real
+    useEffect(() => {
+        if (!identificacion || tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL) {
+            setErrorIdentificacion('');
+            setIdentificacionValida(tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL);
+            return;
+        }
+
+        // Solo validar si tiene longitud mínima
+        if (identificacion.length >= 5) {
+            const resultado = validarIdentificacion(
+                tipoIdentificacion as '04' | '05' | '06' | '07' | '08',
+                identificacion
+            );
+
+            if (!resultado.isValid) {
+                setErrorIdentificacion(resultado.error || 'Identificación inválida');
+                setIdentificacionValida(false);
+            } else {
+                setErrorIdentificacion('');
+                setIdentificacionValida(true);
+            }
+        } else {
+            setErrorIdentificacion('');
+            setIdentificacionValida(false);
+        }
+    }, [identificacion, tipoIdentificacion]);
 
     // Efecto para manejar el cambio manual a Consumidor Final
     useEffect(() => {
@@ -327,7 +360,30 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Identificación *</label>
-                            <Input value={identificacion} onChange={(e) => setIdentificacion(e.target.value)} placeholder="17..." required />
+                            <div className="relative">
+                                <Input
+                                    value={identificacion}
+                                    onChange={(e) => setIdentificacion(e.target.value)}
+                                    placeholder="17..."
+                                    required
+                                    className={`pr-10 ${errorIdentificacion ? 'border-red-300 focus:ring-red-200' : identificacionValida ? 'border-green-300 focus:ring-green-200' : ''}`}
+                                />
+                                {identificacion.length >= 5 && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        {identificacionValida ? (
+                                            <CheckCircle2 size={18} className="text-green-500" />
+                                        ) : errorIdentificacion ? (
+                                            <AlertCircle size={18} className="text-red-500" />
+                                        ) : null}
+                                    </div>
+                                )}
+                            </div>
+                            {errorIdentificacion && (
+                                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                    <AlertCircle size={12} />
+                                    {errorIdentificacion}
+                                </p>
+                            )}
                         </div>
                     </div>
                     <div>

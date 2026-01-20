@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UserPlus, FileText, Calculator, Search, Download, CheckCircle2, MoreVertical } from 'lucide-react';
+import { UserPlus, FileText, Calculator, Search, Download, CheckCircle2, Trash2 } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Empleado, RolPago } from '@/modules/nomina/domain/types';
 import { InMemoryNominaRepository } from '@/modules/nomina/infrastructure/NominaRepository';
@@ -9,6 +9,7 @@ import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
 import { RolPagoModal } from '@/modules/nomina/ui/components/RolPagoModal';
+import { EmpleadoModal } from '@/modules/nomina/ui/components/EmpleadoModal';
 
 export default function NominaPage() {
     const { currentEmpresa } = useEmpresa();
@@ -19,7 +20,9 @@ export default function NominaPage() {
     const [periodo, setPeriodo] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
     const [selectedEmpleado, setSelectedEmpleado] = useState<Empleado | null>(null);
+    const [selectedEmpleadoEdit, setSelectedEmpleadoEdit] = useState<Empleado | null>(null);
     const [showRolModal, setShowRolModal] = useState(false);
+    const [showEmpleadoModal, setShowEmpleadoModal] = useState(false);
 
     const loadData = async () => {
         if (!currentEmpresa) return;
@@ -42,6 +45,14 @@ export default function NominaPage() {
         const repo = new InMemoryNominaRepository();
         await repo.generarRoles(currentEmpresa.id, periodo);
         await loadData();
+    };
+
+    const handleDeleteEmpleado = async (id: string) => {
+        if (window.confirm('¿Está seguro de anular este empleado?')) {
+            const repo = new InMemoryNominaRepository();
+            await repo.deleteEmpleado(id);
+            loadData();
+        }
     };
 
     if (!currentEmpresa) return null;
@@ -78,7 +89,7 @@ export default function NominaPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                             <input type="text" placeholder="Buscar empleado..." className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg outline-none" />
                         </div>
-                        <Button variant="secondary" className="flex items-center gap-2">
+                        <Button onClick={() => { setSelectedEmpleadoEdit(null); setShowEmpleadoModal(true); }} className="flex items-center gap-2">
                             <UserPlus size={18} /> Nuevo Empleado
                         </Button>
                     </div>
@@ -109,18 +120,33 @@ export default function NominaPage() {
                                         <td className="px-6 py-4 text-slate-600">{emp.fechaIngreso}</td>
                                         <td className="px-6 py-4 text-right font-medium">{formatMoney(emp.sueldoBase)}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">{emp.estado}</span>
+                                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${emp.estado === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
+                                                {emp.estado}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
+                                            <div className="flex justify-end gap-1">
                                                 <button
-                                                    className="p-1.5 text-slate-400 hover:text-sri-blue rounded-lg"
+                                                    className="p-1.5 text-slate-400 hover:text-sri-blue rounded-lg transition-colors"
                                                     title="Generar Rol Individual"
                                                     onClick={() => { setSelectedEmpleado(emp); setShowRolModal(true); }}
                                                 >
                                                     <Calculator size={18} />
                                                 </button>
-                                                <button className="p-1.5 text-slate-400 hover:text-sri-blue rounded-lg"><MoreVertical size={18} /></button>
+                                                <button
+                                                    className="p-1.5 text-slate-400 hover:text-sri-blue rounded-lg transition-colors"
+                                                    title="Editar"
+                                                    onClick={() => { setSelectedEmpleadoEdit(emp); setShowEmpleadoModal(true); }}
+                                                >
+                                                    <FileText size={18} />
+                                                </button>
+                                                <button
+                                                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                                                    title="Anular"
+                                                    onClick={() => handleDeleteEmpleado(emp.id)}
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -190,6 +216,15 @@ export default function NominaPage() {
                     periodo={periodo}
                     onClose={() => { setShowRolModal(false); setSelectedEmpleado(null); }}
                     onSave={loadData}
+                />
+            )}
+
+            {showEmpleadoModal && (
+                <EmpleadoModal
+                    empleado={selectedEmpleadoEdit || undefined}
+                    onClose={() => { setShowEmpleadoModal(false); setSelectedEmpleadoEdit(null); }}
+                    onSave={loadData}
+                    empresaId={currentEmpresa.id}
                 />
             )}
         </div>

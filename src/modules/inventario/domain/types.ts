@@ -71,4 +71,7 @@ export interface InventarioRepository {
     getBodegas(empresaId: string): Promise<Bodega[]>;
     getKardex(productoId: string, fechaInicio: string, fechaFin: string): Promise<MovimientoKardex[]>;
     saveProducto(producto: Producto): Promise<void>;
+    saveCategoria(categoria: CategoriaProducto): Promise<void>;
+    saveBodega(bodega: Bodega): Promise<void>;
+    deleteBodega(id: string): Promise<void>;
 }

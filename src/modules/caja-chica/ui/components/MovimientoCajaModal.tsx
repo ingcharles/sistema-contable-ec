@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { X, DollarSign, Calendar, FileText, Save, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { X, DollarSign, Calendar, FileText, Save, ArrowUpCircle, ArrowDownCircle, User } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
+import { InMemoryCajaChicaRepository } from '../../infrastructure/CajaChicaRepository';
+import { ValeCajaChica, TipoMovimientoCaja, EstadoVale } from '../../domain/types';
 
 interface MovimientoCajaModalProps {
     tipo: 'INGRESO' | 'EGRESO';
@@ -12,15 +14,36 @@ interface MovimientoCajaModalProps {
 export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: MovimientoCajaModalProps) => {
     const [monto, setMonto] = useState(0);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [beneficiario, setBeneficiario] = useState('');
     const [concepto, setConcepto] = useState('');
     const [comprobante, setComprobante] = useState('');
     const [guardando, setGuardando] = useState(false);
 
     const handleGuardar = async () => {
+        if (monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)) {
+            alert('Por favor complete los campos obligatorios');
+            return;
+        }
+
         setGuardando(true);
-        // Simulate API call using empresaId
-        console.log('Guardando movimiento para empresa:', empresaId);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const repo = new InMemoryCajaChicaRepository();
+
+        const nuevoVale: ValeCajaChica = {
+            id: Math.random().toString(36).substr(2, 9),
+            empresaId,
+            numero: `VAL-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+            fecha,
+            beneficiario: tipo === 'INGRESO' ? 'REPOSICION CAJA' : beneficiario,
+            concepto,
+            monto,
+            tipo: tipo === 'INGRESO' ? TipoMovimientoCaja.INGRESO : TipoMovimientoCaja.EGRESO,
+            estado: EstadoVale.PENDIENTE,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: 'user'
+        };
+
+        await repo.saveVale(nuevoVale);
         onSave();
         onClose();
     };
@@ -33,7 +56,7 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
                     <div>
                         <h2 className={`text-lg font-bold flex items-center gap-2 ${tipo === 'INGRESO' ? 'text-emerald-800' : 'text-rose-800'}`}>
                             {tipo === 'INGRESO' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
-                            {tipo === 'INGRESO' ? 'Registrar Ingreso' : 'Registrar Gasto'}
+                            {tipo === 'INGRESO' ? 'Registrar Ingreso / Reposición' : 'Registrar Gasto / Vale'}
                         </h2>
                         <p className="text-xs text-slate-500">Movimiento de Caja Chica</p>
                     </div>
@@ -44,37 +67,55 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
 
                 {/* Body */}
                 <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Monto</label>
-                        <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="number"
-                                value={monto}
-                                onChange={(e) => setMonto(Number(e.target.value))}
-                                className="w-full pl-9 pr-4 py-2 text-lg font-bold text-slate-800 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                min="0"
-                                step="0.01"
-                                autoFocus
-                            />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Monto *</label>
+                            <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    type="number"
+                                    value={monto}
+                                    onChange={(e) => setMonto(Number(e.target.value))}
+                                    className="w-full pl-9 pr-4 py-2 text-lg font-bold text-slate-800 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
+                                    min="0"
+                                    step="0.01"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Fecha *</label>
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    type="date"
+                                    value={fecha}
+                                    onChange={(e) => setFecha(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="date"
-                                value={fecha}
-                                onChange={(e) => setFecha(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                            />
+                    {tipo === 'EGRESO' && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Beneficiario *</label>
+                            <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    type="text"
+                                    value={beneficiario}
+                                    onChange={(e) => setBeneficiario(e.target.value)}
+                                    placeholder="Nombre del beneficiario"
+                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Concepto / Descripción</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Concepto / Descripción *</label>
                         <textarea
                             value={concepto}
                             onChange={(e) => setConcepto(e.target.value)}
@@ -101,7 +142,7 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
                 {/* Footer */}
                 <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
                     <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={guardando || monto <= 0 || !concepto} className={`flex items-center gap-2 ${tipo === 'INGRESO' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                    <Button onClick={handleGuardar} disabled={guardando || monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)} className={`flex items-center gap-2 ${tipo === 'INGRESO' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
                         <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar Movimiento'}
                     </Button>
                 </div>
@@ -109,3 +150,4 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
         </div>
     );
 };
+

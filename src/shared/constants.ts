@@ -80,19 +80,8 @@ export const MOCK_FACTURAS: ComprobanteElectronico[] = [
     }
 ];
 
-export const PLAN_CUENTAS: CuentaContable[] = [
-    { codigo: '1', nombre: 'ACTIVO', nivel: 1, tipo: 'ACTIVO', saldo: 150000 },
-    { codigo: '1.1', nombre: 'ACTIVO CORRIENTE', nivel: 2, tipo: 'ACTIVO', saldo: 80000 },
-    { codigo: '1.1.01', nombre: 'EFECTIVO Y EQUIVALENTES', nivel: 3, tipo: 'ACTIVO', saldo: 25000 },
-    { codigo: '1.1.01.01', nombre: 'CAJA GENERAL', nivel: 4, tipo: 'ACTIVO', saldo: 5000 },
-    { codigo: '1.1.01.02', nombre: 'BANCOS', nivel: 4, tipo: 'ACTIVO', saldo: 20000 },
-    { codigo: '1.1.02', nombre: 'CUENTAS POR COBRAR', nivel: 3, tipo: 'ACTIVO', saldo: 45000 },
-    { codigo: '2', nombre: 'PASIVO', nivel: 1, tipo: 'PASIVO', saldo: 60000 },
-    { codigo: '2.1', nombre: 'PASIVO CORRIENTE', nivel: 2, tipo: 'PASIVO', saldo: 40000 },
-    { codigo: '3', nombre: 'PATRIMONIO', nivel: 1, tipo: 'PATRIMONIO', saldo: 90000 },
-    { codigo: '4', nombre: 'INGRESOS', nivel: 1, tipo: 'PATRIMONIO', saldo: 0 },
-    { codigo: '5', nombre: 'GASTOS', nivel: 1, tipo: 'ACTIVO', saldo: 0 },
-];
+import { PLAN_CUENTAS_MOCK } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
+export const PLAN_CUENTAS = PLAN_CUENTAS_MOCK;
 
 export const NAV_ITEMS: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },

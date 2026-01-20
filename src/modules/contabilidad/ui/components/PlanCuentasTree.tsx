@@ -1,15 +1,43 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FileText, Plus, Edit2, Trash2 } from 'lucide-react';
 import { CuentaContable } from '@/shared/types';
-import { PLAN_CUENTAS } from '@/shared/constants';
 import { formatMoney } from '@/shared/utils/formatearDinero';
+import { NuevaCuentaModal } from './NuevaCuentaModal';
+import { EditarCuentaModal } from './EditarCuentaModal';
+import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
+
+
 
 interface TreeNode extends CuentaContable {
     children: TreeNode[];
 }
 
 export const PlanCuentasTree = () => {
+    const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
+    const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<Record<string, boolean>>({ '1': true, '2': true, '3': true });
+    const [showNuevaCuenta, setShowNuevaCuenta] = useState(false);
+    const [showEditarCuenta, setShowEditarCuenta] = useState(false);
+    const [cuentaSeleccionada, setCuentaSeleccionada] = useState<CuentaContable | null>(null);
+    const [cuentaPadre, setCuentaPadre] = useState<CuentaContable | undefined>(undefined);
+
+    const repo = useMemo(() => new InMemoryContabilidadRepository(), []);
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const data = await repo.getPlanCuentas('1'); // Mock empresaId
+            setPlanCuentas([...data]);
+        } catch (error) {
+            console.error('Error al cargar plan de cuentas:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     const treeData = useMemo(() => {
         const buildTree = (items: CuentaContable[]): TreeNode[] => {
@@ -24,7 +52,6 @@ export const PlanCuentasTree = () => {
             // Build tree
             items.forEach(item => {
                 const node = lookup[item.codigo];
-                // Find parent code (e.g., 1.1.01 -> 1.1)
                 const parts = item.codigo.split('.');
                 if (parts.length > 1) {
                     parts.pop();
@@ -32,7 +59,6 @@ export const PlanCuentasTree = () => {
                     if (lookup[parentCode]) {
                         lookup[parentCode].children.push(node);
                     } else {
-                        // If parent doesn't exist in list (shouldn't happen in valid plan), treat as root
                         rootItems.push(node);
                     }
                 } else {
@@ -43,11 +69,55 @@ export const PlanCuentasTree = () => {
             return rootItems;
         };
 
-        return buildTree(PLAN_CUENTAS);
-    }, []);
+        return buildTree(planCuentas);
+    }, [planCuentas]);
 
     const toggleExpand = (codigo: string) => {
         setExpanded(prev => ({ ...prev, [codigo]: !prev[codigo] }));
+    };
+
+    const handleNuevaCuenta = (padre?: CuentaContable) => {
+        setCuentaPadre(padre);
+        setShowNuevaCuenta(true);
+    };
+
+    const handleEditarCuenta = (cuenta: CuentaContable) => {
+        setCuentaSeleccionada(cuenta);
+        setShowEditarCuenta(true);
+    };
+
+    const handleSaveNuevaCuenta = async (cuenta: CuentaContable) => {
+        try {
+            await repo.saveCuenta(cuenta);
+            await loadData();
+            setShowNuevaCuenta(false);
+            alert(`Cuenta ${cuenta.codigo} - ${cuenta.nombre} creada exitosamente`);
+        } catch (error) {
+            alert('Error al crear la cuenta');
+        }
+    };
+
+    const handleSaveEditarCuenta = async (cuenta: CuentaContable) => {
+        try {
+            await repo.saveCuenta(cuenta);
+            await loadData();
+            setShowEditarCuenta(false);
+            alert(`Cuenta ${cuenta.codigo} actualizada exitosamente`);
+        } catch (error) {
+            alert('Error al actualizar la cuenta');
+        }
+    };
+
+    const handleEliminarCuenta = async (cuenta: CuentaContable) => {
+        if (confirm(`¿Está seguro de eliminar la cuenta ${cuenta.codigo} - ${cuenta.nombre}?`)) {
+            try {
+                await repo.deleteCuenta(cuenta.codigo);
+                await loadData();
+                alert(`Cuenta ${cuenta.codigo} eliminada exitosamente`);
+            } catch (error) {
+                alert('Error al eliminar la cuenta');
+            }
+        }
     };
 
     const renderNode = (node: TreeNode) => {
@@ -85,14 +155,26 @@ export const PlanCuentasTree = () => {
                             </span>
                             <span className="text-xs font-mono text-slate-400">{node.tipo}</span>
                             <div className="flex gap-1">
-                                <button className="p-1 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded" title="Agregar Subcuenta">
+                                <button
+                                    onClick={() => handleNuevaCuenta(node)}
+                                    className="p-1 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded"
+                                    title="Agregar Subcuenta"
+                                >
                                     <Plus size={14} />
                                 </button>
-                                <button className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Editar">
+                                <button
+                                    onClick={() => handleEditarCuenta(node)}
+                                    className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+                                    title="Editar"
+                                >
                                     <Edit2 size={14} />
                                 </button>
                                 {!hasChildren && (
-                                    <button className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Eliminar">
+                                    <button
+                                        onClick={() => handleEliminarCuenta(node)}
+                                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                        title="Eliminar"
+                                    >
                                         <Trash2 size={14} />
                                     </button>
                                 )}
@@ -111,16 +193,43 @@ export const PlanCuentasTree = () => {
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="font-bold text-slate-700">Plan de Cuentas Jerárquico</h3>
-                <button className="text-sm text-sri-blue hover:underline font-medium flex items-center gap-1">
-                    <Plus size={16} /> Nueva Cuenta Principal
-                </button>
+        <>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 className="font-bold text-slate-700">Plan de Cuentas Jerárquico</h3>
+                    <button
+                        onClick={() => handleNuevaCuenta()}
+                        className="text-sm text-sri-blue hover:underline font-medium flex items-center gap-1"
+                    >
+                        <Plus size={16} /> Nueva Cuenta Principal
+                    </button>
+                </div>
+                <div className="p-2">
+                    {treeData.map(node => renderNode(node))}
+                </div>
             </div>
-            <div className="p-2">
-                {treeData.map(node => renderNode(node))}
-            </div>
-        </div>
+
+            {showNuevaCuenta && (
+                <NuevaCuentaModal
+                    onClose={() => {
+                        setShowNuevaCuenta(false);
+                        setCuentaPadre(undefined);
+                    }}
+                    onSave={handleSaveNuevaCuenta}
+                    cuentaPadre={cuentaPadre}
+                />
+            )}
+
+            {showEditarCuenta && cuentaSeleccionada && (
+                <EditarCuentaModal
+                    cuenta={cuentaSeleccionada}
+                    onClose={() => {
+                        setShowEditarCuenta(false);
+                        setCuentaSeleccionada(null);
+                    }}
+                    onSave={handleSaveEditarCuenta}
+                />
+            )}
+        </>
     );
 };

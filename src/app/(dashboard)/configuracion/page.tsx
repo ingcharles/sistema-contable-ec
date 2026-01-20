@@ -5,10 +5,12 @@ import { Settings, Building2, Monitor, Users, Database, Save, Plus, Edit2, Trash
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Sucursal, UsuarioSistema, ParametrosContables, PuntoEmision, CodigoRetencion } from '@/modules/configuracion/domain/types';
 import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
+import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { RetencionModal } from '@/modules/configuracion/ui/components/RetencionModal';
 import { PuntoEmisionModal } from '@/modules/configuracion/ui/components/PuntoEmisionModal';
+import { CuentaContable } from '@/shared/types';
 
 export default function ConfiguracionPage() {
     const { currentEmpresa } = useEmpresa();
@@ -18,9 +20,11 @@ export default function ConfiguracionPage() {
     const [sucursales, setSucursales] = useState<Sucursal[]>([]);
     const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([]);
     const [parametros, setParametros] = useState<ParametrosContables | null>(null);
+    const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
     const [puntosEmision, setPuntosEmision] = useState<PuntoEmision[]>([]);
     const [retenciones, setRetenciones] = useState<CodigoRetencion[]>([]);
     const [fechaCierre, setFechaCierre] = useState('');
+    const [cargando, setCargando] = useState(true);
 
     // Firma States
     const [firmaFile, setFirmaFile] = useState<File | null>(null);
@@ -37,28 +41,39 @@ export default function ConfiguracionPage() {
 
     const loadData = async () => {
         if (!currentEmpresa) return;
-        const repo = new InMemoryConfiguracionRepository();
+        setCargando(true);
+        try {
+            const repoConfig = new InMemoryConfiguracionRepository();
+            const repoCont = new InMemoryContabilidadRepository();
 
-        // Load basic data
-        const [dataSuc, dataUser, dataParams] = await Promise.all([
-            repo.getSucursales(currentEmpresa.id),
-            repo.getUsuarios(currentEmpresa.id),
-            repo.getParametros(currentEmpresa.id)
-        ]);
-        setSucursales(dataSuc);
-        setUsuarios(dataUser);
-        setParametros(dataParams);
+            // Load basic data
+            const [dataSuc, dataUser, dataParams, dataPC] = await Promise.all([
+                repoConfig.getSucursales(currentEmpresa.id),
+                repoConfig.getUsuarios(currentEmpresa.id),
+                repoConfig.getParametros(currentEmpresa.id),
+                repoCont.getPlanCuentas(currentEmpresa.id)
+            ]);
 
-        // Load tab specific data
-        if (activeTab === 'puntos') {
-            const dataPuntos = await repo.getPuntosEmision(currentEmpresa.id);
-            setPuntosEmision(dataPuntos);
-        } else if (activeTab === 'impuestos') {
-            const dataRet = await repo.getCodigosRetencion(currentEmpresa.id);
-            setRetenciones(dataRet);
-        } else if (activeTab === 'cierre') {
-            const fecha = await repo.getFechaCierre(currentEmpresa.id);
-            setFechaCierre(fecha);
+            setSucursales(dataSuc);
+            setUsuarios(dataUser);
+            setParametros(dataParams);
+            setPlanCuentas(dataPC);
+
+            // Load tab specific data
+            if (activeTab === 'puntos') {
+                const dataPuntos = await repoConfig.getPuntosEmision(currentEmpresa.id);
+                setPuntosEmision(dataPuntos);
+            } else if (activeTab === 'impuestos') {
+                const dataRet = await repoConfig.getCodigosRetencion(currentEmpresa.id);
+                setRetenciones(dataRet);
+            } else if (activeTab === 'cierre') {
+                const fecha = await repoConfig.getFechaCierre(currentEmpresa.id);
+                setFechaCierre(fecha);
+            }
+        } catch (error) {
+            console.error('Error al cargar datos:', error);
+        } finally {
+            setCargando(false);
         }
     };
 
@@ -78,6 +93,13 @@ export default function ConfiguracionPage() {
         const repo = new InMemoryConfiguracionRepository();
         await repo.setFechaCierre(currentEmpresa.id, fechaCierre);
         alert('Fecha de cierre actualizada exitosamente.');
+    };
+
+    const handleGuardarParametros = async () => {
+        if (!currentEmpresa || !parametros) return;
+        const repo = new InMemoryConfiguracionRepository();
+        await repo.saveParametros(currentEmpresa.id, parametros);
+        alert('Parámetros contables actualizados exitosamente.');
     };
 
     // Columns Definitions
@@ -451,17 +473,104 @@ export default function ConfiguracionPage() {
                                     <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas Predeterminadas</h4>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta Caja</label>
-                                        <input type="text" defaultValue={parametros.cuentaCaja} className="w-full border rounded-lg p-2.5 text-sm font-mono" />
+                                        <select
+                                            value={parametros.cuentaCaja}
+                                            onChange={e => setParametros({ ...parametros, cuentaCaja: e.target.value })}
+                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                        >
+                                            <option value="">Seleccione una cuenta...</option>
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.01')).map(c => (
+                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta IVA Ventas</label>
-                                        <input type="text" defaultValue={parametros.cuentaIvaVentas} className="w-full border rounded-lg p-2.5 text-sm font-mono" />
+                                        <select
+                                            value={parametros.cuentaIvaVentas}
+                                            onChange={e => setParametros({ ...parametros, cuentaIvaVentas: e.target.value })}
+                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                        >
+                                            <option value="">Seleccione una cuenta...</option>
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1.02')).map(c => (
+                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta IVA Compras</label>
-                                        <input type="text" defaultValue={parametros.cuentaIvaCompras} className="w-full border rounded-lg p-2.5 text-sm font-mono" />
+                                        <select
+                                            value={parametros.cuentaIvaCompras}
+                                            onChange={e => setParametros({ ...parametros, cuentaIvaCompras: e.target.value })}
+                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                        >
+                                            <option value="">Seleccione una cuenta...</option>
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.04')).map(c => (
+                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
+                                <div className="space-y-4">
+                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Cartera</h4>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">CXC Clientes</label>
+                                        <select
+                                            value={parametros.cuentaCxcClientes}
+                                            onChange={e => setParametros({ ...parametros, cuentaCxcClientes: e.target.value })}
+                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                        >
+                                            <option value="">Seleccione una cuenta...</option>
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.02')).map(c => (
+                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">Anticipo Clientes</label>
+                                        <select
+                                            value={parametros.cuentaAnticipoClientes}
+                                            onChange={e => setParametros({ ...parametros, cuentaAnticipoClientes: e.target.value })}
+                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                        >
+                                            <option value="">Seleccione una cuenta...</option>
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1.01')).map(c => (
+                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">CXP Proveedores</label>
+                                        <select
+                                            value={parametros.cuentaCxpProveedores}
+                                            onChange={e => setParametros({ ...parametros, cuentaCxpProveedores: e.target.value })}
+                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                        >
+                                            <option value="">Seleccione una cuenta...</option>
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1.01')).map(c => (
+                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">Anticipo Proveedores</label>
+                                        <select
+                                            value={parametros.cuentaAnticipoProveedores}
+                                            onChange={e => setParametros({ ...parametros, cuentaAnticipoProveedores: e.target.value })}
+                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                        >
+                                            <option value="">Seleccione una cuenta...</option>
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.02')).map(c => (
+                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex justify-end pt-4">
+                                <Button onClick={handleGuardarParametros} className="flex items-center gap-2">
+                                    <Save size={18} /> Guardar Parámetros
+                                </Button>
                             </div>
                         </div>
                     )}

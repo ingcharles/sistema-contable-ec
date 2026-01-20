@@ -55,4 +55,5 @@ export interface NominaRepository {
     getRolesPago(empresaId: string, periodo: string): Promise<RolPago[]>;
     generarRoles(empresaId: string, periodo: string): Promise<void>;
     cerrarNomina(empresaId: string, periodo: string): Promise<void>;
+    deleteEmpleado(id: string): Promise<void>;
 }

@@ -56,7 +56,11 @@ let MOCK_PARAMS: ParametrosContables = {
     cuentaCaja: '1.1.01.01',
     cuentaIvaVentas: '2.1.07.01',
     cuentaIvaCompras: '1.1.05.01',
-    cuentaRetRentaPorPagar: '2.1.03.01'
+    cuentaRetRentaPorPagar: '2.1.03.01',
+    cuentaCxcClientes: '1.1.02.01',
+    cuentaAnticipoClientes: '2.1.01.05',
+    cuentaCxpProveedores: '2.1.01.01',
+    cuentaAnticipoProveedores: '1.1.02.05'
 };
 
 let MOCK_FECHA_CIERRE = '2023-09-30';

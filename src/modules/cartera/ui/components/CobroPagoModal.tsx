@@ -3,6 +3,11 @@ import { X, DollarSign, Calendar, CreditCard, Save } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { DocumentoPendiente, TipoCartera } from '../../domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
+import { InMemoryCarteraRepository } from '../../infrastructure/CarteraRepository';
+import { InMemoryConfiguracionRepository } from '@/modules/configuracion/infrastructure/ConfiguracionRepository';
+import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
+import { InMemoryBancosRepository } from '@/modules/bancos/infrastructure/BancosRepository';
+import { TipoMovimientoBancario } from '@/modules/bancos/domain/types';
 
 interface CobroPagoModalProps {
     documento: DocumentoPendiente;
@@ -13,6 +18,7 @@ interface CobroPagoModalProps {
 }
 
 export const CobroPagoModal = ({ documento, tipo, onClose, onSave, empresaId }: CobroPagoModalProps) => {
+    const esCobro = tipo === TipoCartera.CXC;
     const [monto, setMonto] = useState(documento.saldoPendiente);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [formaPago, setFormaPago] = useState('TRANSFERENCIA');
@@ -20,12 +26,77 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave, empresaId }: 
     const [guardando, setGuardando] = useState(false);
 
     const handleGuardar = async () => {
+        if (monto <= 0) return;
         setGuardando(true);
-        // Simulate API call using empresaId
-        console.log('Procesando transacción para empresa:', empresaId);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        onSave();
-        onClose();
+
+        try {
+            const repoConfig = new InMemoryConfiguracionRepository();
+            const params = await repoConfig.getParametros(empresaId);
+
+            const repoCartera = new InMemoryCarteraRepository();
+            await repoCartera.savePago({
+                id: Math.random().toString(36),
+                empresaId,
+                documentoId: documento.id,
+                fecha,
+                formaPago: formaPago as any,
+                valorEfectivo: monto,
+                referencia
+            });
+
+            const repoBancos = new InMemoryBancosRepository();
+            await repoBancos.saveMovimiento({
+                id: Math.random().toString(36),
+                cuentaId: 'cta1',
+                fecha,
+                tipo: esCobro ? TipoMovimientoBancario.TRANSFERENCIA_RECIBIDA : TipoMovimientoBancario.TRANSFERENCIA_ENVIADA,
+                referencia: referencia || 'PAGO/COBRO',
+                beneficiario: documento.terceroNombre,
+                concepto: `${esCobro ? 'Cobro' : 'Pago'} Factura ${documento.nroComprobante}`,
+                monto,
+                esEgreso: !esCobro,
+                conciliado: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                createdBy: 'user'
+            });
+
+            const repoCont = new InMemoryContabilidadRepository();
+            const ctaBanco = params.cuentaCaja || '1.1.01.01';
+            const ctaCartera = esCobro ? params.cuentaCxcClientes : params.cuentaCxpProveedores;
+
+            const detalles = esCobro ? [
+                { cuentaCodigo: ctaBanco, cuentaNombre: 'CAJA/BANCOS', debe: monto, haber: 0 },
+                { cuentaCodigo: ctaCartera, cuentaNombre: 'CUENTAS POR COBRAR', debe: 0, haber: monto }
+            ] : [
+                { cuentaCodigo: ctaCartera, cuentaNombre: 'CUENTAS POR PAGAR', debe: monto, haber: 0 },
+                { cuentaCodigo: ctaBanco, cuentaNombre: 'CAJA/BANCOS', debe: 0, haber: monto }
+            ];
+
+            await repoCont.saveAsiento({
+                id: Math.random().toString(36),
+                empresaId,
+                numero: `${esCobro ? 'COB' : 'PAG'}-${Math.floor(Math.random() * 1000)}`,
+                fecha,
+                glosa: `${esCobro ? 'Cobro' : 'Pago'} ${documento.terceroNombre} - Fact. ${documento.nroComprobante}`,
+                tipo: esCobro ? 'INGRESO' : 'EGRESO',
+                estado: 'MAYORIZADO',
+                totalDebe: monto,
+                totalHaber: monto,
+                detalles,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                createdBy: 'system'
+            });
+
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error('Error al procesar transacción:', error);
+            alert('Error al procesar la transacción.');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     return (

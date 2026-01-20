@@ -1,4 +1,5 @@
 'use client';
+// Generic DataTable component with sorting, filtering and pagination
 
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
@@ -22,6 +23,7 @@ interface DataTableProps<T> {
     onSearch?: (term: string) => void;
     actions?: React.ReactNode;
     emptyMessage?: string;
+    loading?: boolean;
 }
 
 export function DataTable<T extends { id: string | number }>({
@@ -33,7 +35,8 @@ export function DataTable<T extends { id: string | number }>({
     searchPlaceholder = "Buscar...",
     onSearch,
     actions,
-    emptyMessage = "No se encontraron registros."
+    emptyMessage = "No se encontraron registros.",
+    loading = false
 }: DataTableProps<T>) {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
@@ -139,7 +142,17 @@ export function DataTable<T extends { id: string | number }>({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {paginatedData.length > 0 ? (
+                        {loading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <tr key={i} className="animate-pulse">
+                                    {columns.map((_, idx) => (
+                                        <td key={idx} className="px-6 py-4">
+                                            <div className="h-4 bg-slate-100 rounded w-full"></div>
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))
+                        ) : paginatedData.length > 0 ? (
                             paginatedData.map((row) => (
                                 <tr key={row.id} className="hover:bg-slate-50 transition-colors group">
                                     {columns.map((col, idx) => (

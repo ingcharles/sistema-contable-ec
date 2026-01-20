@@ -15,6 +15,7 @@ import { Button } from '@/shared/ui/Button';
 import { GuiaRemisionModal } from '@/modules/facturacion/ui/components/GuiaRemisionModal';
 import { GuiaRemision } from '@/modules/facturacion/domain/guias';
 import { InMemoryGuiaRemisionRepository } from '@/modules/facturacion/infrastructure/GuiaRemisionRepository';
+import { InMemoryVentasRepository } from '@/modules/facturacion/infrastructure/VentasRepository';
 import { LiquidacionCompraModal } from '@/modules/compras/ui/components/LiquidacionCompraModal';
 import { NuevaFacturaModal } from '@/modules/facturacion/ui/components/NuevaFacturaModal';
 
@@ -242,43 +243,66 @@ export default function FacturacionPage() {
     const [facturaVerRide, setFacturaVerRide] = useState<any | null>(null);
     const [guias, setGuias] = useState<GuiaRemision[]>([]);
     const [showModalGuia, setShowModalGuia] = useState(false);
-    // const [showModalLiq, setShowModalLiq] = useState(false);
     const [showModalFactura, setShowModalFactura] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // Mock facturas as state to allow adding new ones
     const [facturas, setFacturas] = useState<any[]>([]);
 
-    const loadGuias = async () => {
+    const loadData = async () => {
         if (!currentEmpresa) return;
-        const repo = new InMemoryGuiaRemisionRepository();
-        const data = await repo.getGuias(currentEmpresa.id);
-        setGuias(data);
+        setLoading(true);
+        try {
+            const repoVentas = new InMemoryVentasRepository();
+            const repoGuias = new InMemoryGuiaRemisionRepository();
+
+            const [dataFacturas, dataGuias] = await Promise.all([
+                repoVentas.getFacturas(currentEmpresa.id),
+                repoGuias.getGuias(currentEmpresa.id)
+            ]);
+
+            setFacturas(dataFacturas);
+            setGuias(dataGuias);
+        } catch (error) {
+            console.error('Error al cargar datos:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
-        if (currentEmpresa) {
-            // Initialize facturas if empty
-            if (facturas.length === 0) {
-                setFacturas([
-                    {
-                        id: 'f1', empresaId: currentEmpresa.id, tipo: TipoComprobante.FACTURA,
-                        secuencial: '001-002-000004521', fechaEmision: '2023-10-25',
-                        terceroNombre: 'SUPERMAXI S.A.', terceroId: '1790016919001',
-                        subtotal: 1500.00, descuento: 0, totalImpuestos: 225.00, importeTotal: 1725.00,
-                        estado: EstadoSRI.AUTORIZADO, claveAcceso: '2510202301...',
-                        createdAt: '', updatedAt: '', createdBy: 'user',
-                        items: [{ nombre: 'LAPTOP HP PAVILION 15"', cantidad: 1, precio: 890.00 }]
-                    }
-                ]);
-            }
-
-            if (activeTab === 'guias') {
-                loadGuias();
-            }
-        }
+        loadData();
     }, [currentEmpresa?.id, activeTab]);
 
+    const handleSaveFactura = async (nuevaFactura: any) => {
+        if (!currentEmpresa) return;
 
+        const facturaAdaptada: Factura = {
+            id: Math.random().toString(36).substr(2, 9),
+            empresaId: currentEmpresa.id,
+            tipo: TipoComprobante.FACTURA,
+            secuencial: `${nuevaFactura.estab}-${nuevaFactura.ptoEmi}-${nuevaFactura.secuencial}`,
+            fechaEmision: nuevaFactura.fechaEmision,
+            terceroNombre: nuevaFactura.razonSocialAdquirente,
+            terceroId: nuevaFactura.identificacionAdquirente,
+            subtotal: nuevaFactura.totalSinImpuestos,
+            descuento: nuevaFactura.totalDescuento,
+            totalImpuestos: nuevaFactura.totalIVA,
+            importeTotal: nuevaFactura.importeTotal,
+            estado: EstadoSRI.AUTORIZADO,
+            claveAcceso: `${nuevaFactura.fechaEmision.replace(/-/g, '')}01${nuevaFactura.ruc}1${nuevaFactura.estab}${nuevaFactura.ptoEmi}${nuevaFactura.secuencial}123456781`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: 'user'
+        };
+
+        const repo = new InMemoryVentasRepository();
+        await repo.saveFactura(facturaAdaptada);
+
+        alert('Factura emitida y autorizada exitosamente por el SRI (Simulación)');
+        loadData();
+        setShowModalFactura(false);
+    };
 
     const columns: Column<Factura>[] = [
         { header: 'Fecha', accessorKey: 'fechaEmision', className: 'text-slate-600' },
@@ -390,15 +414,10 @@ export default function FacturacionPage() {
                     data={facturas}
                     columns={columns}
                     itemsPerPage={10}
+                    loading={loading}
                     searchPlaceholder="Buscar por cliente, RUC o secuencial..."
                     actions={
                         <div className="flex gap-2">
-                            {/* <button
-                                onClick={() => setShowModalLiq(true)}
-                                className="px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 flex items-center gap-2 transition-all"
-                            >
-                                <FileInput size={16} /> Liquidación Compra
-                            </button> */}
                             <button
                                 onClick={() => setShowModalFactura(true)}
                                 className="px-4 py-2 bg-sri-blue text-white rounded-lg text-sm font-medium hover:bg-sri-light flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-all transform hover:scale-105"
@@ -422,6 +441,7 @@ export default function FacturacionPage() {
                         data={guias}
                         columns={guiaColumns}
                         itemsPerPage={10}
+                        loading={loading}
                         searchPlaceholder="Buscar por transportista, placa o destino..."
                     />
                 </div>
@@ -432,7 +452,7 @@ export default function FacturacionPage() {
                 <NotaCreditoModal
                     factura={selectedFacturaNC}
                     onClose={() => setSelectedFacturaNC(null)}
-                    onSave={() => { }}
+                    onSave={loadData}
                 />
             )}
 
@@ -447,50 +467,20 @@ export default function FacturacionPage() {
                 <GuiaRemisionModal
                     facturaReferencia={selectedFacturaGuia}
                     onClose={() => { setShowModalGuia(false); setSelectedFacturaGuia(null); }}
-                    onSave={loadGuias}
+                    onSave={loadData}
                     empresaId={currentEmpresa.id}
                 />
             )}
 
-            {/* {showModalLiq && (
-                <LiquidacionCompraModal
-                    onClose={() => setShowModalLiq(false)}
-                    onSave={() => { }}
-                    empresaId={currentEmpresa.id}
-                />
-            )} */}
-
             {showModalFactura && (
                 <NuevaFacturaModal
                     onClose={() => setShowModalFactura(false)}
-                    onSave={(nuevaFactura) => {
-                        const facturaAdaptada: any = {
-                            id: Math.random().toString(36).substr(2, 9),
-                            empresaId: currentEmpresa.id,
-                            tipo: TipoComprobante.FACTURA,
-                            secuencial: `${nuevaFactura.estab}-${nuevaFactura.ptoEmi}-${nuevaFactura.secuencial}`,
-                            fechaEmision: nuevaFactura.fechaEmision,
-                            terceroNombre: nuevaFactura.razonSocialAdquirente,
-                            terceroId: nuevaFactura.identificacionAdquirente,
-                            totalSinImpuestos: nuevaFactura.totalSinImpuestos,
-                            totalDescuento: nuevaFactura.totalDescuento,
-                            totalImpuestos: nuevaFactura.totalIVA,
-                            importeTotal: nuevaFactura.importeTotal,
-                            estado: EstadoSRI.AUTORIZADO,
-                            claveAcceso: `${nuevaFactura.fechaEmision.replace(/-/g, '')}01${nuevaFactura.ruc}1${nuevaFactura.estab}${nuevaFactura.ptoEmi}${nuevaFactura.secuencial}123456781`,
-                            items: nuevaFactura.detalles.map(d => ({
-                                nombre: d.descripcion,
-                                cantidad: d.cantidad,
-                                precio: d.precioUnitario
-                            }))
-                        };
-                        setFacturas([facturaAdaptada, ...facturas]);
-                        alert('Factura emitida y autorizada exitosamente por el SRI (Simulación)');
-                    }}
+                    onSave={handleSaveFactura}
                 />
             )}
 
         </div>
     );
 }
+
 

@@ -56,10 +56,25 @@ export interface EstadoResultados {
     utilidadNeta: number;
 }
 
+export interface CuentaContable extends Auditable {
+    id: string;
+    empresaId: string;
+    codigo: string;
+    nombre: string;
+    tipo: 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'GASTO';
+    nivel: number;
+    padreCodigo?: string;
+    activo: boolean;
+    saldo: number;
+}
+
 export interface ContabilidadRepository {
     getAsientos(empresaId: string): Promise<AsientoContable[]>;
     saveAsiento(asiento: AsientoContable): Promise<void>;
     getCentrosCostos(empresaId: string): Promise<CentroCosto[]>;
+    getPlanCuentas(empresaId: string): Promise<any[]>;
+    saveCuenta(cuenta: any): Promise<void>;
+    deleteCuenta(codigo: string): Promise<void>;
     getBalanceGeneral(empresaId: string, fechaCorte: string): Promise<BalanceGeneral>;
     getEstadoResultados(empresaId: string, fechaInicio: string, fechaFin: string): Promise<EstadoResultados>;
 }

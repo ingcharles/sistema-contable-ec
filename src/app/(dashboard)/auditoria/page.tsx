@@ -12,6 +12,8 @@ export default function AuditoriaPage() {
     const [logs, setLogs] = useState<LogAuditoria[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [moduloFiltro, setModuloFiltro] = useState<string>('TODOS');
+    const [severidadFiltro, setSeveridadFiltro] = useState<string>('TODOS');
 
     const loadData = async () => {
         if (!currentEmpresa) return;
@@ -24,11 +26,14 @@ export default function AuditoriaPage() {
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id]);
 
-    const filteredLogs = logs.filter(l =>
-        l.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.modulo.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredLogs = logs.filter(l => {
+        const matchSearch = l.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            l.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            l.modulo.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchModulo = moduloFiltro === 'TODOS' || l.modulo === moduloFiltro;
+        const matchSeveridad = severidadFiltro === 'TODOS' || l.severidad === severidadFiltro;
+        return matchSearch && matchModulo && matchSeveridad;
+    });
 
     if (!currentEmpresa) return null;
 
@@ -98,9 +103,32 @@ export default function AuditoriaPage() {
                         />
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="secondary" size="sm" className="flex items-center gap-2">
-                            <Filter size={16} /> Filtrar por Severidad
-                        </Button>
+                        <select
+                            value={moduloFiltro}
+                            onChange={(e) => setModuloFiltro(e.target.value)}
+                            className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 bg-white"
+                        >
+                            <option value="TODOS">Todos los Módulos</option>
+                            <option value="FACTURACION">Facturación</option>
+                            <option value="COMPRAS">Compras</option>
+                            <option value="INVENTARIO">Inventario</option>
+                            <option value="BANCOS">Bancos</option>
+                            <option value="CONTABILIDAD">Contabilidad</option>
+                            <option value="CARTERA">Cartera</option>
+                            <option value="NOMINA">Nómina</option>
+                            <option value="AUDITORIA">Auditoría</option>
+                            <option value="SISTEMA">Sistema</option>
+                        </select>
+                        <select
+                            value={severidadFiltro}
+                            onChange={(e) => setSeveridadFiltro(e.target.value)}
+                            className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 bg-white"
+                        >
+                            <option value="TODOS">Todas las Severidades</option>
+                            <option value="INFO">Info</option>
+                            <option value="WARNING">Warning</option>
+                            <option value="CRITICAL">Critical</option>
+                        </select>
                     </div>
                 </div>
 
@@ -146,7 +174,7 @@ export default function AuditoriaPage() {
                                     <td className="px-6 py-4 text-slate-600 max-w-xs">{log.descripcion}</td>
                                     <td className="px-6 py-4 text-center">
                                         <span className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-tighter uppercase ${log.severidad === NivelSeveridad.CRITICAL ? 'bg-rose-100 text-rose-700' :
-                                                log.severidad === NivelSeveridad.WARNING ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                            log.severidad === NivelSeveridad.WARNING ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
                                             }`}>
                                             {log.severidad}
                                         </span>

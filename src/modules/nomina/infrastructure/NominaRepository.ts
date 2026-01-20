@@ -81,4 +81,9 @@ export class InMemoryNominaRepository implements NominaRepository {
     async cerrarNomina(_empresaId: string, periodo: string): Promise<void> {
         MOCK_ROLES.filter(r => r.periodo === periodo).forEach(r => r.estado = 'CERRADO');
     }
+
+    async deleteEmpleado(id: string): Promise<void> {
+        const idx = MOCK_EMPLEADOS.findIndex(e => e.id === id);
+        if (idx >= 0) MOCK_EMPLEADOS.splice(idx, 1);
+    }
 }

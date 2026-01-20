@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Receipt, Wallet, ArrowRightLeft, History, CheckCircle2, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, Download, Receipt, Wallet, ArrowRightLeft, History, CheckCircle2, Trash2, X } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { ValeCajaChica, CajaChicaInfo } from '@/modules/caja-chica/domain/types';
 import { InMemoryCajaChicaRepository } from '@/modules/caja-chica/infrastructure/CajaChicaRepository';
@@ -16,6 +16,8 @@ export default function CajaChicaPage() {
     const [vales, setVales] = useState<ValeCajaChica[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedVale, setSelectedVale] = useState<ValeCajaChica | null>(null);
+    const [showVerModal, setShowVerModal] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState<'INGRESO' | 'EGRESO'>('EGRESO');
 
@@ -33,6 +35,19 @@ export default function CajaChicaPage() {
     };
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id]);
+
+    const handleAnular = async (id: string) => {
+        if (window.confirm('¿Está seguro de anular este vale?')) {
+            const repo = new InMemoryCajaChicaRepository();
+            await repo.anularVale(id);
+            loadData();
+        }
+    };
+
+    const handleVerComprobante = (vale: ValeCajaChica) => {
+        setSelectedVale(vale);
+        setShowVerModal(true);
+    };
 
     const filteredVales = vales.filter(v =>
         v.beneficiario.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -147,15 +162,31 @@ export default function CajaChicaPage() {
                                     <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{vale.concepto}</td>
                                     <td className="px-6 py-4 text-right font-black text-slate-800">{formatMoney(vale.monto)}</td>
                                     <td className="px-6 py-4 text-center">
-                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${vale.estado === 'PENDIENTE' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${vale.estado === 'PENDIENTE' ? 'bg-amber-100 text-amber-700' :
+                                            vale.estado === 'ANULADO' ? 'bg-rose-100 text-rose-700' :
+                                                'bg-emerald-100 text-emerald-700'
                                             }`}>
                                             {vale.estado}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-1">
-                                            <button className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-all" title="Ver Comprobante"><Receipt size={16} /></button>
-                                            <button className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Anular"><Trash2 size={16} className="rotate-0" /></button>
+                                            <button
+                                                onClick={() => handleVerComprobante(vale)}
+                                                className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-all"
+                                                title="Ver Comprobante"
+                                            >
+                                                <Receipt size={16} />
+                                            </button>
+                                            {vale.estado !== 'ANULADO' && (
+                                                <button
+                                                    onClick={() => handleAnular(vale.id)}
+                                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                                    title="Anular"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -172,6 +203,47 @@ export default function CajaChicaPage() {
                     onSave={loadData}
                     empresaId={currentEmpresa.id}
                 />
+            )}
+
+            {showVerModal && selectedVale && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <Receipt size={20} className="text-sri-blue" />
+                                Detalle del Comprobante
+                            </h2>
+                            <button onClick={() => setShowVerModal(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-slate-500 text-sm">Número:</span>
+                                <span className="font-bold text-slate-800">{selectedVale.numero}</span>
+                            </div>
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-slate-500 text-sm">Fecha:</span>
+                                <span className="text-slate-800">{selectedVale.fecha}</span>
+                            </div>
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-slate-500 text-sm">Beneficiario:</span>
+                                <span className="text-slate-800 font-medium">{selectedVale.beneficiario}</span>
+                            </div>
+                            <div className="border-b pb-2">
+                                <span className="text-slate-500 text-sm block mb-1">Concepto:</span>
+                                <p className="text-slate-800 text-sm italic">"{selectedVale.concepto}"</p>
+                            </div>
+                            <div className="flex justify-between items-center pt-2">
+                                <span className="text-slate-500 font-bold">TOTAL:</span>
+                                <span className="text-2xl font-black text-sri-blue">{formatMoney(selectedVale.monto)}</span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end">
+                            <Button onClick={() => setShowVerModal(false)}>Cerrar</Button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

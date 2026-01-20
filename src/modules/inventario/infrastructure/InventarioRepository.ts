@@ -134,4 +134,21 @@ export class InMemoryInventarioRepository implements InventarioRepository {
         if (idx >= 0) MOCK_PRODUCTOS[idx] = producto;
         else MOCK_PRODUCTOS.push(producto);
     }
+
+    async saveCategoria(categoria: CategoriaProducto): Promise<void> {
+        const idx = MOCK_CATEGORIAS.findIndex(c => c.id === categoria.id);
+        if (idx >= 0) MOCK_CATEGORIAS[idx] = categoria;
+        else MOCK_CATEGORIAS.push(categoria);
+    }
+
+    async saveBodega(bodega: Bodega): Promise<void> {
+        const idx = MOCK_BODEGAS.findIndex(b => b.id === bodega.id);
+        if (idx >= 0) MOCK_BODEGAS[idx] = bodega;
+        else MOCK_BODEGAS.push(bodega);
+    }
+
+    async deleteBodega(id: string): Promise<void> {
+        const idx = MOCK_BODEGAS.findIndex(b => b.id === id);
+        if (idx >= 0) MOCK_BODEGAS.splice(idx, 1);
+    }
 }

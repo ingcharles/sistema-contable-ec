@@ -1,47 +1,59 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Filter, Layers, FileText, BookOpen, TrendingUp, List, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Filter, Layers, FileText, BookOpen, TrendingUp, List, Edit2, Trash2, Download, Printer, Sparkles } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { PLAN_CUENTAS } from '@/shared/constants';
-import { AsientoContable, CentroCosto } from '@/modules/contabilidad/domain/types';
+import { AsientoContable, CentroCosto, BalanceGeneral, EstadoResultados } from '@/modules/contabilidad/domain/types';
 import { InMemoryContabilidadRepository } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { CentroCostoModal } from '@/modules/contabilidad/ui/components/CentroCostoModal';
 import { PlanCuentasTree } from '@/modules/contabilidad/ui/components/PlanCuentasTree';
 import { LibroDiarioTable } from '@/modules/contabilidad/ui/components/LibroDiarioTable';
 import { BalanceComprobacionTable } from '@/modules/contabilidad/ui/components/BalanceComprobacionTable';
+import { CuentaRow } from '@/modules/contabilidad/ui/components/CuentaRow';
 import { Button } from '@/shared/ui/Button';
+import { CuentaContable } from '@/shared/types';
 
 export default function ContabilidadPage() {
     const { currentEmpresa } = useEmpresa();
-    const [activeTab, setActiveTab] = useState<'plan' | 'diario' | 'mayor' | 'comprobacion' | 'costos'>('mayor');
+    const [activeTab, setActiveTab] = useState<'plan' | 'diario' | 'mayor' | 'comprobacion' | 'balance' | 'resultados' | 'costos'>('mayor');
     const [asientos, setAsientos] = useState<AsientoContable[]>([]);
     const [centros, setCentros] = useState<CentroCosto[]>([]);
     const [showModalCentro, setShowModalCentro] = useState(false);
+    const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [fechaInicio, setFechaInicio] = useState(`${new Date().getFullYear()}-01-01`);
     const [fechaFin, setFechaFin] = useState(new Date().toISOString().split('T')[0]);
     const [cuentaMayorSeleccionada, setCuentaMayorSeleccionada] = useState<string>('1.1.01.02');
 
+    // Estados Financieros
+    const [balance, setBalance] = useState<BalanceGeneral | null>(null);
+    const [estadoResultados, setEstadoResultados] = useState<EstadoResultados | null>(null);
+
     const loadData = async () => {
         if (!currentEmpresa) return;
         setLoading(true);
         const repo = new InMemoryContabilidadRepository();
-        const [dataAsientos, dataCentros] = await Promise.all([
+        const [dataAsientos, dataCentros, balanceData, resultadosData, dataPC] = await Promise.all([
             repo.getAsientos(currentEmpresa.id),
-            repo.getCentrosCostos(currentEmpresa.id)
+            repo.getCentrosCostos(currentEmpresa.id),
+            repo.getBalanceGeneral(currentEmpresa.id, fechaFin),
+            repo.getEstadoResultados(currentEmpresa.id, fechaInicio, fechaFin),
+            repo.getPlanCuentas(currentEmpresa.id)
         ]);
         setAsientos(dataAsientos);
         setCentros(dataCentros);
+        setBalance(balanceData);
+        setEstadoResultados(resultadosData);
+        setPlanCuentas(dataPC);
         setLoading(false);
     };
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id]);
 
     const datosMayor = useMemo(() => {
-        const cuenta = PLAN_CUENTAS.find(c => c.codigo === cuentaMayorSeleccionada);
+        const cuenta = planCuentas.find(c => c.codigo === cuentaMayorSeleccionada);
         if (!cuenta) return { movimientos: [], saldoInicial: 0, saldoFinal: 0, naturaleza: '' };
 
         let saldoInicial = (cuenta as any).saldo || 0;
@@ -96,6 +108,12 @@ export default function ContabilidadPage() {
                     <button onClick={() => setActiveTab('comprobacion')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'comprobacion' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                         <FileText size={16} /> Bal. Comprobación
                     </button>
+                    <button onClick={() => setActiveTab('balance')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'balance' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <FileText size={16} /> Balance General
+                    </button>
+                    <button onClick={() => setActiveTab('resultados')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'resultados' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <TrendingUp size={16} /> Estado Resultados
+                    </button>
                     <button onClick={() => setActiveTab('diario')} className={`px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'diario' ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                         <BookOpen size={16} /> Diario
                     </button>
@@ -127,7 +145,7 @@ export default function ContabilidadPage() {
                                 onChange={e => setCuentaMayorSeleccionada(e.target.value)}
                                 className="w-full border border-slate-200 rounded px-3 py-1.5 text-sm"
                             >
-                                {PLAN_CUENTAS.filter(c => c.nivel >= 4).map(c => (
+                                {planCuentas.filter(c => c.nivel >= 4).map(c => (
                                     <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
                                 ))}
                             </select>
@@ -142,8 +160,20 @@ export default function ContabilidadPage() {
 
             {activeTab === 'mayor' && (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+                    {/* Cabecera con datos de la empresa */}
+                    <div className="text-center p-6 pb-4 border-b-2 border-slate-200 bg-slate-50/30">
+                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{currentEmpresa?.razonSocial}</h2>
+                        <p className="text-xs text-slate-600 mt-1">RUC: {currentEmpresa?.ruc}</p>
+                        <p className="text-xs text-slate-500 mt-1">{currentEmpresa?.direccionMatriz}</p>
+                        <h3 className="text-lg font-bold text-sri-blue uppercase mt-3">Libro Mayor General</h3>
+                        <p className="text-slate-500 font-medium text-sm mt-1">
+                            Del {new Date(fechaInicio).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
+                    </div>
+
                     <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                        <h3 className="font-bold text-slate-700">Mayor General: {PLAN_CUENTAS.find(c => c.codigo === cuentaMayorSeleccionada)?.nombre}</h3>
+                        <h3 className="font-bold text-slate-700">Cuenta: {planCuentas.find(c => c.codigo === cuentaMayorSeleccionada)?.nombre}</h3>
                         <span className="text-xs bg-white border px-2 py-1 rounded">Naturaleza: {datosMayor.naturaleza}</span>
                     </div>
                     <div className="overflow-x-auto">
@@ -189,6 +219,8 @@ export default function ContabilidadPage() {
                     fechaInicio={fechaInicio}
                     fechaFin={fechaFin}
                     loading={loading}
+                    empresa={currentEmpresa}
+                    planCuentas={planCuentas}
                 />
             )}
 
@@ -253,6 +285,181 @@ export default function ContabilidadPage() {
 
             {activeTab === 'plan' && (
                 <PlanCuentasTree />
+            )}
+
+            {activeTab === 'balance' && (
+                <>
+                    {/* Filtros para Balance General */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 flex flex-wrap gap-4 items-end">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Fecha de Corte</label>
+                            <input
+                                type="date"
+                                value={fechaFin}
+                                onChange={e => setFechaFin(e.target.value)}
+                                className="border border-slate-200 rounded px-3 py-1.5 text-sm"
+                            />
+                        </div>
+                        <Button variant="secondary" className="flex items-center gap-2" onClick={loadData}>
+                            <Filter size={16} /> Actualizar
+                        </Button>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+                        {/* Cabecera con datos de la empresa */}
+                        <div className="text-center p-8 pb-6 border-b-2 border-slate-200 bg-slate-50/30">
+                            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{currentEmpresa?.razonSocial}</h2>
+                            <p className="text-sm text-slate-600 mt-1">RUC: {currentEmpresa?.ruc}</p>
+                            <p className="text-sm text-slate-500 mt-1">{currentEmpresa?.direccionMatriz}</p>
+                            <h3 className="text-xl font-bold text-sri-blue uppercase mt-4">Estado de Situación Financiera</h3>
+                            <p className="text-slate-500 font-medium mt-1">Al {new Date(fechaFin).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                            <p className="text-sm text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
+                        </div>
+
+                        {/* Botones de exportación */}
+                        <div className="p-4 border-b border-slate-100 flex justify-end gap-2 bg-white">
+                            <Button variant="secondary" className="flex items-center gap-2">
+                                <Printer size={18} /> Imprimir
+                            </Button>
+                            <Button variant="secondary" className="flex items-center gap-2">
+                                <Download size={18} /> Exportar Excel
+                            </Button>
+                        </div>
+
+                        {loading ? (
+                            <div className="flex items-center justify-center h-64">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sri-blue"></div>
+                            </div>
+                        ) : balance ? (
+                            <div className="p-8">
+                                <table className="w-full">
+                                    <thead className="bg-slate-50 border-y border-slate-200">
+                                        <tr>
+                                            <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-32">Código</th>
+                                            <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Cuenta</th>
+                                            <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-40">Saldo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        <CuentaRow cuenta={balance.activos} />
+                                        <CuentaRow cuenta={balance.pasivos} />
+                                        <CuentaRow cuenta={balance.patrimonio} />
+                                    </tbody>
+                                    <tfoot className="bg-slate-50 border-t-2 border-slate-200">
+                                        <tr>
+                                            <td colSpan={2} className="py-4 px-4 text-right font-black text-slate-800 uppercase text-sm">Total Activos</td>
+                                            <td className="py-4 px-4 text-right font-black text-sri-blue text-sm">{formatMoney(balance.totalActivos)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={2} className="py-4 px-4 text-right font-black text-slate-800 uppercase text-sm">Total Pasivos + Patrimonio</td>
+                                            <td className="py-4 px-4 text-right font-black text-sri-blue text-sm">{formatMoney(balance.totalPasivos + balance.totalPatrimonio)}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+
+                                {balance.ecuacionContable ? (
+                                    <div className="mt-8 p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center gap-2 text-emerald-700 font-bold text-sm">
+                                        <Sparkles size={18} /> La ecuación contable está cuadrada correctamente.
+                                    </div>
+                                ) : (
+                                    <div className="mt-8 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center justify-center gap-2 text-rose-700 font-bold text-sm">
+                                        <TrendingUp size={18} /> Advertencia: La ecuación contable no cuadra.
+                                    </div>
+                                )}
+                            </div>
+                        ) : null}
+                    </div>
+                </>
+            )}
+
+
+            {activeTab === 'resultados' && (
+                <>
+                    {/* Filtros para Estado de Resultados */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 flex flex-wrap gap-4 items-end">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Desde</label>
+                            <input
+                                type="date"
+                                value={fechaInicio}
+                                onChange={e => setFechaInicio(e.target.value)}
+                                className="border border-slate-200 rounded px-3 py-1.5 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Hasta</label>
+                            <input
+                                type="date"
+                                value={fechaFin}
+                                onChange={e => setFechaFin(e.target.value)}
+                                className="border border-slate-200 rounded px-3 py-1.5 text-sm"
+                            />
+                        </div>
+                        <Button variant="secondary" className="flex items-center gap-2" onClick={loadData}>
+                            <Filter size={16} /> Actualizar
+                        </Button>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+                        {/* Cabecera con datos de la empresa */}
+                        <div className="text-center p-8 pb-6 border-b-2 border-slate-200 bg-slate-50/30">
+                            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{currentEmpresa?.razonSocial}</h2>
+                            <p className="text-sm text-slate-600 mt-1">RUC: {currentEmpresa?.ruc}</p>
+                            <p className="text-sm text-slate-500 mt-1">{currentEmpresa?.direccionMatriz}</p>
+                            <h3 className="text-xl font-bold text-sri-blue uppercase mt-4">Estado de Resultados Integral</h3>
+                            <p className="text-slate-500 font-medium mt-1">
+                                Del {new Date(fechaInicio).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
+                            </p>
+                            <p className="text-sm text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
+                        </div>
+
+                        {/* Botones de exportación */}
+                        <div className="p-4 border-b border-slate-100 flex justify-end gap-2 bg-white">
+                            <Button variant="secondary" className="flex items-center gap-2">
+                                <Printer size={18} /> Imprimir
+                            </Button>
+                            <Button variant="secondary" className="flex items-center gap-2">
+                                <Download size={18} /> Exportar Excel
+                            </Button>
+                        </div>
+
+                        {loading ? (
+                            <div className="flex items-center justify-center h-64">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sri-blue"></div>
+                            </div>
+                        ) : estadoResultados ? (
+                            <div className="p-8">
+                                <table className="w-full">
+                                    <thead className="bg-slate-50 border-y border-slate-200">
+                                        <tr>
+                                            <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-32">Código</th>
+                                            <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Cuenta</th>
+                                            <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-40">Saldo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        <CuentaRow cuenta={estadoResultados.ingresos} />
+                                        <CuentaRow cuenta={estadoResultados.gastos} />
+                                    </tbody>
+                                    <tfoot className="bg-slate-50 border-t-2 border-slate-200">
+                                        <tr>
+                                            <td colSpan={2} className="py-4 px-4 text-right font-black text-slate-800 uppercase text-sm">Utilidad Operativa</td>
+                                            <td className={`py-4 px-4 text-right font-black text-sm ${estadoResultados.utilidadOperativa >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {formatMoney(estadoResultados.utilidadOperativa)}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={2} className="py-4 px-4 text-right font-black text-slate-900 uppercase text-lg border-t border-slate-300">Utilidad Neta del Ejercicio</td>
+                                            <td className={`py-4 px-4 text-right font-black text-lg border-t border-slate-300 ${estadoResultados.utilidadNeta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {formatMoney(estadoResultados.utilidadNeta)}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        ) : null}
+                    </div>
+                </>
             )}
 
             {showModalCentro && (
