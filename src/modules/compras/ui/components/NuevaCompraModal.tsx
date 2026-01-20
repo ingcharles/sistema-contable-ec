@@ -2,11 +2,9 @@
 
 import React, { useState } from 'react';
 import { X, Save, Calculator, Search } from 'lucide-react';
-import { Compra, SustentoTributario, OrdenCompra } from '../../domain/types';
+import { SustentoTributario, OrdenCompra } from '../../domain/types';
 import { CodigoRetencion } from '@/modules/configuracion/domain/types';
-import { AsientoContable } from '@/modules/contabilidad/domain/types';
-import { InMemoryCompraRepository } from '../../infrastructure/CompraRepository';
-import { ConfiguracionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { ComprasUseCases, ConfiguracionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useCentrosCostos } from '@/modules/contabilidad/hooks/useContabilidad';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
@@ -14,11 +12,10 @@ import { Button } from '@/shared/ui/Button';
 interface Props {
     onClose: () => void;
     onSave: () => void;
-    empresaId: string;
     ordenPrevia?: OrdenCompra;
 }
 
-export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, empresaId, ordenPrevia }) => {
+export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia }) => {
     const { centros: centrosCostos, cargarCentros } = useCentrosCostos();
     const [retencionesDisponibles, setRetencionesDisponibles] = React.useState<CodigoRetencion[]>([]);
 
@@ -69,73 +66,46 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, empresaId, 
 
         setGuardando(true);
         try {
-            const nuevaCompra: Compra = {
-                id: crypto.randomUUID(),
-                empresaId,
-                proveedor: {
-                    id: crypto.randomUUID(),
-                    razonSocial: proveedorNombre,
-                    ruc: proveedorRuc,
-                    esContribuyenteEspecial: false
-                },
-                tipoComprobante: '01',
+            // 1. Registrar Compra en Backend
+            await ComprasUseCases.registrarCompra({
+                proveedorId: proveedorRuc,
+                tipoComprobante: secuencial.startsWith('00') ? '01' : '03',
                 secuencial,
-                autorizacion: autorizacion || '0000000000',
+                autorizacion,
                 fechaEmision,
                 fechaRegistro: new Date().toISOString().split('T')[0],
                 sustento,
-                descripcion: ordenPrevia ? `Comp. Factura de OC: ${ordenPrevia.secuencial}` : 'COMPRA REGISTRADA MANUALMENTE',
+                descripcion: `Factura ${secuencial} de ${proveedorNombre}`,
                 subtotal15,
                 subtotal0,
                 montoIva,
                 total: totalFactura,
                 ordenCompraId: ordenPrevia?.id,
-                tieneRetencion: aplicaRetencion,
-                estadoRetencion: aplicaRetencion ? 'EMITIDA' : 'NO_APLICA',
-                nroRetencion: aplicaRetencion ? `001-001-${Math.floor(Math.random() * 1000000)}` : undefined,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                createdBy: 'user'
-            };
+                tieneRetencion: aplicaRetencion
+            });
 
-            const repoCompra = new InMemoryCompraRepository();
-            await repoCompra.save(nuevaCompra);
-
-            if (ordenPrevia) {
-                await repoCompra.actualizarEstadoOrden(ordenPrevia.id, 'FACTURADA');
-            }
-
+            // 2. Registrar Asiento Contable
             const selectedCentro = centrosCostos.find(c => c.id === centroCostoId);
+            const numeroAsiento = `CC-${crypto.randomUUID().slice(0, 8)}`;
 
-            const asiento: AsientoContable = {
-                id: crypto.randomUUID(),
-                empresaId,
-                numero: `CC-${Math.floor(Math.random() * 1000)}`,
+            await ContabilidadUseCases.registrarAsiento({
+                numero: numeroAsiento,
                 fecha: fechaEmision,
                 glosa: `P/R Compra Fac/${secuencial} - ${proveedorNombre} ${selectedCentro ? `(${selectedCentro.nombre})` : ''}`,
                 tipo: 'EGRESO',
-                estado: 'MAYORIZADO',
-                totalDebe: totalFactura,
-                totalHaber: totalFactura,
                 detalles: [
                     {
                         cuentaCodigo: '1.1.03.01',
-                        cuentaNombre: 'INVENTARIO DE MERCADERÍAS',
                         debe: subtotal15 + subtotal0,
                         haber: 0,
                         centroCostoId: centroCostoId || undefined
                     },
-                    { cuentaCodigo: '1.1.05.01', cuentaNombre: 'IVA COMPRAS', debe: montoIva, haber: 0 },
-                    { cuentaCodigo: '2.1.01.01', cuentaNombre: 'CUENTAS POR PAGAR PROVEEDORES', debe: 0, haber: totalPagar },
-                    { cuentaCodigo: '2.1.03.01', cuentaNombre: 'RETENCIÓN FUENTE RENTA', debe: 0, haber: valorRetRenta },
-                    { cuentaCodigo: '2.1.03.02', cuentaNombre: 'RETENCIÓN IVA', debe: 0, haber: valorRetIva }
-                ].filter(d => d.debe > 0 || d.haber > 0),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                createdBy: 'system'
-            };
-
-            await ContabilidadUseCases.registrarAsiento(asiento);
+                    { cuentaCodigo: '1.1.05.01', debe: montoIva, haber: 0 },
+                    { cuentaCodigo: '2.1.01.01', debe: 0, haber: totalPagar },
+                    { cuentaCodigo: '2.1.03.01', debe: 0, haber: valorRetRenta },
+                    { cuentaCodigo: '2.1.03.02', debe: 0, haber: valorRetIva }
+                ].filter(d => d.debe > 0 || d.haber > 0)
+            });
 
             onSave();
             onClose();

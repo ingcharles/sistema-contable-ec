@@ -2,24 +2,24 @@
 
 import React, { useState } from 'react';
 import { X, Plus, Trash2, Save } from 'lucide-react';
-import { OrdenCompra, DetalleOrden } from '../../domain/types';
-import { InMemoryCompraRepository } from '../../infrastructure/CompraRepository';
+import { DetalleOrden } from '../../domain/types';
+import { ComprasUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
 interface Props {
     onClose: () => void;
     onSave: () => void;
-    empresaId: string;
 }
 
-export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave, empresaId }) => {
+export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
     const [proveedorNombre, setProveedorNombre] = useState('');
     const [proveedorRuc, setProveedorRuc] = useState('');
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [fechaEntrega, setFechaEntrega] = useState('');
     const [observacion, setObservacion] = useState('');
     const [detalles, setDetalles] = useState<DetalleOrden[]>([]);
+    const [guardando, setGuardando] = useState(false);
 
     // Estados para el nuevo producto
     const [nuevoProducto, setNuevoProducto] = useState('');
@@ -57,34 +57,27 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave, empresaId })
     const handleGuardar = async () => {
         if (!proveedorRuc || !proveedorNombre || detalles.length === 0) return;
 
-        const repo = new InMemoryCompraRepository();
-
-        const nuevaOrden: OrdenCompra = {
-            id: Math.random().toString(36).substring(2, 9),
-            empresaId,
-            secuencial: `OC-${Math.floor(Math.random() * 1000).toString().padStart(4, '0')}`,
-            proveedor: {
-                id: Math.random().toString(36).substring(2, 9),
-                razonSocial: proveedorNombre,
-                ruc: proveedorRuc,
-                esContribuyenteEspecial: false
-            },
-            fechaEmision,
-            fechaEntrega: fechaEntrega || fechaEmision,
-            observacion,
-            detalles,
-            subtotal: subtotalTotal,
-            iva: iva,
-            total,
-            estado: 'PENDIENTE',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'user'
-        };
-
-        await repo.saveOrden(nuevaOrden);
-        onSave();
-        onClose();
+        setGuardando(true);
+        try {
+            await ComprasUseCases.registrarOrden({
+                proveedorId: proveedorRuc,
+                secuencial: `OC-${Math.floor(Math.random() * 1000).toString().padStart(4, '0')}`,
+                fechaEmision,
+                fechaEntrega: fechaEntrega || fechaEmision,
+                observacion,
+                detalles,
+                subtotal: subtotalTotal,
+                iva: iva,
+                total
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Error al registrar la orden');
+        } finally {
+            setGuardando(false);
+        }
     };
 
     return (
@@ -219,9 +212,9 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave, empresaId })
                             <p className="text-3xl font-mono text-sri-blue font-bold">{formatMoney(total)}</p>
                         </div>
                         <div className="flex gap-2 ml-4">
-                            <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                            <Button onClick={handleGuardar} disabled={!proveedorRuc || detalles.length === 0} className="px-6 flex items-center gap-2">
-                                <Save size={20} /> Guardar Orden
+                            <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+                            <Button onClick={handleGuardar} disabled={!proveedorRuc || detalles.length === 0 || guardando} className="px-6 flex items-center gap-2">
+                                <Save size={20} /> {guardando ? 'Guardando...' : 'Guardar Orden'}
                             </Button>
                         </div>
                     </div>

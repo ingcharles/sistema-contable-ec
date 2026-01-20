@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Download, ShoppingCart, FileText, RotateCcw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Compra, OrdenCompra } from '@/modules/compras/domain/types';
-import { InMemoryCompraRepository } from '@/modules/compras/infrastructure/CompraRepository';
+import { ComprasUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { NuevaCompraModal } from '@/modules/compras/ui/components/NuevaCompraModal';
 import { LiquidacionCompraModal } from '@/modules/compras/ui/components/LiquidacionCompraModal';
@@ -31,13 +31,16 @@ export default function ComprasPage() {
 
     const loadData = async () => {
         if (!currentEmpresa) return;
-        const repo = new InMemoryCompraRepository();
-        const [dataCompras, dataOrdenes] = await Promise.all([
-            repo.getAll(currentEmpresa.id),
-            repo.getOrdenes(currentEmpresa.id)
-        ]);
-        setCompras(dataCompras);
-        setOrdenes(dataOrdenes);
+        try {
+            const [dataCompras, dataOrdenes] = await Promise.all([
+                ComprasUseCases.listarCompras(),
+                ComprasUseCases.listarOrdenes()
+            ]);
+            setCompras(dataCompras);
+            setOrdenes(dataOrdenes);
+        } catch (error) {
+            console.error('Error cargando compras:', error);
+        }
     };
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id]);
@@ -163,7 +166,6 @@ export default function ComprasPage() {
                 <NuevaCompraModal
                     onClose={() => setShowModalCompra(false)}
                     onSave={loadData}
-                    empresaId={currentEmpresa.id}
                     ordenPrevia={ordenParaFacturar}
                 />
             )}
@@ -172,7 +174,6 @@ export default function ComprasPage() {
                 <LiquidacionCompraModal
                     onClose={() => setShowModalLiq(false)}
                     onSave={loadData}
-                    empresaId={currentEmpresa.id}
                 />
             )}
 
@@ -180,7 +181,6 @@ export default function ComprasPage() {
                 <NuevaOrdenModal
                     onClose={() => setShowModalOrden(false)}
                     onSave={loadData}
-                    empresaId={currentEmpresa.id}
                 />
             )}
         </div>
