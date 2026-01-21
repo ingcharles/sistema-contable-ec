@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
                         cuenta_iva_compras, cuenta_ret_renta_por_pagar, cuenta_cxc_clientes,
                         cuenta_anticipo_clientes, cuenta_cxp_proveedores, cuenta_anticipo_proveedores,
                         fecha_cierre
-                    FROM configuracion_parametros
+                    FROM configuracion.parametros
                     WHERE empresa_id = $1
                 `,
                 values: [context.empresaId]
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
         await db.query(
             {
                 text: `
-                    INSERT INTO configuracion_parametros (
+                    INSERT INTO configuracion.parametros (
                         empresa_id, sbu, iva, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
                         cuenta_iva_compras, cuenta_ret_renta_por_pagar, cuenta_cxc_clientes,
                         cuenta_anticipo_clientes, cuenta_cxp_proveedores, cuenta_anticipo_proveedores,

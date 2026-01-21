@@ -27,12 +27,13 @@ export async function GET(req: NextRequest) {
             {
                 text: `
                     SELECT 
-                        a.id, a.fecha, a.tercero_id, a.tercero_nombre, a.referencia,
-                        a.monto_original, a.saldo_disponible, a.moneda, a.observaciones,
+                        a.id, a.fecha, a.tercero_id, t.razon_social as tercero_nombre, a.referencia,
+                        a.monto_original, a.saldo_disponible,
                         a.created_at
-                    FROM cartera_anticipos a
+                    FROM cartera.anticipos a
+                    LEFT JOIN directorio.terceros t ON t.id = a.tercero_id
                     WHERE a.empresa_id = $1 
-                    AND a.tipo_cartera = $2
+                    AND a.tipo = $2
                     AND a.saldo_disponible > 0
                     ORDER BY a.fecha DESC
                 `,
@@ -63,11 +64,11 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { tipo, fecha, terceroId, terceroNombre, referencia, monto, moneda = 'USD', observaciones } = body;
+        const { tipo, fecha, terceroId, referencia, monto } = body;
 
-        if (!tipo || !fecha || !terceroId || !terceroNombre || !monto) {
+        if (!tipo || !fecha || !terceroId || !monto) {
             return NextResponse.json(
-                { error: 'Campos requeridos: tipo, fecha, terceroId, terceroNombre, monto' },
+                { error: 'Campos requeridos: tipo, fecha, terceroId, monto' },
                 { status: 400 }
             );
         }
@@ -75,24 +76,20 @@ export async function POST(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    INSERT INTO cartera_anticipos 
-                        (empresa_id, usuario_id, tipo_cartera, fecha, tercero_id, tercero_nombre,
-                         referencia, monto_original, saldo_disponible, moneda, observaciones, created_at)
+                    INSERT INTO cartera.anticipos 
+                        (empresa_id, tipo, fecha, tercero_id,
+                         referencia, monto_original, saldo_disponible, estado, created_at)
                     VALUES 
-                        ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $10, NOW())
+                        ($1, $2, $3, $4, $5, $6, $6, 'DISPONIBLE', NOW())
                     RETURNING *
                 `,
                 values: [
                     context.empresaId,
-                    context.usuarioId,
                     tipo,
                     fecha,
                     terceroId,
-                    terceroNombre,
                     referencia,
-                    monto,
-                    moneda,
-                    observaciones
+                    monto
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }

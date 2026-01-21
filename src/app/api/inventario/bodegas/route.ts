@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
                     SELECT 
                         id, codigo, nombre, descripcion, responsable, 
                         ubicacion, activa, created_at, updated_at
-                    FROM bodegas
+                    FROM inventario.bodegas
                     WHERE empresa_id = $1 AND activa = true
                     ORDER BY nombre ASC
                 `,
@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
             descripcion = '',
             responsable = '',
             ubicacion = '',
-            sucursalId,
             activa = true
         } = body;
 
@@ -63,16 +62,16 @@ export async function POST(req: NextRequest) {
         await db.query(
             {
                 text: `
-                INSERT INTO bodegas (
+                INSERT INTO inventario.bodegas (
                     id, empresa_id, codigo, nombre, descripcion,
-                    responsable, ubicacion, sucursal_id,
-                    activa, created_at, updated_at, created_by
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10)
+                    responsable, ubicacion,
+                    activa, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
             `,
                 values: [
                     id, context.empresaId, codigo, nombre, descripcion,
-                    responsable, ubicacion, sucursalId || null,
-                    activa, context.usuarioId
+                    responsable, ubicacion,
+                    activa
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -107,7 +106,6 @@ export async function PUT(req: NextRequest) {
             descripcion = '',
             responsable = '',
             ubicacion = '',
-            sucursalId,
             activa = true
         } = body;
 
@@ -118,15 +116,15 @@ export async function PUT(req: NextRequest) {
         await db.query(
             {
                 text: `
-                UPDATE bodegas
+                UPDATE inventario.bodegas
                 SET codigo = $1, nombre = $2, descripcion = $3,
-                    responsable = $4, ubicacion = $5, sucursal_id = $6,
-                    activa = $7, updated_at = NOW()
-                WHERE id = $8 AND empresa_id = $9
+                    responsable = $4, ubicacion = $5,
+                    activa = $6, updated_at = NOW()
+                WHERE id = $7 AND empresa_id = $8
             `,
                 values: [
                     codigo, nombre, descripcion,
-                    responsable, ubicacion, sucursalId || null,
+                    responsable, ubicacion,
                     activa, id, context.empresaId
                 ]
             },

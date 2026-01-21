@@ -11,7 +11,7 @@ export const useKardex = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await InventarioUseCases.listarKardex(productoId, desde, hasta) as any[];
+            const data = await InventarioUseCases.listarKardex(productoId, desde, hasta);
             const mappedData: MovimientoKardex[] = data.map((item: any) => {
                 const isEntrada = ['ENTRADA', 'AJUSTE_POSITIVO', 'COMPRA', 'DEVOLUCION_VENTA'].includes(item.tipo);
                 const cantidad = Number(item.cantidad);

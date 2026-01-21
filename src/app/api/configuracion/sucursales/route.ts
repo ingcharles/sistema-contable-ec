@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
                     SELECT 
                         id, codigo, nombre, direccion, es_matriz, activa,
                         created_at, updated_at
-                    FROM sucursales
+                    FROM configuracion.sucursales
                     WHERE empresa_id = $1
                     ORDER BY codigo ASC
                 `,
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         await db.query(
             {
                 text: `
-                    INSERT INTO sucursales (
+                    INSERT INTO configuracion.sucursales (
                         id, empresa_id, codigo, nombre, direccion, es_matriz, activa, created_by
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 `,
@@ -98,7 +98,7 @@ export async function PUT(req: NextRequest) {
         await db.query(
             {
                 text: `
-                    UPDATE sucursales
+                    UPDATE configuracion.sucursales
                     SET codigo = $1, nombre = $2, direccion = $3, es_matriz = $4, activa = $5, updated_at = NOW()
                     WHERE id = $6 AND empresa_id = $7
                 `,

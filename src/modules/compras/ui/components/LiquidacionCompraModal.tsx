@@ -5,7 +5,7 @@ import { X, Save, FileText, UserPlus, Calculator, Plus, Trash2, CreditCard, Chec
 import { Button } from '@/shared/ui/Button';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { TARIFA_IVA, FORMA_PAGO, TIPO_IDENTIFICACION, AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
-import { SriStandardizer } from '@/modules/facturacion/application/services/SriStandardizer';
+import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
 

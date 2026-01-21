@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
         // Contar total
         const countResult = await db.query<{ count: string }>(
             {
-                text: `SELECT COUNT(*) FROM bancos_movimientos m WHERE ${whereClause}`,
+                text: `SELECT COUNT(*) FROM bancos.bancos_movimientos m WHERE ${whereClause}`,
                 values
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -70,8 +70,8 @@ export async function GET(req: NextRequest) {
                         m.id, m.fecha, m.tipo, m.referencia, m.beneficiario, m.concepto,
                         m.monto, m.conciliado, m.es_egreso, m.created_at,
                         c.nombre as cuenta_nombre, c.numero_cuenta
-                    FROM bancos_movimientos m
-                    INNER JOIN bancos_cuentas c ON c.id = m.cuenta_id
+                    FROM bancos.bancos_movimientos m
+                    INNER JOIN bancos.bancos_cuentas c ON c.id = m.cuenta_id
                     WHERE ${whereClause}
                     ORDER BY m.fecha DESC, m.created_at DESC
                     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
             // Obtener saldo actual
             const cuentaResult = await client.query(`
                 SELECT saldo_actual 
-                FROM bancos_cuentas 
+                FROM bancos.bancos_cuentas 
                 WHERE id = $1 AND empresa_id = $2
             `, [cuentaId, context.empresaId]);
 
@@ -145,14 +145,14 @@ export async function POST(req: NextRequest) {
 
             // Actualizar saldo de la cuenta
             await client.query(`
-                UPDATE bancos_cuentas 
+                UPDATE bancos.bancos_cuentas 
                 SET saldo_actual = $1, updated_at = NOW()
                 WHERE id = $2 AND empresa_id = $3
             `, [nuevoSaldo, cuentaId, context.empresaId]);
 
             // Registrar movimiento
             const movimientoResult = await client.query(`
-                INSERT INTO bancos_movimientos 
+                INSERT INTO bancos.bancos_movimientos 
                     (empresa_id, usuario_id, cuenta_id, fecha, tipo, referencia, beneficiario,
                      concepto, monto, es_egreso, conciliado, created_at)
                 VALUES 

@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
             text: `
                 SELECT 
                     u.id, u.email, u.nombre, u.rol, u.activo
-                FROM usuarios u
+                FROM seguridad.usuarios u
                 WHERE u.id = $1
             `,
             values: [decoded.userId]
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         const empresaResult = await db.querySimple({
             text: `
                 SELECT empresa_id 
-                FROM usuarios_empresas
+                FROM seguridad.usuarios_empresas
                 WHERE usuario_id = $1 AND activo = true
                 LIMIT 1
             `,

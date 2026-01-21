@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         // Contar total para paginación
         const countResult = await db.query<{ count: string }>(
             {
-                text: `SELECT COUNT(*) FROM plan_cuentas ${whereClause}`,
+                text: `SELECT COUNT(*) FROM contabilidad.plan_cuentas ${whereClause}`,
                 values: [context.empresaId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
                     SELECT 
                         id, codigo, nombre, tipo, nivel, saldo, activa, 
                         created_at, updated_at
-                    FROM plan_cuentas
+                    FROM contabilidad.plan_cuentas
                     ${whereClause}
                     ORDER BY codigo ASC
                     LIMIT $2 OFFSET $3
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    INSERT INTO plan_cuentas 
+                    INSERT INTO contabilidad.plan_cuentas 
                         (empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo, activa, created_at, updated_at)
                     VALUES 
                         ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
@@ -147,8 +147,7 @@ export async function DELETE(req: NextRequest) {
 
     try {
         const url = new URL(req.url);
-        const pathParts = url.pathname.split('/');
-        const codigo = pathParts[pathParts.length - 1];
+        const codigo = url.searchParams.get('codigo');
 
         if (!codigo) {
             return NextResponse.json(
@@ -162,7 +161,7 @@ export async function DELETE(req: NextRequest) {
             {
                 text: `
                     SELECT COUNT(*) 
-                    FROM plan_cuentas 
+                    FROM contabilidad.plan_cuentas 
                     WHERE empresa_id = $1 
                     AND codigo LIKE $2 
                     AND codigo != $3
@@ -184,7 +183,7 @@ export async function DELETE(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    UPDATE plan_cuentas 
+                    UPDATE contabilidad.plan_cuentas 
                     SET activa = false, updated_at = NOW()
                     WHERE empresa_id = $1 AND codigo = $2
                     RETURNING *

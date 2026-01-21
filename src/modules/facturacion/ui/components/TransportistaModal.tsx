@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Save, Truck, User, Fingerprint, Mail, Phone, Hash } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
+import { useTransportistas } from '../../hooks/useTransportistas';
 
 interface TransportistaModalProps {
     onClose: () => void;
@@ -10,7 +11,7 @@ interface TransportistaModalProps {
 }
 
 export const TransportistaModal = ({ onClose, onSave }: TransportistaModalProps) => {
-    const [loading, setLoading] = useState(false);
+    const { guardarTransportista, guardando: loading } = useTransportistas();
     const [formData, setFormData] = useState({
         identificacion: '',
         razonSocial: '',
@@ -30,25 +31,12 @@ export const TransportistaModal = ({ onClose, onSave }: TransportistaModalProps)
             return;
         }
 
-        setLoading(true);
         try {
-            const response = await fetch('/api/transportistas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                onSave(result.data);
-                onClose();
-            } else {
-                alert(result.error || 'Error al guardar transportista');
-            }
-        } catch (error) {
-            alert('Error de conexión');
-        } finally {
-            setLoading(false);
+            const result = await guardarTransportista(formData);
+            onSave(result);
+            onClose();
+        } catch (error: any) {
+            alert(error.message || 'Error al guardar transportista');
         }
     };
 

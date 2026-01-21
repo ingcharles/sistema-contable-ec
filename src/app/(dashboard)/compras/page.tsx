@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Download, ShoppingCart, FileText, RotateCcw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Compra, OrdenCompra } from '@/modules/compras/domain/types';
-import { ComprasUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useCompras, useComprasMutations } from '@/modules/compras/hooks/useCompras';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { NuevaCompraModal } from '@/modules/compras/ui/components/NuevaCompraModal';
 import { LiquidacionCompraModal } from '@/modules/compras/ui/components/LiquidacionCompraModal';
@@ -21,29 +21,20 @@ export default function ComprasPage() {
     const { currentEmpresa } = useEmpresa();
     const [activeTab, setActiveTab] = useState<'facturas' | 'ordenes'>('facturas');
 
-    const [compras, setCompras] = useState<Compra[]>([]);
-    const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
+    const { compras, ordenes, loading, cargarCompras, cargarOrdenes } = useCompras();
+    const { } = useComprasMutations();
 
     const [showModalCompra, setShowModalCompra] = useState(false);
     const [showModalLiq, setShowModalLiq] = useState(false);
     const [showModalOrden, setShowModalOrden] = useState(false);
     const [ordenParaFacturar, setOrdenParaFacturar] = useState<OrdenCompra | undefined>(undefined);
 
-    const loadData = async () => {
-        if (!currentEmpresa) return;
-        try {
-            const [dataCompras, dataOrdenes] = await Promise.all([
-                ComprasUseCases.listarCompras(),
-                ComprasUseCases.listarOrdenes()
-            ]);
-            setCompras(dataCompras);
-            setOrdenes(dataOrdenes);
-        } catch (error) {
-            console.error('Error cargando compras:', error);
+    useEffect(() => {
+        if (currentEmpresa) {
+            cargarCompras();
+            cargarOrdenes();
         }
-    };
-
-    useEffect(() => { loadData(); }, [currentEmpresa?.id]);
+    }, [currentEmpresa?.id, cargarCompras, cargarOrdenes]);
 
     const handleFacturarOrden = (orden: OrdenCompra) => {
         setOrdenParaFacturar(orden);
@@ -142,6 +133,7 @@ export default function ComprasPage() {
                     <DataTable
                         data={compras}
                         columns={facturasColumns}
+                        loading={loading}
                         itemsPerPage={10}
                         emptyMessage="No hay compras registradas."
                     />
@@ -156,6 +148,7 @@ export default function ComprasPage() {
                     <DataTable
                         data={ordenes}
                         columns={ordenesColumns}
+                        loading={loading}
                         itemsPerPage={10}
                         emptyMessage="No hay órdenes de compra."
                     />
@@ -165,7 +158,7 @@ export default function ComprasPage() {
             {showModalCompra && (
                 <NuevaCompraModal
                     onClose={() => setShowModalCompra(false)}
-                    onSave={loadData}
+                    onSave={cargarCompras}
                     ordenPrevia={ordenParaFacturar}
                 />
             )}
@@ -173,14 +166,14 @@ export default function ComprasPage() {
             {showModalLiq && (
                 <LiquidacionCompraModal
                     onClose={() => setShowModalLiq(false)}
-                    onSave={loadData}
+                    onSave={cargarCompras}
                 />
             )}
 
             {showModalOrden && (
                 <NuevaOrdenModal
                     onClose={() => setShowModalOrden(false)}
-                    onSave={loadData}
+                    onSave={cargarOrdenes}
                 />
             )}
         </div>

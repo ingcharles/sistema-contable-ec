@@ -10,7 +10,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
-import { FacturaViewModel, DetalleFactura, PagoFactura } from '../../application/models/FacturaViewModel';
+import { FacturaViewModel, DetalleFactura, PagoFactura } from '../../domain/FacturaViewModel';
 import { AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -21,7 +21,7 @@ import { useCatalogos } from '@/shared/hooks/useCatalogos';
 import { DirectorioUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Producto } from '@/modules/inventario/domain/types';
-import { SriStandardizer } from '../../application/services/SriStandardizer';
+import { SriStandardizer } from '../../domain/services/SriStandardizer';
 
 export interface FacturaFormProps {
     factura?: Partial<FacturaViewModel>;

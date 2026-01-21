@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
             // Obtener stock actual
             const stockResult = await client.query(`
                 SELECT stock_actual, costo_promedio 
-                FROM productos 
+                FROM inventario.productos 
                 WHERE id = $1 AND empresa_id = $2
             `, [productoId, context.empresaId]);
 
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
             // Actualizar stock del producto
             await client.query(`
-                UPDATE productos 
+                UPDATE inventario.productos 
                 SET stock_actual = $1, 
                     costo_promedio = $2,
                     updated_at = NOW()
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
             // Registrar movimiento en kardex
             const kardexResult = await client.query(`
-                INSERT INTO kardex_movimientos 
+                INSERT INTO inventario.kardex_movimientos 
                     (empresa_id, usuario_id, producto_id, bodega_id, tipo, cantidad, 
                      costo_unitario, stock_anterior, stock_resultante, referencia, observaciones, 
                      fecha, created_at)
@@ -183,9 +183,9 @@ export async function GET(req: NextRequest) {
                         k.created_at,
                         p.nombre as producto_nombre,
                         b.nombre as bodega_nombre
-                    FROM kardex_movimientos k
-                    INNER JOIN productos p ON p.id = k.producto_id
-                    INNER JOIN bodegas b ON b.id = k.bodega_id
+                    FROM inventario.kardex_movimientos k
+                    INNER JOIN inventario.productos p ON p.id = k.producto_id
+                    INNER JOIN inventario.bodegas b ON b.id = k.bodega_id
                     WHERE ${whereClause}
                     ORDER BY k.fecha DESC, k.created_at DESC
                     LIMIT 100

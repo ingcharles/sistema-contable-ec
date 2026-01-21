@@ -13,7 +13,7 @@ export const useCuentasBancarias = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await BancosUseCases.listarCuentasBancarias();
+            const data = await BancosUseCases.listarCuentas();
             setCuentas(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar cuentas bancarias');
@@ -43,7 +43,7 @@ export const useMovimientosBancarios = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await BancosUseCases.listarMovimientos(cuentaId, desde, hasta);
+            const data = await BancosUseCases.listarMovimientos({ cuentaId, desde, hasta });
             setMovimientos(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar movimientos');

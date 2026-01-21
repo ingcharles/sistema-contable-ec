@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
                     SELECT 
                         id, codigo, concepto, porcentaje, tipo, activo,
                         created_at, updated_at
-                    FROM codigos_retencion
+                    FROM configuracion.codigos_retencion
                     WHERE empresa_id = $1
                     ORDER BY tipo ASC, codigo ASC
                 `,
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         await db.query(
             {
                 text: `
-                    INSERT INTO codigos_retencion (
+                    INSERT INTO configuracion.codigos_retencion (
                         id, empresa_id, codigo, concepto, porcentaje, tipo, activo, created_by
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 `,

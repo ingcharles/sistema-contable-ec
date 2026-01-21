@@ -3,45 +3,40 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Download, Receipt, Wallet, ArrowRightLeft, History, CheckCircle2, Trash2, X, Search } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { ValeCajaChica, CajaChicaInfo } from '@/modules/caja-chica/domain/types';
-import { InMemoryCajaChicaRepository } from '@/modules/caja-chica/infrastructure/CajaChicaRepository';
+import { ValeCajaChica } from '@/modules/caja-chica/domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
+import { useCajaChica, useCajaChicaMutations } from '@/modules/caja-chica/hooks/useCajaChica';
 
 import { MovimientoCajaModal } from '@/modules/caja-chica/ui/components/MovimientoCajaModal';
 
 export default function CajaChicaPage() {
     const { currentEmpresa } = useEmpresa();
-    const [caja, setCaja] = useState<CajaChicaInfo | null>(null);
-    const [vales, setVales] = useState<ValeCajaChica[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { caja, vales, loading, cargarTodo } = useCajaChica();
+    const { anularVale } = useCajaChicaMutations();
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedVale, setSelectedVale] = useState<ValeCajaChica | null>(null);
     const [showVerModal, setShowVerModal] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState<'INGRESO' | 'EGRESO'>('EGRESO');
 
-    const loadData = async () => {
-        if (!currentEmpresa) return;
-        setLoading(true);
-        const repo = new InMemoryCajaChicaRepository();
-        const [info, data] = await Promise.all([
-            repo.getCajaInfo(currentEmpresa.id),
-            repo.getVales(currentEmpresa.id)
-        ]);
-        setCaja(info);
-        setVales(data);
-        setLoading(false);
-    };
-
-    useEffect(() => { loadData(); }, [currentEmpresa?.id]);
+    useEffect(() => {
+        if (currentEmpresa?.id) {
+            cargarTodo(currentEmpresa.id);
+        }
+    }, [currentEmpresa?.id, cargarTodo]);
 
     const handleAnular = async (id: string) => {
+        if (!currentEmpresa) return;
         if (window.confirm('¿Está seguro de anular este vale?')) {
-            const repo = new InMemoryCajaChicaRepository();
-            await repo.anularVale(id);
-            loadData();
+            try {
+                await anularVale(currentEmpresa.id, id);
+                cargarTodo(currentEmpresa.id);
+            } catch (error) {
+                console.error('Error anulando vale:', error);
+            }
         }
     };
 
@@ -229,7 +224,7 @@ export default function CajaChicaPage() {
                 <MovimientoCajaModal
                     tipo={modalType}
                     onClose={() => setShowModal(false)}
-                    onSave={loadData}
+                    onSave={() => cargarTodo(currentEmpresa.id)}
                     empresaId={currentEmpresa.id}
                 />
             )}

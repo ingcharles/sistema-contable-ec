@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
         // Contar total
         const countResult = await db.query<{ count: string }>(
             {
-                text: `SELECT COUNT(*) FROM auditoria_logs WHERE ${whereClause}`,
+                text: `SELECT COUNT(*) FROM auditoria.auditoria_logs WHERE ${whereClause}`,
                 values
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
                         id, modulo, evento, usuario_id, usuario_nombre,
                         ip_address, metodo_http, ruta, severidad,
                         datos_antes, datos_despues, created_at
-                    FROM auditoria_logs
+                    FROM auditoria.auditoria_logs
                     WHERE ${whereClause}
                     ORDER BY created_at DESC
                     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
             text: `
                 SELECT 
                     u.id, u.email, u.nombre, u.password_hash, u.rol, u.activo
-                FROM usuarios u
+                FROM seguridad.usuarios u
                 WHERE u.email = $1
             `,
             values: [email]
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
             // Registrar intento fallido en auditoría
             await db.querySimple({
                 text: `
-                    INSERT INTO auditoria_logs 
+                    INSERT INTO auditoria.auditoria_logs 
                         (modulo, evento, usuario_id, severidad, ip_address, created_at)
                     VALUES 
                         ('AUTH', 'LOGIN_FAILED', $1, 'WARNING', $2, NOW())
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
             const empresaResult = await db.querySimple({
                 text: `
                     SELECT ue.empresa_id 
-                    FROM usuarios_empresas ue
+                    FROM seguridad.usuarios_empresas ue
                     WHERE ue.usuario_id = $1 AND ue.activo = true
                     LIMIT 1
                 `,
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
             // Verificar que el usuario tenga acceso a la empresa solicitada
             const accessResult = await db.querySimple({
                 text: `
-                    SELECT 1 FROM usuarios_empresas
+                    SELECT 1 FROM seguridad.usuarios_empresas
                     WHERE usuario_id = $1 AND empresa_id = $2 AND activo = true
                 `,
                 values: [user.id, selectedEmpresaId]
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
         // Registrar login exitoso
         await db.querySimple({
             text: `
-                INSERT INTO auditoria_logs 
+                INSERT INTO auditoria.auditoria_logs 
                     (empresa_id, modulo, evento, usuario_id, usuario_nombre, severidad, ip_address, created_at)
                 VALUES 
                     ($1, 'AUTH', 'LOGIN_SUCCESS', $2, $3, 'INFO', $4, NOW())
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
         // Actualizar última conexión
         await db.querySimple({
-            text: `UPDATE usuarios SET ultimo_acceso = NOW() WHERE id = $1`,
+            text: `UPDATE seguridad.usuarios SET ultimo_acceso = NOW() WHERE id = $1`,
             values: [user.id]
         });
 

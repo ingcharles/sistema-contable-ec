@@ -272,7 +272,6 @@ export default function NominaPage() {
                     empleado={selectedEmpleadoEdit || undefined}
                     onClose={() => { setShowEmpleadoModal(false); setSelectedEmpleadoEdit(null); }}
                     onSave={loadData}
-                    empresaId={currentEmpresa.id}
                 />
             )}
         </div>

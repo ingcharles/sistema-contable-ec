@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { ContabilidadUseCases } from '../../shared/application/useCases/systemUseCases';
 
 /**
  * Hook para listar cuentas contables

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { apiClient } from '@/shared/utils/api-client';
 
 /**
  * Hook para listar comprobantes electrónicos
@@ -13,7 +13,7 @@ export const useComprobantes = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await FacturacionUseCases.listarComprobantes();
+            const data = await apiClient.get<any[]>('/api/facturacion/comprobantes');
             setComprobantes(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar comprobantes');
@@ -43,7 +43,7 @@ export const useGuiasRemision = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await FacturacionUseCases.listarGuias();
+            const data = await apiClient.get<any[]>('/api/facturacion/guias');
             setGuias(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar guías de remisión');
@@ -72,7 +72,7 @@ export const useFacturacionMutations = () => {
         setEmitiendo(true);
         setError(null);
         try {
-            const result = await FacturacionUseCases.emitirFactura(factura);
+            const result = await apiClient.post('/api/facturacion/emitir', factura);
             return result;
         } catch (err: any) {
             setError(err.message || 'Error al emitir factura');
@@ -87,7 +87,7 @@ export const useFacturacionMutations = () => {
         setEmitiendo(true);
         setError(null);
         try {
-            const result = await FacturacionUseCases.guardarGuiaRemision(guia);
+            const result = await apiClient.post('/api/facturacion/guias', guia);
             return result;
         } catch (err: any) {
             setError(err.message || 'Error al guardar guía de remisión');

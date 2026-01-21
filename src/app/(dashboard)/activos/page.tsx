@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Download, Trash2, Edit2, History, Calculator } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { ActivoFijo, EstadoActivo } from '@/modules/activos/domain/types';
-import { InMemoryActivosRepository } from '@/modules/activos/infrastructure/ActivosRepository';
+import { EstadoActivo } from '@/modules/activos/domain/types';
+import { useActivos, useActivosMutations } from '@/modules/activos/hooks/useActivos';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
@@ -12,21 +12,14 @@ import { ActivoFijoModal } from '@/modules/activos/ui/components/ActivoFijoModal
 
 export default function ActivosPage() {
     const { currentEmpresa } = useEmpresa();
-    const [activos, setActivos] = useState<ActivoFijo[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { activos, loading, cargarActivos } = useActivos();
+    const { eliminarActivo, calcularDepreciacion, guardando } = useActivosMutations();
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
 
-    const loadActivos = async () => {
-        if (!currentEmpresa) return;
-        setLoading(true);
-        const repo = new InMemoryActivosRepository();
-        const data = await repo.getActivos(currentEmpresa.id);
-        setActivos(data);
-        setLoading(false);
-    };
-
-    useEffect(() => { loadActivos(); }, [currentEmpresa?.id]);
+    useEffect(() => {
+        if (currentEmpresa) cargarActivos();
+    }, [currentEmpresa?.id, cargarActivos]);
 
     const filteredActivos = activos.filter(a =>
         a.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,7 +36,12 @@ export default function ActivosPage() {
                     <p className="text-slate-500 text-sm mt-1">Gestión, depreciación y control de bienes institucionales.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="secondary" className="flex items-center gap-2">
+                    <Button
+                        variant="secondary"
+                        className="flex items-center gap-2"
+                        onClick={() => calcularDepreciacion('2024-01').then(() => cargarActivos())}
+                        disabled={guardando}
+                    >
                         <Calculator size={18} /> Depreciar Todo
                     </Button>
                     <Button className="flex items-center gap-2" onClick={() => setShowModal(true)}>
@@ -131,7 +129,13 @@ export default function ActivosPage() {
                                         <div className="flex justify-end gap-1">
                                             <button className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-all" title="Editar"><Edit2 size={16} /></button>
                                             <button className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-all" title="Historial"><History size={16} /></button>
-                                            <button className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Eliminar"><Trash2 size={16} /></button>
+                                            <button
+                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                                title="Eliminar"
+                                                onClick={() => eliminarActivo(activo.id).then(() => cargarActivos())}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -144,7 +148,7 @@ export default function ActivosPage() {
             {showModal && (
                 <ActivoFijoModal
                     onClose={() => setShowModal(false)}
-                    onSave={loadActivos}
+                    onSave={cargarActivos}
                     empresaId={currentEmpresa.id}
                 />
             )}

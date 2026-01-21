@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
                         id, nombre, descripcion, 
                         cuenta_inventario, cuenta_costo_venta, cuenta_venta,
                         activa, created_at, updated_at
-                    FROM categorias_producto
+                    FROM inventario.categorias_producto
                     WHERE empresa_id = $1 AND activa = true
                     ORDER BY nombre ASC
                 `,
@@ -61,16 +61,16 @@ export async function POST(req: NextRequest) {
         await db.query(
             {
                 text: `
-                INSERT INTO categorias_producto (
+                INSERT INTO inventario.categorias_producto (
                     id, empresa_id, nombre, descripcion,
                     cuenta_inventario, cuenta_costo_venta, cuenta_venta,
-                    activa, created_at, updated_at, created_by
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)
+                    activa, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
             `,
                 values: [
                     id, context.empresaId, nombre, descripcion,
                     cuentaInventario, cuentaCostoVenta, cuentaVenta,
-                    activa, context.usuarioId
+                    activa
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -115,7 +115,7 @@ export async function PUT(req: NextRequest) {
         await db.query(
             {
                 text: `
-                UPDATE categorias_producto
+                UPDATE inventario.categorias_producto
                 SET nombre = $1, descripcion = $2,
                     cuenta_inventario = $3, cuenta_costo_venta = $4, cuenta_venta = $5,
                     activa = $6, updated_at = NOW()

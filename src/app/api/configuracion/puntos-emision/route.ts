@@ -22,12 +22,12 @@ export async function GET(req: NextRequest) {
                         s.nombre as sucursal_nombre,
                         COALESCE(
                             (SELECT json_agg(json_build_object('tipoComprobante', pes.tipo_comprobante, 'secuencialActual', pes.secuencial_actual))
-                             FROM puntos_emision_secuenciales pes 
+                             FROM configuracion.puntos_emision_secuenciales pes 
                              WHERE pes.punto_emision_id = pe.id),
                             '[]'::json
                         ) as secuenciales
-                    FROM puntos_emision pe
-                    JOIN sucursales s ON pe.sucursal_id = s.id
+                    FROM configuracion.puntos_emision pe
+                    JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
                     WHERE s.empresa_id = $1
                     ORDER BY s.codigo ASC, pe.codigo ASC
                 `,
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         try {
             await db.query(
                 {
-                    text: `INSERT INTO puntos_emision (id, sucursal_id, codigo, nombre, activo, created_by) VALUES ($1, $2, $3, $4, $5, $6)`,
+                    text: `INSERT INTO configuracion.puntos_emision (id, sucursal_id, codigo, nombre, activo, created_by) VALUES ($1, $2, $3, $4, $5, $6)`,
                     values: [id, sucursalId, codigo, nombre, activo, context.usuarioId]
                 },
                 { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
             for (const seq of secuenciales) {
                 await db.query(
                     {
-                        text: `INSERT INTO puntos_emision_secuenciales (punto_emision_id, tipo_comprobante, secuencial_actual) VALUES ($1, $2, $3)`,
+                        text: `INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante, secuencial_actual) VALUES ($1, $2, $3)`,
                         values: [id, seq.tipoComprobante, seq.secuencialActual]
                     },
                     { empresaId: context.empresaId!, usuarioId: context.usuarioId! }

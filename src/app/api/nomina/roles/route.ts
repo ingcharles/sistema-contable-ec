@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
                         r.id, r.periodo, r.empleado_id, r.total_ingresos, r.total_egresos,
                         r.neto_pagar, r.estado, r.created_at, r.updated_at,
                         e.cedula, e.nombres, e.apellidos, e.cargo
-                    FROM nomina_roles r
-                    INNER JOIN empleados e ON e.id = r.empleado_id
+                    FROM nomina.nomina_roles r
+                    INNER JOIN nomina.empleados e ON e.id = r.empleado_id
                     WHERE r.empresa_id = $1 AND r.periodo = $2
                     ORDER BY e.apellidos ASC, e.nombres ASC
                 `,
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
             {
                 text: `
                     SELECT COUNT(*) 
-                    FROM nomina_roles 
+                    FROM nomina.nomina_roles 
                     WHERE empresa_id = $1 AND periodo = $2
                 `,
                 values: [context.empresaId, periodo]
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
             // Obt ener empleados activos
             const empleadosResult = await client.query(`
                 SELECT id, cedula, nombres, apellidos, sueldo_base
-                FROM empleados
+                FROM nomina.empleados
                 WHERE empresa_id = $1 AND activo = true
             `, [context.empresaId]);
 
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
 
                 // Insertar rol
                 const rolResult = await client.query(`
-                    INSERT INTO nomina_roles 
+                    INSERT INTO nomina.nomina_roles 
                         (empresa_id, usuario_id, empleado_id, periodo, 
                          total_ingresos, total_egresos, neto_pagar, estado, 
                          created_at, updated_at)

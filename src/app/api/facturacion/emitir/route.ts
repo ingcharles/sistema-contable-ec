@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { XmlGenerator } from '@/modules/facturacion/application/services/XmlGenerator';
-import { SignatureService } from '@/modules/facturacion/infrastructure/services/SignatureService';
-import { SriWebService, SriEnvironment } from '@/modules/facturacion/infrastructure/services/SriWebService';
-import { SriConfigRepository } from '@/modules/facturacion/infrastructure/repositories/SriConfigRepository';
+import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
+import { SignatureService } from '@/modules/facturacion/domain/services/SignatureService';
+import { SriWebService, SriEnvironment } from '@/modules/facturacion/domain/services/SriWebService';
+import { validateContext } from '@/shared/middleware/authContext';
+import { db } from '@/shared/infrastructure/database/postgresql';
 
 /**
  * POST /api/facturacion/emitir
@@ -15,15 +16,40 @@ import { SriConfigRepository } from '@/modules/facturacion/infrastructure/reposi
  * 6. Registra resultado en DB Postgres con auditoría
  */
 export async function POST(req: NextRequest) {
+    const context = validateContext(req);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
+
     try {
         const data = await req.json();
-        const { empresaId, ambiente = 'PRUEBAS' } = data;
+        const { ambiente = 'PRUEBAS' } = data;
 
-        // 1. Obtener parámetros configurables desde la base de datos (PostgreSQL)
-        const config = await SriConfigRepository.getConfig(empresaId, ambiente);
-        if (!config) {
-            return NextResponse.json({ success: false, error: 'Configuración SRI no encontrada para esta empresa.' }, { status: 400 });
+        // 1. Obtener configuración SRI desde la base de datos
+        const configResult = await db.query(
+            {
+                text: `
+                    SELECT 
+                        p12_certificado, clave_certificado,
+                        url_recepcion, url_autorizacion
+                    FROM configuracion.sri_certificados
+                    WHERE empresa_id = $1 AND ambiente = $2 AND activo = TRUE
+                    LIMIT 1
+                `,
+                values: [context.empresaId, ambiente]
+            },
+            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+        );
+
+        if (configResult.rows.length === 0) {
+            return NextResponse.json({
+                success: false,
+                error: `Configuración SRI no encontrada para ambiente ${ambiente}. Configure primero en /api/configuracion/sri.`
+            }, { status: 400 });
         }
+
+        const config = configResult.rows[0];
+        const p12Base64 = config.p12_certificado?.toString('base64');
 
         // 2. Generar XML estructurado
         const accessKey = XmlGenerator.generateAccessKey(data);
@@ -32,7 +58,7 @@ export async function POST(req: NextRequest) {
 
         // 3. Firma Electrónica (Proceso Seguro en Backend)
         const signedXml = await SignatureService.signXml(rawXml, {
-            p12Base64: config.p12_base64,
+            p12Base64: p12Base64,
             passwordP12: config.clave_certificado
         });
 

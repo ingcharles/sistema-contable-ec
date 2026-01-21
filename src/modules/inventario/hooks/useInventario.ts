@@ -15,9 +15,9 @@ export const useCategorias = (empresaId: string) => {
         if (!empresaId) return;
         setLoading(true);
         try {
-            const data: any[] = await InventarioUseCases.listarCategorias();
+            const data = await InventarioUseCases.listarCategorias();
             // Mapeo de Snake Case (API) a Camel Case (Dominio Frontend)
-            const mapped: CategoriaProducto[] = data.map(d => ({
+            const mapped: CategoriaProducto[] = data.map((d: any) => ({
                 id: d.id,
                 empresaId: d.empresa_id || empresaId,
                 nombre: d.nombre,
@@ -57,7 +57,6 @@ export const useInventarioMutations = () => {
         setGuardando(true);
         setError(null);
         try {
-            // El mapeo de entrada se puede hacer aquí si fuera complejo
             const result = await InventarioUseCases.guardarProducto(producto);
             return { success: true, data: result };
         } catch (err: any) {

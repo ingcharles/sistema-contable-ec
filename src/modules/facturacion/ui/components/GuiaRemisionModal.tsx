@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Truck, MapPin, Package, User, Plus } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
-import { Transportista, MotivoTraslado } from '../../domain/guias';
+import { MotivoTraslado } from '../../domain/guias';
 import { useFacturacionMutations } from '../../hooks/useFacturacion';
+import { useTransportistas } from '../../hooks/useTransportistas';
 import { TransportistaModal } from './TransportistaModal';
-import { TransportistaUseCases } from '../../application/useCases/transportistaUseCases';
 
 interface GuiaRemisionModalProps {
     facturaReferencia?: any;
@@ -15,9 +15,9 @@ interface GuiaRemisionModalProps {
     empresaId: string;
 }
 
-export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave, empresaId }: GuiaRemisionModalProps) => {
+export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRemisionModalProps) => {
     const { guardarGuiaRemision, emitiendo: guardando } = useFacturacionMutations();
-    const [transportistas, setTransportistas] = useState<Transportista[]>([]);
+    const { transportistas, cargarTransportistas } = useTransportistas();
     const [transportistaId, setTransportistaId] = useState('');
     const [puntoPartida, setPuntoPartida] = useState('Matriz / Bodega Principal');
     const [puntoDestino, setPuntoDestino] = useState(facturaReferencia?.direccion || '');
@@ -26,19 +26,15 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave, empresaI
     const [motivo, setMotivo] = useState(MotivoTraslado.VENTA);
     const [showNuevoTransportista, setShowNuevoTransportista] = useState(false);
 
-    const loadTransportistas = async () => {
-        try {
-            const data = await TransportistaUseCases.listar();
-            setTransportistas(data);
-            if (data.length > 0 && !transportistaId) setTransportistaId(data[0].id);
-        } catch (error) {
-            console.error('Error cargando transportistas:', error);
-        }
-    };
+    useEffect(() => {
+        cargarTransportistas();
+    }, [cargarTransportistas]);
 
     useEffect(() => {
-        loadTransportistas();
-    }, [empresaId]);
+        if (transportistas.length > 0 && !transportistaId) {
+            setTransportistaId(transportistas[0].id);
+        }
+    }, [transportistas, transportistaId]);
 
     const handleGuardar = async () => {
         if (!transportistaId || !puntoPartida || !puntoDestino) {
@@ -229,7 +225,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave, empresaI
                 <TransportistaModal
                     onClose={() => setShowNuevoTransportista(false)}
                     onSave={(nuevo) => {
-                        setTransportistas(prev => [...prev, nuevo]);
+                        cargarTransportistas();
                         setTransportistaId(nuevo.id);
                         setShowNuevoTransportista(false);
                     }}

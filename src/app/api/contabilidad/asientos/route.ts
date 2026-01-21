@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { numero, fecha, glosa, detalles, centroCosto } = body;
+        const { numero, fecha, glosa, detalles } = body;
 
         // Validaciones
         if (!fecha || !glosa || !detalles || detalles.length === 0) {
@@ -40,19 +40,19 @@ export async function POST(req: NextRequest) {
         const result = await db.transaction(async (client) => {
             // Insertar cabecera
             const asientoResult = await client.query(`
-                INSERT INTO asientos_cab 
-                    (empresa_id, usuario_id, numero, fecha, glosa, tipo, estado, centro_costo_id, created_at, updated_at)
+                INSERT INTO contabilidad.asientos 
+                    (empresa_id, usuario_id, numero, fecha, glosa, tipo, estado, created_at, updated_at)
                 VALUES 
-                    ($1, $2, $3, $4, $5, 'DIARIO', 'BORRADOR', $6, NOW(), NOW())
+                    ($1, $2, $3, $4, $5, 'DIARIO', 'BORRADOR', NOW(), NOW())
                 RETURNING id
-            `, [context.empresaId, context.usuarioId, numero, fecha, glosa, centroCosto]);
+            `, [context.empresaId, context.usuarioId, numero, fecha, glosa]);
 
             const asientoId = asientoResult.rows[0].id;
 
             // Insertar detalles
             for (const detalle of detalles) {
                 await client.query(`
-                    INSERT INTO asientos_det 
+                    INSERT INTO contabilidad.asientos_detalles 
                         (asiento_id, cuenta_codigo, debe, haber, concepto)
                     VALUES 
                         ($1, $2, $3, $4, $5)
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
         // Contar total
         const countResult = await db.query<{ count: string }>(
             {
-                text: `SELECT COUNT(*) FROM asientos_cab WHERE ${whereClause}`,
+                text: `SELECT COUNT(*) FROM contabilidad.asientos WHERE ${whereClause}`,
                 values
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -142,10 +142,10 @@ export async function GET(req: NextRequest) {
                                 'haber', d.haber,
                                 'concepto', d.concepto
                             ))
-                            FROM asientos_det d
+                            FROM contabilidad.asientos_detalles d
                             WHERE d.asiento_id = a.id
                         ) as detalles
-                    FROM asientos_cab a
+                    FROM contabilidad.asientos a
                     WHERE ${whereClause}
                     ORDER BY a.fecha DESC, a.numero DESC
                     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react';
 import { FacturaForm } from './FacturaForm';
-import { FacturaViewModel } from '../../application/models/FacturaViewModel';
+import { FacturaViewModel } from '../../domain/FacturaViewModel';
 
 interface NuevaFacturaModalProps {
     onClose: () => void;

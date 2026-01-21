@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         // Contar total
         const countResult = await db.query<{ count: string }>(
             {
-                text: `SELECT COUNT(*) FROM empleados e WHERE ${whereClause}`,
+                text: `SELECT COUNT(*) FROM nomina.empleados e WHERE ${whereClause}`,
                 values
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
                         e.id, e.cedula, e.nombres, e.apellidos, e.email, e.telefono,
                         e.fecha_ingreso, e.cargo, e.departamento, e.sueldo_base,
                         e.tipo_contrato, e.activo, e.created_at, e.updated_at
-                    FROM empleados e
+                    FROM nomina.empleados e
                     WHERE ${whereClause}
                     ORDER BY e.apellidos ASC, e.nombres ASC
                     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    INSERT INTO empleados 
+                    INSERT INTO nomina.empleados 
                         (empresa_id, usuario_id, cedula, nombres, apellidos, email, telefono,
                          fecha_ingreso, cargo, departamento, sueldo_base, tipo_contrato, activo,
                          created_at, updated_at)
@@ -186,8 +186,7 @@ export async function DELETE(req: NextRequest) {
 
     try {
         const url = new URL(req.url);
-        const pathParts = url.pathname.split('/');
-        const id = pathParts[pathParts.length - 1];
+        const id = url.searchParams.get('id');
 
         if (!id) {
             return NextResponse.json(
@@ -201,7 +200,7 @@ export async function DELETE(req: NextRequest) {
             {
                 text: `
                     SELECT COUNT(*) 
-                    FROM nomina_roles 
+                    FROM nomina.nomina_roles 
                     WHERE empresa_id = $1 
                     AND empleado_id = $2
                     AND estado IN ('BORRADOR', 'PENDIENTE')
@@ -222,7 +221,7 @@ export async function DELETE(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    UPDATE empleados 
+                    UPDATE nomina.empleados 
                     SET activo = false, updated_at = NOW()
                     WHERE empresa_id = $1 AND id = $2
                     RETURNING *

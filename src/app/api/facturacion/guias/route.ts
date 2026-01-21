@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
                         fecha_emision, fecha_autorizacion, cliente_id, cliente_nombre,
                         cliente_identificacion, direccion_partida, direccion_destino,
                         transportista_nombre, placa_vehiculo, estado, created_at
-                    FROM comprobantes_electronicos
+                    FROM facturacion.comprobantes_electronicos
                     WHERE ${whereClause}
                     ORDER BY fecha_emision DESC, secuencial DESC
                     LIMIT 100
@@ -91,8 +91,7 @@ export async function POST(req: NextRequest) {
             direccionDestino,
             transportistaNombre,
             transportistaIdentificacion,
-            placaVehiculo,
-            detalles // Array de items transportados
+            placaVehiculo
         } = body;
 
         // Validaciones
@@ -114,7 +113,7 @@ export async function POST(req: NextRequest) {
         await db.query(
             {
                 text: `
-                    INSERT INTO comprobantes_electronicos (
+                    INSERT INTO facturacion.comprobantes_electronicos (
                         id, empresa_id, tipo_comprobante, secuencial, clave_acceso,
                         fecha_emision, cliente_id, cliente_nombre, cliente_identificacion,
                         direccion_partida, direccion_destino, transportista_nombre,

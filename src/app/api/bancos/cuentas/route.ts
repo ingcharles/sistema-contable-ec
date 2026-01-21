@@ -37,10 +37,10 @@ export async function GET(req: NextRequest) {
                         c.saldo_actual, c.moneda, c.activa, c.created_at, c.updated_at,
                         (
                             SELECT COUNT(*) 
-                            FROM bancos_movimientos m 
+                            FROM bancos.bancos_movimientos m 
                             WHERE m.cuenta_id = c.id AND m.conciliado = false
                         ) as movimientos_pendientes
-                    FROM bancos_cuentas c
+                    FROM bancos.bancos_cuentas c
                     WHERE ${whereClause}
                     ORDER BY c.nombre ASC
                 `,
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    INSERT INTO bancos_cuentas 
+                    INSERT INTO bancos.bancos_cuentas 
                         (empresa_id, usuario_id, numero_cuenta, nombre, tipo_cuenta, banco,
                          saldo_actual, moneda, activa, created_at, updated_at)
                     VALUES 

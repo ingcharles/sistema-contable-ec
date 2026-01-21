@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
             // Si no pide específicos, devolvemos la lista de tipos disponibles
             const tiposResult = await db.querySimple({
                 text: 'SELECT codigo, nombre FROM catalogos_tipos WHERE activo = true ORDER BY nombre'
+                // NOTE: catalogos_tipos may need schema prefix if schema is defined
             });
             return NextResponse.json(tiposResult.rows);
         }

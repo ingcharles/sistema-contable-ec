@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
         // Contar total
         const countResult = await db.query<{ count: string }>(
             {
-                text: `SELECT COUNT(*) FROM comprobantes_electronicos WHERE ${whereClause}`,
+                text: `SELECT COUNT(*) FROM facturacion.comprobantes_electronicos WHERE ${whereClause}`,
                 values
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
                         fecha_emision, fecha_autorizacion, cliente_id, cliente_nombre,
                         cliente_identificacion, subtotal, iva, total, estado,
                         ambiente_sri, tipo_emision_sri, xml_firmado, created_at, updated_at
-                    FROM comprobantes_electronicos
+                    FROM facturacion.comprobantes_electronicos
                     WHERE ${whereClause}
                     ORDER BY fecha_emision DESC, secuencial DESC
                     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
             // Generar secuencial
             const secuencialResult = await client.query(`
                 SELECT COALESCE(MAX(secuencial), 0) + 1 as next_secuencial
-                FROM comprobantes_electronicos
+                FROM facturacion.comprobantes_electronicos
                 WHERE empresa_id = $1 AND tipo_comprobante = $2
             `, [context.empresaId, tipoComprobante]);
 
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
 
             // Insertar cabecera
             const comprobanteResult = await client.query(`
-                INSERT INTO comprobantes_electronicos 
+                INSERT INTO facturacion.comprobantes_electronicos 
                     (empresa_id, usuario_id, tipo_comprobante, secuencial, fecha_emision,
                      cliente_id, cliente_nombre, cliente_identificacion,
                      subtotal, iva, total, estado, created_at, updated_at)
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
             // Insertar detalles
             for (const detalle of detalles) {
                 await client.query(`
-                    INSERT INTO comprobantes_detalles 
+                    INSERT INTO facturacion.comprobantes_detalles 
                         (comprobante_id, codigo_principal, descripcion, cantidad, precio_unitario, descuento, total)
                     VALUES 
                         ($1, $2, $3, $4, $5, $6, $7)

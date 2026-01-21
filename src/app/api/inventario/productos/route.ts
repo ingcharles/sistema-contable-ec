@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
         // Contar total
         const countResult = await db.query<{ count: string }>(
             {
-                text: `SELECT COUNT(*) FROM productos p WHERE ${whereClause}`,
+                text: `SELECT COUNT(*) FROM inventario.productos p WHERE ${whereClause}`,
                 values
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -62,8 +62,8 @@ export async function GET(req: NextRequest) {
                         p.stock_actual, p.stock_minimo, p.costo_promedio, p.precio_venta,
                         p.graba_iva, p.categoria_id, p.activo, p.created_at, p.updated_at,
                         c.nombre as categoria_nombre
-                    FROM productos p
-                    LEFT JOIN categorias_producto c ON c.id = p.categoria_id AND c.empresa_id = p.empresa_id
+                    FROM inventario.productos p
+                    LEFT JOIN inventario.categorias_producto c ON c.id = p.categoria_id AND c.empresa_id = p.empresa_id
                     WHERE ${whereClause}
                     ORDER BY p.nombre ASC
                     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    INSERT INTO productos 
+                    INSERT INTO inventario.productos 
                         (empresa_id, usuario_id, codigo_principal, codigo_auxiliar, nombre, descripcion,
                          stock_actual, stock_minimo, costo_promedio, precio_venta, graba_iva, 
                          categoria_id, activo, created_at, updated_at)

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Download, RefreshCw, AlertCircle, Plus, FileSpreadsheet, FileText } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { FormularioSRI, AnexoTransaccional } from '@/modules/impuestos/domain/types';
-import { InMemoryImpuestosRepository } from '@/modules/impuestos/infrastructure/ImpuestosRepository';
+import { useImpuestos } from '@/modules/impuestos/hooks/useImpuestos';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
@@ -14,33 +14,20 @@ import { DataTable, Column } from '@/shared/ui/DataTable';
 export default function ImpuestosPage() {
     const { currentEmpresa } = useEmpresa();
     const [activeTab, setActiveTab] = useState<'formularios' | 'ats'>('formularios');
-    const [formularios, setFormularios] = useState<FormularioSRI[]>([]);
-    const [anexos, setAnexos] = useState<AnexoTransaccional[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { formularios, anexos, loading, cargarFormularios, cargarAnexos, generarATS } = useImpuestos();
     const [periodo, setPeriodo] = useState(new Date().toISOString().slice(0, 7));
     const [showModal, setShowModal] = useState(false);
 
-    const loadData = async () => {
-        if (!currentEmpresa) return;
-        setLoading(true);
-        const repo = new InMemoryImpuestosRepository();
-        const [dataForm, dataAnexos] = await Promise.all([
-            repo.getFormularios(currentEmpresa.id, '104'),
-            repo.getAnexos(currentEmpresa.id)
-        ]);
-        setFormularios(dataForm);
-        setAnexos(dataAnexos);
-        setLoading(false);
-    };
-
-    useEffect(() => { loadData(); }, [currentEmpresa?.id]);
+    useEffect(() => {
+        if (currentEmpresa) {
+            cargarFormularios('104');
+            cargarAnexos();
+        }
+    }, [currentEmpresa?.id, cargarFormularios, cargarAnexos]);
 
     const handleGenerarATS = async () => {
         if (!currentEmpresa) return;
-        setLoading(true);
-        const repo = new InMemoryImpuestosRepository();
-        await repo.generarATS(currentEmpresa.id, periodo);
-        await loadData();
+        await generarATS(periodo);
     };
 
     const formColumns: Column<FormularioSRI>[] = [
@@ -174,7 +161,7 @@ export default function ImpuestosPage() {
             {showModal && (
                 <DeclaracionModal
                     onClose={() => setShowModal(false)}
-                    onSave={loadData}
+                    onSave={() => cargarFormularios('104')}
                     empresaId={currentEmpresa.id}
                 />
             )}

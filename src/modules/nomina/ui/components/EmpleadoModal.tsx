@@ -8,10 +8,9 @@ interface EmpleadoModalProps {
     empleado?: Empleado;
     onClose: () => void;
     onSave: () => void;
-    empresaId: string;
 }
 
-export const EmpleadoModal = ({ empleado, onClose, onSave, empresaId }: EmpleadoModalProps) => {
+export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps) => {
     const { guardarEmpleado, procesando: guardando } = useNominaMutations();
     const [formData, setFormData] = useState<Partial<Empleado>>({
         identificacion: '',

@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
             const docUpdate = await client.query(
                 {
                     text: `
-                        UPDATE cartera_documentos 
+                        UPDATE cartera.documentos_pendientes 
                         SET saldo_pendiente = saldo_pendiente - $1,
                             updated_at = NOW()
                         WHERE id = $2 AND empresa_id = $3
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
                 const antUpdate = await client.query(
                     {
                         text: `
-                            UPDATE cartera_anticipos 
+                            UPDATE cartera.anticipos 
                             SET saldo_disponible = saldo_disponible - $1
                             WHERE id = $2 AND empresa_id = $3
                             RETURNING saldo_disponible

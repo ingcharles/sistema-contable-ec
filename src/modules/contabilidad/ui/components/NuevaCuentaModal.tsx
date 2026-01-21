@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
-import { PLAN_CUENTAS } from '@/shared/constants';
 import { CuentaContable } from '@/shared/types';
 
 interface NuevaCuentaModalProps {
@@ -30,12 +29,6 @@ export const NuevaCuentaModal = ({ onClose, onSave, cuentaPadre }: NuevaCuentaMo
         // Validaciones
         if (!formData.codigo || !formData.nombre) {
             setError('Código y nombre son obligatorios');
-            return;
-        }
-
-        // Validar que el código no exista
-        if (PLAN_CUENTAS.find(c => c.codigo === formData.codigo)) {
-            setError('El código ya existe en el plan de cuentas');
             return;
         }
 

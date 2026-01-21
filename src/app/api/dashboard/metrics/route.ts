@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
             // 1. Ventas del día
             const ventasToday = await client.query(`
                 SELECT COALESCE(SUM(total), 0) as total
-                FROM comprobantes_electronicos
+                FROM facturacion.comprobantes_electronicos
                 WHERE empresa_id = $1 
                 AND tipo_comprobante = 'FACTURA'
                 AND fecha_emision = CURRENT_DATE
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
             // 2. Ventas del mes
             const ventasMonth = await client.query(`
                 SELECT COALESCE(SUM(total), 0) as total
-                FROM comprobantes_electronicos
+                FROM facturacion.comprobantes_electronicos
                 WHERE empresa_id = $1 
                 AND tipo_comprobante = 'FACTURA'
                 AND estado = 'AUTORIZADO'
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
             // 3. Cuentas por Cobrar (Vencidas)
             const carteraVencida = await client.query(`
                 SELECT COALESCE(SUM(saldo_pendiente), 0) as total
-                FROM cartera_documentos
+                FROM cartera.documentos_pendientes
                 WHERE empresa_id = $1 
                 AND tipo_cartera = 'CXC'
                 AND fecha_vencimiento < CURRENT_DATE
@@ -48,14 +48,14 @@ export async function GET(req: NextRequest) {
             // 4. Saldo Total en Bancos
             const bancosSaldo = await client.query(`
                 SELECT COALESCE(SUM(saldo_actual), 0) as total
-                FROM bancos_cuentas
+                FROM bancos.bancos_cuentas
                 WHERE empresa_id = $1 AND activa = true
             `, [context.empresaId]);
 
             // 5. Productos con Stock Bajo
             const alertasStock = await client.query(`
                 SELECT COUNT(*) as count
-                FROM productos
+                FROM inventario.productos
                 WHERE empresa_id = $1 
                 AND stock_actual <= stock_minimo
                 AND activo = true

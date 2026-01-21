@@ -55,8 +55,8 @@ const EstadoBadge = ({ estado }: { estado: EstadoSRI | string }) => {
 import { FORMA_PAGO, TARIFA_IVA, AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
 import { FacturaRIDE } from '@/modules/facturacion/ui/components/FacturaRIDE';
 import { XmlModal } from '@/modules/facturacion/ui/components/XmlModal';
-import { SriStandardizer } from '@/modules/facturacion/application/services/SriStandardizer';
-import { XmlGenerator } from '@/modules/facturacion/application/services/XmlGenerator';
+import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
+import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 
 // Modal Visor RIDE (Usando el componente profesional)
 const VisorRideModal = ({ factura, onClose }: { factura: any, onClose: () => void }) => {

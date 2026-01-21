@@ -86,6 +86,15 @@ export class FacturacionUseCases extends BaseUseCase {
             body: JSON.stringify(guia)
         });
     }
+    static async listarTransportistas() {
+        return this.request('/api/transportistas');
+    }
+    static async guardarTransportista(transportista: any) {
+        return this.request('/api/transportistas', {
+            method: 'POST',
+            body: JSON.stringify(transportista)
+        });
+    }
 }
 
 /**
@@ -376,6 +385,54 @@ export class ComprasUseCases extends BaseUseCase {
         return this.request('/api/compras/ordenes', {
             method: 'POST',
             body: JSON.stringify(orden)
+        });
+    }
+}
+
+/**
+ * MÓDULO: CAJA CHICA
+ */
+export class CajaChicaUseCases extends BaseUseCase {
+    static async obtenerInfo(empresaId: string) {
+        return this.request(`/api/caja-chica?empresaId=${empresaId}&action=info`);
+    }
+
+    static async listarVales(empresaId: string) {
+        return this.request(`/api/caja-chica?empresaId=${empresaId}`);
+    }
+
+    static async guardarVale(empresaId: string, vale: any) {
+        return this.request('/api/caja-chica', {
+            method: 'POST',
+            body: JSON.stringify({ empresaId, vale })
+        });
+    }
+
+    static async anularVale(empresaId: string, valeId: string) {
+        return this.request('/api/caja-chica', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'anular', valeId, empresaId })
+        });
+    }
+}
+
+/**
+ * MÓDULO: BUZÓN SRI
+ */
+export class BuzonUseCases extends BaseUseCase {
+    static async listarComprobantes(empresaId: string) {
+        return this.request(`/api/buzon?empresaId=${empresaId}`);
+    }
+
+    static async sincronizarSRI(empresaId: string, desde: string, hasta: string) {
+        return this.request('/api/buzon', {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'importar',
+                empresaId,
+                desde,
+                hasta
+            })
         });
     }
 }

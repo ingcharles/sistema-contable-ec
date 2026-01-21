@@ -4,16 +4,16 @@ import { CuentaContable } from '@/shared/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { NuevaCuentaModal } from './NuevaCuentaModal';
 import { EditarCuentaModal } from './EditarCuentaModal';
-import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-
-
+import { useCuentasContables, useContabilidadMutations } from '../../hooks/useContabilidad';
 
 interface TreeNode extends CuentaContable {
     children: TreeNode[];
 }
 
 export const PlanCuentasTree = () => {
-    const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
+    const { cuentas, cargarCuentas } = useCuentasContables();
+    const { guardarCuenta, eliminarCuenta } = useContabilidadMutations();
+
     const [expanded, setExpanded] = useState<Record<string, boolean>>({ '1': true, '2': true, '3': true });
     const [showNuevaCuenta, setShowNuevaCuenta] = useState(false);
     const [showEditarCuenta, setShowEditarCuenta] = useState(false);
@@ -21,18 +21,9 @@ export const PlanCuentasTree = () => {
     const [cuentaPadre, setCuentaPadre] = useState<CuentaContable | undefined>(undefined);
 
 
-    const loadData = async () => {
-        try {
-            const data = await ContabilidadUseCases.listarCuentas();
-            setPlanCuentas([...data]);
-        } catch (error) {
-            console.error('Error al cargar plan de cuentas:', error);
-        }
-    };
-
     useEffect(() => {
-        loadData();
-    }, []);
+        cargarCuentas();
+    }, [cargarCuentas]);
 
     const treeData = useMemo(() => {
         const buildTree = (items: CuentaContable[]): TreeNode[] => {
@@ -64,8 +55,8 @@ export const PlanCuentasTree = () => {
             return rootItems;
         };
 
-        return buildTree(planCuentas);
-    }, [planCuentas]);
+        return buildTree(cuentas);
+    }, [cuentas]);
 
     const toggleExpand = (codigo: string) => {
         setExpanded(prev => ({ ...prev, [codigo]: !prev[codigo] }));
@@ -83,8 +74,8 @@ export const PlanCuentasTree = () => {
 
     const handleSaveNuevaCuenta = async (cuenta: CuentaContable) => {
         try {
-            await ContabilidadUseCases.guardarCuenta(cuenta);
-            await loadData();
+            await guardarCuenta(cuenta);
+            await cargarCuentas();
             setShowNuevaCuenta(false);
             alert(`Cuenta ${cuenta.codigo} - ${cuenta.nombre} creada exitosamente`);
         } catch (error) {
@@ -94,8 +85,8 @@ export const PlanCuentasTree = () => {
 
     const handleSaveEditarCuenta = async (cuenta: CuentaContable) => {
         try {
-            await ContabilidadUseCases.guardarCuenta(cuenta);
-            await loadData();
+            await guardarCuenta(cuenta);
+            await cargarCuentas();
             setShowEditarCuenta(false);
             alert(`Cuenta ${cuenta.codigo} actualizada exitosamente`);
         } catch (error) {
@@ -106,8 +97,8 @@ export const PlanCuentasTree = () => {
     const handleEliminarCuenta = async (cuenta: CuentaContable) => {
         if (confirm(`¿Está seguro de eliminar la cuenta ${cuenta.codigo} - ${cuenta.nombre}?`)) {
             try {
-                await ContabilidadUseCases.eliminarCuenta(cuenta.codigo);
-                await loadData();
+                await eliminarCuenta(cuenta.codigo);
+                await cargarCuentas();
                 alert(`Cuenta ${cuenta.codigo} eliminada exitosamente`);
             } catch (error) {
                 alert('Error al eliminar la cuenta');

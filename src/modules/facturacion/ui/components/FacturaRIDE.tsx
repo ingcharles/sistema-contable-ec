@@ -7,7 +7,7 @@
  */
 
 // Remove unused React import
-import { FacturaViewModel } from '../../application/models/FacturaViewModel';
+import { FacturaViewModel } from '../../domain/FacturaViewModel';
 import { FORMA_PAGO } from '../../domain/catalogos';
 
 interface FacturaRIDEProps {

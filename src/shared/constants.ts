@@ -80,9 +80,6 @@ export const MOCK_FACTURAS: ComprobanteElectronico[] = [
     }
 ];
 
-import { PLAN_CUENTAS_MOCK } from '@/modules/contabilidad/infrastructure/ContabilidadRepository';
-export const PLAN_CUENTAS = PLAN_CUENTAS_MOCK;
-
 export const NAV_ITEMS: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'Facturación', icon: FileText, path: '/facturacion' },

@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
                         obligado_contabilidad, email, telefono, celular, direccion,
                         provincia, ciudad, codigo_postal, limite_credito, dias_credito,
                         descuento_porcentaje, activo, created_at, updated_at
-                    FROM terceros
+                    FROM directorio.terceros
                     WHERE ${whereClause}
                     ORDER BY razon_social ASC
                     LIMIT 500
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         await db.query(
             {
                 text: `
-                    INSERT INTO terceros (
+                    INSERT INTO directorio.terceros (
                         id, empresa_id, tipo_identificacion, identificacion, razon_social,
                         nombre_comercial, tipo_tercero, es_contribuyente_especial,
                         obligado_contabilidad, email, telefono, celular, direccion,
@@ -231,7 +231,7 @@ export async function PUT(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    UPDATE terceros
+                    UPDATE directorio.terceros
                     SET tipo_identificacion = $1, identificacion = $2, razon_social = $3,
                         nombre_comercial = $4, tipo_tercero = $5, es_contribuyente_especial = $6,
                         obligado_contabilidad = $7, email = $8, telefono = $9, celular = $10,
@@ -311,7 +311,7 @@ export async function DELETE(req: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    UPDATE terceros
+                    UPDATE directorio.terceros
                     SET activo = FALSE, updated_at = NOW(), updated_by = $1
                     WHERE id = $2 AND empresa_id = $3
                     RETURNING id

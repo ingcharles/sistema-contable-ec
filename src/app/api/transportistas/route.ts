@@ -1,38 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateContext } from '@/shared/middleware/authContext';
+import { db } from '@/shared/infrastructure/database/postgresql';
 
-/**
- * MOCK DB para Transportistas
- */
-let transportistasMock = [
-    { id: '1', razonSocial: 'Transportes Rápidos S.A.', ruc: '1790011223001', placa: 'AAA-1234', email: 'info@transrapidos.com', telefono: '022334455' },
-    { id: '2', razonSocial: 'Logística Ecuador Express', ruc: '0991122334001', placa: 'PBA-5678', email: 'ventas@logistica.ec', telefono: '042998877' }
-];
+export async function GET(req: NextRequest) {
+    const context = validateContext(req);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
 
-export async function GET() {
-    return NextResponse.json(transportistasMock);
+    try {
+        const result = await db.query(
+            {
+                text: `
+                    SELECT 
+                        id, identificacion, razon_social as "razonSocial", 
+                        placa, email, telefono, activo
+                    FROM facturacion.transportistas
+                    WHERE empresa_id = $1
+                    ORDER BY razon_social ASC
+                `,
+                values: [context.empresaId]
+            },
+            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+        );
+
+        return NextResponse.json(result.rows);
+    } catch (error: any) {
+        console.error('Error al listar transportistas:', error);
+        return NextResponse.json(
+            { error: 'Error al consultar transportistas', details: error.message },
+            { status: 500 }
+        );
+    }
 }
 
 export async function POST(req: NextRequest) {
+    const context = validateContext(req);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
+
     try {
         const body = await req.json();
+        const { identificacion, razonSocial, placa, email, telefono, activo = true } = body;
 
-        // Validación básica
-        if (!body.razonSocial || !body.identificacion || !body.placa) {
-            return NextResponse.json({ success: false, error: 'Faltan campos obligatorios' }, { status: 400 });
+        if (!identificacion || !razonSocial || !placa) {
+            return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
         }
 
-        const nuevo = {
-            id: Math.random().toString(36).substr(2, 9),
-            ...body,
-            ruc: body.identificacion // Estandarizar
-        };
+        const id = crypto.randomUUID();
 
-        transportistasMock.push(nuevo);
+        await db.query(
+            {
+                text: `
+                    INSERT INTO facturacion.transportistas (
+                        id, empresa_id, usuario_id, identificacion, razon_social, placa, email, telefono, activo
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    ON CONFLICT (empresa_id, identificacion) DO UPDATE SET
+                        razon_social = EXCLUDED.razon_social,
+                        placa = EXCLUDED.placa,
+                        email = EXCLUDED.email,
+                        telefono = EXCLUDED.telefono,
+                        activo = EXCLUDED.activo,
+                        updated_at = NOW()
+                `,
+                values: [
+                    id, context.empresaId, context.usuarioId,
+                    identificacion, razonSocial, placa, email, telefono, activo
+                ]
+            },
+            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+        );
 
-        console.log('DB: Transportista guardado en PostgreSQL (Simulado)');
-
-        return NextResponse.json({ success: true, data: nuevo });
+        return NextResponse.json({ success: true, id });
     } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        console.error('Error al guardar transportista:', error);
+        return NextResponse.json({ error: 'Error al guardar transportista', details: error.message }, { status: 500 });
     }
 }

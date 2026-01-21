@@ -4,32 +4,25 @@ import { useState, useEffect } from 'react';
 import { FileText, CheckCircle2, RefreshCw, ExternalLink, FileSpreadsheet, Inbox } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { ComprobanteRecibido } from '@/modules/buzon/domain/types';
-import { InMemoryBuzonRepository } from '@/modules/buzon/infrastructure/BuzonRepository';
+import { useBuzon } from '@/modules/buzon/hooks/useBuzon';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 
 export default function BuzonPage() {
     const { currentEmpresa } = useEmpresa();
-    const [comprobantes, setComprobantes] = useState<ComprobanteRecibido[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [importing, setImporting] = useState(false);
+    const { comprobantes, loading, importing, cargarComprobantes, sincronizarSRI } = useBuzon();
     const [activeTab, setActiveTab] = useState<'TODOS' | 'RECIBIDO' | 'PROCESADO'>('TODOS');
 
-    const loadData = async () => {
-        if (!currentEmpresa) return;
-        setLoading(true);
-        const repo = new InMemoryBuzonRepository();
-        const data = await repo.getComprobantes(currentEmpresa.id);
-        setComprobantes(data);
-        setLoading(false);
-    };
+    useEffect(() => {
+        if (currentEmpresa?.id) {
+            cargarComprobantes(currentEmpresa.id);
+        }
+    }, [currentEmpresa?.id, cargarComprobantes]);
 
     const filteredComprobantes = activeTab === 'TODOS'
         ? comprobantes
         : comprobantes.filter(c => c.estado === activeTab);
-
-    useEffect(() => { loadData(); }, [currentEmpresa?.id]);
 
     const handleExport = () => {
         if (filteredComprobantes.length === 0) return;
@@ -58,11 +51,11 @@ export default function BuzonPage() {
 
     const handleImportar = async () => {
         if (!currentEmpresa) return;
-        setImporting(true);
-        const repo = new InMemoryBuzonRepository();
-        await repo.importarDesdeSRI(currentEmpresa.id, '2023-10-01', '2023-10-31');
-        await loadData();
-        setImporting(false);
+        try {
+            await sincronizarSRI(currentEmpresa.id, '2023-10-01', '2023-10-31');
+        } catch (error) {
+            console.error('Error al importar:', error);
+        }
     };
 
     const columns: Column<ComprobanteRecibido>[] = [

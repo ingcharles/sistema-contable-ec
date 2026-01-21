@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
                         o.fecha_entrega as "fechaEntrega", o.observacion,
                         o.subtotal, o.iva, o.total, o.estado,
                         t.razon_social as "proveedorNombre", t.identificacion as "proveedorRuc"
-                    FROM compras_ordenes o
-                    INNER JOIN terceros t ON t.identificacion = o.proveedor_id
+                    FROM compras.ordenes o
+                    INNER JOIN directorio.terceros t ON t.id = o.proveedor_id
                     WHERE o.empresa_id = $1
                     ORDER BY o.fecha_emision DESC
                 `,
@@ -59,11 +59,22 @@ export async function POST(req: NextRequest) {
         } = body;
 
         const result = await db.transaction(async (client) => {
+            // 0. Resolver proveedorId (RUC) a UUID
+            const tercero = await client.query({
+                text: 'SELECT id FROM directorio.terceros WHERE identificacion = $1 AND empresa_id = $2',
+                values: [proveedorId, context.empresaId]
+            });
+            const tId = tercero.rows[0]?.id;
+
+            if (!tId) {
+                throw new Error('Proveedor no encontrado');
+            }
+
             const ordenId = crypto.randomUUID();
 
             // 1. Insertar cabecera de la orden
             await client.query(`
-                INSERT INTO compras_ordenes (
+                INSERT INTO compras.ordenes (
                     id, empresa_id, usuario_id, proveedor_id, secuencial,
                     fecha_emision, fecha_entrega, observacion,
                     subtotal, iva, total, estado, created_at
@@ -71,7 +82,7 @@ export async function POST(req: NextRequest) {
                     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDIENTE', NOW()
                 )
             `, [
-                ordenId, context.empresaId, context.usuarioId, proveedorId,
+                ordenId, context.empresaId, context.usuarioId, tId,
                 secuencial, fechaEmision, fechaEntrega, observacion,
                 subtotal, iva, total
             ]);
@@ -80,7 +91,7 @@ export async function POST(req: NextRequest) {
             if (detalles && Array.isArray(detalles)) {
                 for (const d of detalles) {
                     await client.query(`
-                        INSERT INTO compras_ordenes_detalles (
+                        INSERT INTO compras.ordenes_detalles (
                             id, orden_id, producto_nombre, cantidad, precio_unitario, subtotal, graba_iva
                         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
                     `, [

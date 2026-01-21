@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { X, DollarSign, Calendar, FileText, Save, ArrowUpCircle, ArrowDownCircle, User } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
-import { InMemoryCajaChicaRepository } from '../../infrastructure/CajaChicaRepository';
-import { ValeCajaChica, TipoMovimientoCaja, EstadoVale } from '../../domain/types';
+import { TipoMovimientoCaja } from '../../domain/types';
+import { useCajaChicaMutations } from '../../hooks/useCajaChica';
 
 interface MovimientoCajaModalProps {
     tipo: 'INGRESO' | 'EGRESO';
@@ -12,12 +12,13 @@ interface MovimientoCajaModalProps {
 }
 
 export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: MovimientoCajaModalProps) => {
+    const { guardarVale, procesando } = useCajaChicaMutations();
+
     const [monto, setMonto] = useState(0);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [beneficiario, setBeneficiario] = useState('');
     const [concepto, setConcepto] = useState('');
     const [comprobante, setComprobante] = useState('');
-    const [guardando, setGuardando] = useState(false);
 
     const handleGuardar = async () => {
         if (monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)) {
@@ -25,27 +26,20 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
             return;
         }
 
-        setGuardando(true);
-        const repo = new InMemoryCajaChicaRepository();
-
-        const nuevoVale: ValeCajaChica = {
-            id: Math.random().toString(36).substr(2, 9),
-            empresaId,
-            numero: `VAL-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-            fecha,
-            beneficiario: tipo === 'INGRESO' ? 'REPOSICION CAJA' : beneficiario,
-            concepto,
-            monto,
-            tipo: tipo === 'INGRESO' ? TipoMovimientoCaja.INGRESO : TipoMovimientoCaja.EGRESO,
-            estado: EstadoVale.PENDIENTE,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'user'
-        };
-
-        await repo.saveVale(nuevoVale);
-        onSave();
-        onClose();
+        try {
+            await guardarVale(empresaId, {
+                fecha,
+                beneficiario: tipo === 'INGRESO' ? 'REPOSICION CAJA' : beneficiario,
+                concepto,
+                monto,
+                tipo: tipo === 'INGRESO' ? TipoMovimientoCaja.INGRESO : TipoMovimientoCaja.EGRESO
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error('Error guardando vale:', error);
+            alert('Error al guardar el vale');
+        }
     };
 
     return (
@@ -142,8 +136,8 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
                 {/* Footer */}
                 <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
                     <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={guardando || monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)} className={`flex items-center gap-2 ${tipo === 'INGRESO' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar Movimiento'}
+                    <Button onClick={handleGuardar} disabled={procesando || monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)} className={`flex items-center gap-2 ${tipo === 'INGRESO' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                        <Save size={18} /> {procesando ? 'Guardando...' : 'Guardar Movimiento'}
                     </Button>
                 </div>
             </div>

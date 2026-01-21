@@ -27,17 +27,18 @@ export async function GET(req: NextRequest) {
             {
                 text: `
                     SELECT 
-                        d.id, d.tipo_documento, d.nro_comprobante, d.tercero_id, d.tercero_nombre,
+                        d.id, d.tipo as tipo_cartera, d.nro_comprobante, d.tercero_id, t.razon_social as tercero_nombre,
                         d.fecha_emision, d.fecha_vencimiento, d.monto_total, d.saldo_pendiente,
-                        d.moneda, d.created_at,
+                        d.created_at,
                         CASE 
                             WHEN d.fecha_vencimiento < CURRENT_DATE 
                             THEN CURRENT_DATE - d.fecha_vencimiento 
                             ELSE 0 
                         END as dias_vencidos
-                    FROM cartera_documentos d
+                    FROM cartera.documentos_pendientes d
+                    LEFT JOIN directorio.terceros t ON t.id = d.tercero_id
                     WHERE d.empresa_id = $1 
-                    AND d.tipo_cartera = $2
+                    AND d.tipo = $2
                     AND d.saldo_pendiente > 0
                     ORDER BY d.fecha_vencimiento ASC
                 `,

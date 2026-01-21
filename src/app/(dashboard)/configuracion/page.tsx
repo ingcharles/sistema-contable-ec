@@ -12,6 +12,7 @@ import { RetencionModal } from '@/modules/configuracion/ui/components/RetencionM
 import { PuntoEmisionModal } from '@/modules/configuracion/ui/components/PuntoEmisionModal';
 import { SucursalModal } from '@/modules/configuracion/ui/components/SucursalModal';
 import { CuentaContable } from '@/shared/types';
+import { fileToBase64 } from '@/shared/utils/fileHelpers';
 
 export default function ConfiguracionPage() {
     const { currentEmpresa } = useEmpresa();
@@ -70,13 +71,61 @@ export default function ConfiguracionPage() {
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id, activeTab]);
 
-    const handleGuardarFirma = () => {
-        if (!firmaFile && !firmaVigencia) {
-            alert('Por favor seleccione un archivo .p12');
+    // Load existing SRI configuration
+    useEffect(() => {
+        const loadSRIConfig = async () => {
+            if (!currentEmpresa || activeTab !== 'firma') return;
+            try {
+                const ambiente = ambienteSRI === '1' ? 'PRUEBAS' : 'PRODUCCION';
+                const response = await fetch(`/api/configuracion/sri?ambiente=${ambiente}`);
+                if (response.ok) {
+                    const config = await response.json();
+                    setFirmaVigencia(config.created_at?.split('T')[0] || null);
+                }
+            } catch (error) {
+                console.log('No existing SRI config found');
+            }
+        };
+        loadSRIConfig();
+    }, [currentEmpresa?.id, activeTab, ambienteSRI]);
+
+    const handleGuardarFirma = async () => {
+        if (!firmaFile && !firmaPassword) {
+            alert('Por favor seleccione un archivo .p12 y su contraseña');
             return;
         }
-        alert(`Configuración de firma actualizada.\nAmbiente: ${ambienteSRI === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}\nArchivo: ${firmaFile?.name || 'Mantenido'}`);
-        setFirmaVigencia('2025-10-25');
+        if (!firmaPassword) {
+            alert('Por favor ingrese la contraseña del certificado');
+            return;
+        }
+
+        try {
+            const p12Base64 = firmaFile ? await fileToBase64(firmaFile) : '';
+            const ambiente = ambienteSRI === '1' ? 'PRUEBAS' : 'PRODUCCION';
+
+            const response = await fetch('/api/configuracion/sri', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ambiente,
+                    p12Base64,
+                    claveCertificado: firmaPassword,
+                })
+            });
+
+            if (response.ok) {
+                alert(`Configuración de firma guardada exitosamente.\nAmbiente: ${ambiente}`);
+                setFirmaVigencia(new Date().toISOString().split('T')[0]);
+                setFirmaFile(null);
+                setFirmaPassword('');
+            } else {
+                const error = await response.json();
+                alert(`Error: ${error.error || 'No se pudo guardar la configuración'}`);
+            }
+        } catch (error) {
+            console.error('Error al guardar firma:', error);
+            alert('Error al guardar la configuración de firma');
+        }
     };
 
     const handleGuardarCierre = async () => {
