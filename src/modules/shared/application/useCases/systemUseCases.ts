@@ -74,6 +74,12 @@ export class FacturacionUseCases extends BaseUseCase {
             body: JSON.stringify(factura)
         });
     }
+    static async registrarComprobante(comprobante: any) {
+        return this.request('/api/facturacion/comprobantes', {
+            method: 'POST',
+            body: JSON.stringify(comprobante)
+        });
+    }
     static async listarComprobantes() {
         return this.request('/api/facturacion/comprobantes');
     }
@@ -385,6 +391,13 @@ export class ComprasUseCases extends BaseUseCase {
         return this.request('/api/compras/ordenes', {
             method: 'POST',
             body: JSON.stringify(orden)
+        });
+    }
+
+    static async registrarLiquidacion(liquidacion: any) {
+        return this.request('/api/compras/liquidaciones', {
+            method: 'POST',
+            body: JSON.stringify(liquidacion)
         });
     }
 }

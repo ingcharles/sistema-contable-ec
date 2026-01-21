@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { X, Box, Calendar, DollarSign, Save, Hash, Clock } from 'lucide-react';
+import { Box, Calendar, DollarSign, Save, Hash, Clock, Package } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 
 interface ActivoFijoModalProps {
@@ -19,126 +20,135 @@ export const ActivoFijoModal = ({ onClose, onSave, empresaId }: ActivoFijoModalP
 
     const handleGuardar = async () => {
         setGuardando(true);
-        // Simulate API call using empresaId
         console.log('Guardando activo para empresa:', empresaId);
         await new Promise(resolve => setTimeout(resolve, 1000));
         onSave();
         onClose();
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={guardando || !nombre || valorOriginal <= 0}
+                className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2 min-w-[160px] justify-center"
+            >
+                {guardando ? (
+                    'Guardando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Guardar Activo
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="bg-indigo-50 px-6 py-4 border-b border-indigo-100 flex justify-between items-center">
-                    <div>
-                        <h2 className="text-lg font-bold text-indigo-900 flex items-center gap-2">
-                            <Box size={20} />
-                            Registrar Nuevo Activo Fijo
-                        </h2>
-                        <p className="text-xs text-indigo-600">Ingreso de bienes para control y depreciación.</p>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Registrar Nuevo Activo Fijo"
+            description="Ingreso de bienes para control y depreciación."
+            icon={<Box size={24} className="text-indigo-600" />}
+            footer={footer}
+            size="lg"
+        >
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Package size={14} className="text-sri-blue" /> Nombre del Activo *
+                        </label>
+                        <input
+                            type="text"
+                            value={nombre}
+                            onChange={(e) => setNombre(e.target.value)}
+                            placeholder="Ej: Laptop Dell XPS 15"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 uppercase outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            autoFocus
+                        />
                     </div>
-                    <button onClick={onClose} className="text-indigo-400 hover:text-indigo-600 transition-colors">
-                        <X size={24} />
-                    </button>
-                </div>
 
-                {/* Body */}
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Activo</label>
-                            <input
-                                type="text"
-                                value={nombre}
-                                onChange={(e) => setNombre(e.target.value)}
-                                placeholder="Ej: Laptop Dell XPS 15"
-                                className="w-full px-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                autoFocus
-                            />
-                        </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Hash size={14} className="text-sri-blue" /> Código / Serie *
+                        </label>
+                        <input
+                            type="text"
+                            value={codigo}
+                            onChange={(e) => setCodigo(e.target.value)}
+                            placeholder="Ej: ACT-001"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-700 uppercase outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                        />
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Código / Serie</label>
-                            <div className="relative">
-                                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="text"
-                                    value={codigo}
-                                    onChange={(e) => setCodigo(e.target.value)}
-                                    placeholder="Ej: ACT-001"
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                />
-                            </div>
-                        </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Calendar size={14} className="text-sri-blue" /> Fecha de Adquisición *
+                        </label>
+                        <input
+                            type="date"
+                            value={fechaAdquisicion}
+                            onChange={(e) => setFechaAdquisicion(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                        />
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de Adquisición</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="date"
-                                    value={fechaAdquisicion}
-                                    onChange={(e) => setFechaAdquisicion(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                />
-                            </div>
-                        </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <DollarSign size={14} className="text-emerald-600" /> Valor de Adquisición *
+                        </label>
+                        <input
+                            type="number"
+                            value={valorOriginal}
+                            onChange={(e) => setValorOriginal(Number(e.target.value))}
+                            className="w-full px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-mono font-bold text-emerald-700 text-right outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all"
+                            min="0"
+                            step="0.01"
+                        />
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Valor de Adquisición</label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="number"
-                                    value={valorOriginal}
-                                    onChange={(e) => setValorOriginal(Number(e.target.value))}
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                    min="0"
-                                    step="0.01"
-                                />
-                            </div>
-                        </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <DollarSign size={14} className="text-slate-400" /> Valor Residual (Salvamento)
+                        </label>
+                        <input
+                            type="number"
+                            value={valorResidual}
+                            onChange={(e) => setValorResidual(Number(e.target.value))}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-medium text-slate-600 text-right outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            min="0"
+                            step="0.01"
+                        />
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Valor Residual (Salvamento)</label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="number"
-                                    value={valorResidual}
-                                    onChange={(e) => setValorResidual(Number(e.target.value))}
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                    min="0"
-                                    step="0.01"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Vida Útil (Años)</label>
-                            <div className="relative">
-                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="number"
-                                    value={vidaUtil}
-                                    onChange={(e) => setVidaUtil(Number(e.target.value))}
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                    min="1"
-                                />
-                            </div>
-                        </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Clock size={14} className="text-indigo-600" /> Vida Útil (Años) *
+                        </label>
+                        <input
+                            type="number"
+                            value={vidaUtil}
+                            onChange={(e) => setVidaUtil(Number(e.target.value))}
+                            className="w-full px-4 py-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-black text-indigo-700 text-center outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                            min="1"
+                        />
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={guardando || !nombre || valorOriginal <= 0} className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2">
-                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar Activo'}
-                    </Button>
+                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-indigo-700 uppercase tracking-wider">Depreciación Anual Estimada:</span>
+                        <span className="font-mono font-black text-indigo-900">
+                            ${vidaUtil > 0 ? ((valorOriginal - valorResidual) / vidaUtil).toFixed(2) : '0.00'}
+                        </span>
+                    </div>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };

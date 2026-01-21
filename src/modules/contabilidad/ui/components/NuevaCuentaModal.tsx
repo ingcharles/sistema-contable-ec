@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import { Save, BookOpen, Hash, Info, Type } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { CuentaContable } from '@/shared/types';
 
 interface NuevaCuentaModalProps {
     onClose: () => void;
     onSave: (cuenta: CuentaContable) => void;
-    cuentaPadre?: CuentaContable; // Para crear subcuentas
+    cuentaPadre?: CuentaContable;
 }
 
 export const NuevaCuentaModal = ({ onClose, onSave, cuentaPadre }: NuevaCuentaModalProps) => {
@@ -22,23 +23,19 @@ export const NuevaCuentaModal = ({ onClose, onSave, cuentaPadre }: NuevaCuentaMo
 
     const nivel = cuentaPadre ? cuentaPadre.nivel + 1 : 1;
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = () => {
         setError('');
 
-        // Validaciones
         if (!formData.codigo || !formData.nombre) {
             setError('Código y nombre son obligatorios');
             return;
         }
 
-        // Validar estructura jerárquica
         if (cuentaPadre && !formData.codigo.startsWith(cuentaPadre.codigo + '.')) {
             setError(`El código debe comenzar con ${cuentaPadre.codigo}.`);
             return;
         }
 
-        // Validar nivel correcto
         const partes = formData.codigo.split('.');
         if (partes.length !== nivel) {
             setError(`El código debe tener ${nivel} niveles (ej: ${cuentaPadre ? cuentaPadre.codigo + '.01' : '1'})`);
@@ -57,142 +54,94 @@ export const NuevaCuentaModal = ({ onClose, onSave, cuentaPadre }: NuevaCuentaMo
         onClose();
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleSubmit}
+                className="flex items-center gap-2 min-w-[160px] justify-center"
+            >
+                <Save size={18} /> Guardar Cuenta
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="sticky top-0 bg-gradient-to-r from-sri-blue to-blue-600 text-white p-6 rounded-t-2xl flex justify-between items-center">
-                    <div>
-                        <h2 className="text-2xl font-bold">
-                            {cuentaPadre ? 'Nueva Subcuenta' : 'Nueva Cuenta'}
-                        </h2>
-                        {cuentaPadre && (
-                            <p className="text-sm text-blue-100 mt-1">
-                                Cuenta Padre: {cuentaPadre.codigo} - {cuentaPadre.nombre}
-                            </p>
-                        )}
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={cuentaPadre ? 'Nueva Subcuenta' : 'Nueva Cuenta Principal'}
+            description={cuentaPadre ? `Añadiendo nivel a: ${cuentaPadre.codigo} - ${cuentaPadre.nombre}` : 'Inicie una nueva rama en su catálogo de cuentas.'}
+            icon={<BookOpen size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                {error && (
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-xs font-bold animate-in fade-in slide-in-from-top-2">
+                        <Info size={18} /> {error}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                    >
-                        <X size={24} />
-                    </button>
-                </div>
+                )}
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
-                            {error}
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Código */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">
-                                Código <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.codigo}
-                                onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
-                                placeholder={cuentaPadre ? `${cuentaPadre.codigo}.01` : '1'}
-                                className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-sri-blue/20 focus:border-sri-blue outline-none"
-                                autoFocus
-                            />
-                            <p className="text-xs text-slate-500 mt-1">
-                                Nivel {nivel} - {nivel === 1 ? 'Cuenta Principal' : `Subcuenta de nivel ${nivel}`}
-                            </p>
-                        </div>
-
-                        {/* Tipo */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">
-                                Tipo <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                value={formData.tipo}
-                                onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
-                                disabled={!!cuentaPadre}
-                                className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-sri-blue/20 focus:border-sri-blue outline-none disabled:bg-slate-100"
-                            >
-                                <option value="ACTIVO">Activo</option>
-                                <option value="PASIVO">Pasivo</option>
-                                <option value="PATRIMONIO">Patrimonio</option>
-                            </select>
-                            {cuentaPadre && (
-                                <p className="text-xs text-slate-500 mt-1">
-                                    Heredado de cuenta padre
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Nombre */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            Nombre de la Cuenta <span className="text-red-500">*</span>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Hash size={14} className="text-sri-blue" /> Código Contable *
                         </label>
                         <input
                             type="text"
-                            value={formData.nombre}
-                            onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                            placeholder="Ej: CAJA GENERAL"
-                            className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-sri-blue/20 focus:border-sri-blue outline-none"
+                            value={formData.codigo}
+                            onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+                            placeholder={cuentaPadre ? `${cuentaPadre.codigo}.01` : '1'}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-sri-blue outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            autoFocus
                         />
                     </div>
 
-                    {/* Saldo Inicial */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            Saldo Inicial
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            Tipo de Cuenta
                         </label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            value={formData.saldo}
-                            onChange={(e) => setFormData({ ...formData, saldo: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-sri-blue/20 focus:border-sri-blue outline-none"
-                        />
-                        <p className="text-xs text-slate-500 mt-1">
-                            Opcional - Puede dejarse en 0
-                        </p>
-                    </div>
-
-                    {/* Información Adicional */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                        <h4 className="font-bold text-blue-900 mb-2">Información</h4>
-                        <ul className="text-sm text-blue-800 space-y-1">
-                            <li>• El código debe ser único en todo el plan de cuentas</li>
-                            <li>• Los nombres se guardarán en mayúsculas automáticamente</li>
-                            <li>• El nivel se calcula automáticamente según la jerarquía</li>
-                            {cuentaPadre && (
-                                <li>• El tipo se hereda de la cuenta padre</li>
-                            )}
-                        </ul>
-                    </div>
-
-                    {/* Buttons */}
-                    <div className="flex gap-3 justify-end pt-4 border-t">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={onClose}
+                        <select
+                            value={formData.tipo}
+                            onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                            disabled={!!cuentaPadre}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all disabled:opacity-60"
                         >
-                            Cancelar
-                        </Button>
-                        <Button
-                            type="submit"
-                            className="flex items-center gap-2"
-                        >
-                            <Save size={18} />
-                            Guardar Cuenta
-                        </Button>
+                            <option value="ACTIVO">Activo</option>
+                            <option value="PASIVO">Pasivo</option>
+                            <option value="PATRIMONIO">Patrimonio</option>
+                        </select>
                     </div>
-                </form>
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Type size={14} className="text-sri-blue" /> Nombre de la Cuenta *
+                    </label>
+                    <input
+                        type="text"
+                        value={formData.nombre}
+                        onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                        placeholder="EJ: CAJA GENERAL"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-700 uppercase outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                    />
+                </div>
+
+                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50 space-y-2">
+                    <div className="flex items-center gap-2 text-blue-900">
+                        <Info size={14} />
+                        <span className="text-[10px] font-black uppercase tracking-wider">Reglas Contables</span>
+                    </div>
+                    <ul className="text-[10px] text-blue-800/70 font-medium space-y-1 ml-5 list-disc">
+                        <li>El código debe seguir la estructura jerárquica del plan.</li>
+                        <li>Los nombres se normalizan a mayúsculas automáticamente.</li>
+                        <li>Nivel actual de creación: <span className="font-bold text-sri-blue">Nivel {nivel}</span>.</li>
+                    </ul>
+                </div>
             </div>
-        </div>
+        </Modal>
     );
 };

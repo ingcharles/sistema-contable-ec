@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, ArrowRightLeft, Save } from 'lucide-react';
+import { ArrowRightLeft, Save, Calendar, Hash, DollarSign } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { CuentaBancaria, TipoMovimientoBancario } from '../../domain/types';
 import { BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
@@ -43,44 +44,98 @@ export const DepositoModal: React.FC<Props> = ({ cuentas, onClose, onSave }) => 
         }
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={monto <= 0 || guardando}
+                className="flex items-center gap-2 min-w-[160px] justify-center"
+            >
+                {guardando ? (
+                    'Registrando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Registrar Depósito
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <ArrowRightLeft className="text-emerald-600" /> Depositar Efectivo
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Depositar Efectivo"
+            description="Registre el depósito de valores desde Caja a una cuenta bancaria."
+            icon={<ArrowRightLeft size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cuenta Bancaria de Destino *</label>
+                    <select
+                        value={cuentaId}
+                        onChange={e => setCuentaId(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium"
+                    >
+                        {cuentas.map(c => <option key={c.id} value={c.id}>{c.banco} - {c.numeroCuenta}</option>)}
+                    </select>
                 </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta Destino</label>
-                        <select value={cuentaId} onChange={e => setCuentaId(e.target.value)} className="w-full border rounded p-2 text-sm">
-                            {cuentas.map(c => <option key={c.id} value={c.id}>{c.banco} - {c.numeroCuenta}</option>)}
-                        </select>
+
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <DollarSign size={14} className="text-sri-blue" /> Monto ($) *
+                        </label>
+                        <input
+                            type="number"
+                            value={monto}
+                            onChange={e => setMonto(parseFloat(e.target.value))}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-black text-right text-sri-blue text-lg"
+                            step="0.01"
+                        />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Monto ($)</label>
-                            <input type="number" value={monto} onChange={e => setMonto(parseFloat(e.target.value))} className="w-full border rounded p-2 text-sm text-right font-bold" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Fecha</label>
-                            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="w-full border rounded p-2 text-sm" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Referencia / Papeleta</label>
-                        <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="Nro de comprobante" />
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Calendar size={14} className="text-sri-blue" /> Fecha
+                        </label>
+                        <input
+                            type="date"
+                            value={fecha}
+                            onChange={e => setFecha(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium"
+                        />
                     </div>
                 </div>
-                <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={monto <= 0 || guardando} className="flex items-center gap-2">
-                        <Save size={18} /> {guardando ? 'Guardando...' : 'Registrar Depósito'}
-                    </Button>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Hash size={14} className="text-sri-blue" /> Referencia / Papeleta
+                    </label>
+                    <input
+                        type="text"
+                        value={referencia}
+                        onChange={e => setReferencia(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                        placeholder="Nro de comprobante bancario"
+                    />
+                </div>
+
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3">
+                    <div className="p-2 bg-amber-500/10 rounded-lg text-amber-600">
+                        <ArrowRightLeft size={18} />
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-bold text-amber-800 uppercase tracking-tight">Movimiento Automático</p>
+                        <p className="text-[10px] text-amber-700 font-medium">Esta acción generará una transferencia interna de CAJA ➔ BANCO en la contabilidad.</p>
+                    </div>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import { Save, ShieldCheck } from 'lucide-react';
 import { CodigoRetencion } from '../../domain/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
+import { Modal } from '@/shared/ui/Modal';
 
 interface RetencionModalProps {
     onClose: () => void;
@@ -47,76 +48,89 @@ export const RetencionModal = ({ onClose, onSave, empresaId, retencionEditar }: 
         }
     };
 
+    const footer = (
+        <>
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+            <Button onClick={handleSubmit} className="flex items-center gap-2" disabled={guardando}>
+                {guardando ? (
+                    <>Guardando...</>
+                ) : (
+                    <>
+                        <Save size={18} /> {retencionEditar ? 'Actualizar Retención' : 'Guardar Retención'}
+                    </>
+                )}
+            </Button>
+        </>
+    );
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                    <h2 className="text-xl font-bold text-slate-800">
-                        {retencionEditar ? 'Editar Retención' : 'Nueva Retención'}
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={retencionEditar ? 'Editar Retención' : 'Nueva Retención'}
+            description="Configure los códigos de retención autorizados por el SRI."
+            icon={<ShieldCheck size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Impuesto</label>
+                    <select
+                        value={formData.tipo}
+                        onChange={e => setFormData({ ...formData, tipo: e.target.value as 'RENTA' | 'IVA' })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium"
+                    >
+                        <option value="RENTA">Impuesto a la Renta</option>
+                        <option value="IVA">IVA</option>
+                    </select>
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Impuesto</label>
-                        <select
-                            value={formData.tipo}
-                            onChange={e => setFormData({ ...formData, tipo: e.target.value as 'RENTA' | 'IVA' })}
-                            className="w-full border border-slate-200 rounded-lg p-2 text-sm"
-                        >
-                            <option value="RENTA">Impuesto a la Renta</option>
-                            <option value="IVA">IVA</option>
-                        </select>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Código SRI</label>
+                        <input
+                            type="text"
+                            value={formData.codigo}
+                            onChange={e => setFormData({ ...formData, codigo: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono font-bold text-sri-blue"
+                            placeholder="Ej: 312"
+                        />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Código SRI</label>
-                            <input
-                                type="text"
-                                value={formData.codigo}
-                                onChange={e => setFormData({ ...formData, codigo: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2 text-sm font-mono"
-                                placeholder="Ej: 312"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Porcentaje %</label>
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Porcentaje %</label>
+                        <div className="relative">
                             <input
                                 type="number"
                                 value={formData.porcentaje}
                                 onChange={e => setFormData({ ...formData, porcentaje: Number(e.target.value) })}
-                                className="w-full border border-slate-200 rounded-lg p-2 text-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold pr-10"
                             />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Concepto</label>
-                        <textarea
-                            value={formData.concepto}
-                            onChange={e => setFormData({ ...formData, concepto: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg p-2 text-sm h-24 resize-none"
-                            placeholder="Descripción del concepto de retención..."
-                        />
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={formData.activo}
-                            onChange={e => setFormData({ ...formData, activo: e.target.checked })}
-                            className="rounded text-sri-blue focus:ring-sri-blue"
-                        />
-                        <span className="text-sm text-slate-700">Registro Activo</span>
-                    </label>
                 </div>
 
-                <div className="p-6 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl bg-slate-50">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                    <Button onClick={handleSubmit} className="flex items-center gap-2" disabled={guardando}>
-                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar'}
-                    </Button>
+                <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Concepto de Retención</label>
+                    <textarea
+                        value={formData.concepto}
+                        onChange={e => setFormData({ ...formData, concepto: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all h-32 resize-none"
+                        placeholder="Descripción detallada del concepto..."
+                    />
                 </div>
+
+                <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                        type="checkbox"
+                        checked={formData.activo}
+                        onChange={e => setFormData({ ...formData, activo: e.target.checked })}
+                        className="w-5 h-5 rounded-lg border-slate-300 text-sri-blue focus:ring-sri-blue/20"
+                    />
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-sri-blue transition-colors">Este registro se encuentra activo</span>
+                </label>
             </div>
-        </div>
+        </Modal>
     );
 };

@@ -174,6 +174,56 @@ export class SriStandardizer {
     }
 
     /**
+     * Genera el JSON estandarizado para una Nota de Débito (Doc 05)
+     */
+    static standardizeNotaDebito(data: any) {
+        return {
+            infoTributaria: {
+                ambiente: data.ambiente,
+                tipoEmision: data.tipoEmision,
+                razonSocial: data.razonSocial,
+                nombreComercial: data.nombreComercial || '',
+                ruc: data.ruc,
+                codDoc: '05',
+                estab: data.estab.padStart(3, '0'),
+                ptoEmi: data.ptoEmi.padStart(3, '0'),
+                secuencial: data.secuencial.padStart(9, '0'),
+                dirMatriz: data.dirMatriz
+            },
+            infoNotaDebito: {
+                fechaEmision: this.formatDate(data.fechaEmision),
+                dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
+                obligadoContabilidad: data.obligadoContabilidad,
+                tipoIdentificacionAdquirente: data.tipoIdentificacionAdquirente,
+                razonSocialAdquirente: data.razonSocialAdquirente,
+                identificacionAdquirente: data.identificacionAdquirente,
+                codDocModificado: data.codDocModificado,
+                numDocModificado: data.numDocModificado,
+                fechaEmisionDocSustento: this.formatDate(data.fechaEmisionDocSustento),
+                totalSinImpuestos: Number(data.totalSinImpuestos.toFixed(2)),
+                impuestos: [
+                    {
+                        codigo: CODIGO_IMPUESTO.IVA,
+                        codigoPorcentaje: data.codigoIVA,
+                        tarifa: this.getTarifaValue(data.codigoIVA),
+                        baseImponible: Number(data.totalSinImpuestos.toFixed(2)),
+                        valor: Number(data.valorIVA.toFixed(2))
+                    }
+                ],
+                valorTotal: Number(data.valorTotal.toFixed(2)),
+                pagos: data.pagos?.map((p: any) => ({
+                    formaPago: p.formaPago,
+                    total: Number(p.total.toFixed(2))
+                })) || []
+            },
+            motivos: data.motivos?.map((m: any) => ({
+                razon: m.razon,
+                valor: Number(m.valor.toFixed(2))
+            })) || []
+        };
+    }
+
+    /**
      * Genera el JSON estandarizado para un Comprobante de Retención (Doc 07)
      */
     static standardizeRetencion(data: any) {
@@ -269,7 +319,7 @@ export class SriStandardizer {
         return `${day}/${month}/${year}`;
     }
 
-    private static getTarifaValue(codigo: string): number {
+    public static getTarifaValue(codigo: string): number {
         switch (codigo) {
             case '4': return 15;
             case '2': return 12;

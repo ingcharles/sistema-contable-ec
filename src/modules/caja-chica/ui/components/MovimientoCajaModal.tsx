@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { X, DollarSign, Calendar, FileText, Save, ArrowUpCircle, ArrowDownCircle, User } from 'lucide-react';
+import { DollarSign, Calendar, FileText, Save, ArrowUpCircle, ArrowDownCircle, User, Wallet } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { TipoMovimientoCaja } from '../../domain/types';
 import { useCajaChicaMutations } from '../../hooks/useCajaChica';
@@ -42,106 +43,111 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
         }
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={procesando || monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)}
+                className={`flex items-center gap-2 min-w-[180px] justify-center ${tipo === 'INGRESO' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
+            >
+                {procesando ? (
+                    'Guardando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Guardar Movimiento
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className={`px-6 py-4 border-b border-slate-100 flex justify-between items-center ${tipo === 'INGRESO' ? 'bg-emerald-50' : 'bg-rose-50'}`}>
-                    <div>
-                        <h2 className={`text-lg font-bold flex items-center gap-2 ${tipo === 'INGRESO' ? 'text-emerald-800' : 'text-rose-800'}`}>
-                            {tipo === 'INGRESO' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
-                            {tipo === 'INGRESO' ? 'Registrar Ingreso / Reposición' : 'Registrar Gasto / Vale'}
-                        </h2>
-                        <p className="text-xs text-slate-500">Movimiento de Caja Chica</p>
-                    </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-                        <X size={24} />
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div className="p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Monto *</label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="number"
-                                    value={monto}
-                                    onChange={(e) => setMonto(Number(e.target.value))}
-                                    className="w-full pl-9 pr-4 py-2 text-lg font-bold text-slate-800 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                    min="0"
-                                    step="0.01"
-                                    autoFocus
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Fecha *</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="date"
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {tipo === 'EGRESO' && (
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Beneficiario *</label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="text"
-                                    value={beneficiario}
-                                    onChange={(e) => setBeneficiario(e.target.value)}
-                                    placeholder="Nombre del beneficiario"
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Concepto / Descripción *</label>
-                        <textarea
-                            value={concepto}
-                            onChange={(e) => setConcepto(e.target.value)}
-                            placeholder="Ej: Compra de suministros de limpieza"
-                            className="w-full px-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none resize-none h-20"
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={tipo === 'INGRESO' ? 'Registrar Ingreso / Reposición' : 'Registrar Gasto / Vale'}
+            description="Movimiento de Caja Chica"
+            icon={tipo === 'INGRESO' ? <ArrowUpCircle size={24} className="text-emerald-600" /> : <ArrowDownCircle size={24} className="text-rose-600" />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <DollarSign size={14} className={tipo === 'INGRESO' ? 'text-emerald-600' : 'text-rose-600'} /> Monto *
+                        </label>
+                        <input
+                            type="number"
+                            value={monto}
+                            onChange={(e) => setMonto(Number(e.target.value))}
+                            className={`w-full px-4 py-3 text-xl font-black text-right border-2 rounded-xl outline-none focus:ring-4 transition-all ${tipo === 'INGRESO'
+                                    ? 'border-emerald-200 text-emerald-700 bg-emerald-50 focus:ring-emerald-500/20'
+                                    : 'border-rose-200 text-rose-700 bg-rose-50 focus:ring-rose-500/20'
+                                }`}
+                            min="0"
+                            step="0.01"
+                            autoFocus
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nro. Comprobante (Opcional)</label>
-                        <div className="relative">
-                            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="text"
-                                value={comprobante}
-                                onChange={(e) => setComprobante(e.target.value)}
-                                placeholder="Ej: Factura 001-001-12345"
-                                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                            />
-                        </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Calendar size={14} className="text-sri-blue" /> Fecha *
+                        </label>
+                        <input
+                            type="date"
+                            value={fecha}
+                            onChange={(e) => setFecha(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                        />
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={procesando || monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)} className={`flex items-center gap-2 ${tipo === 'INGRESO' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                        <Save size={18} /> {procesando ? 'Guardando...' : 'Guardar Movimiento'}
-                    </Button>
+                {tipo === 'EGRESO' && (
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <User size={14} className="text-sri-blue" /> Beneficiario *
+                        </label>
+                        <input
+                            type="text"
+                            value={beneficiario}
+                            onChange={(e) => setBeneficiario(e.target.value)}
+                            placeholder="Nombre del beneficiario"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 uppercase outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                        />
+                    </div>
+                )}
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Wallet size={14} className="text-sri-blue" /> Concepto / Descripción *
+                    </label>
+                    <textarea
+                        value={concepto}
+                        onChange={(e) => setConcepto(e.target.value)}
+                        placeholder="Ej: Compra de suministros de limpieza"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all resize-none h-24"
+                    />
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <FileText size={14} className="text-slate-400" /> Nro. Comprobante (Opcional)
+                    </label>
+                    <input
+                        type="text"
+                        value={comprobante}
+                        onChange={(e) => setComprobante(e.target.value)}
+                        placeholder="Ej: Factura 001-001-12345"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                    />
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };
 

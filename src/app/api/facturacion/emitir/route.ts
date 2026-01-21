@@ -51,10 +51,32 @@ export async function POST(req: NextRequest) {
         const config = configResult.rows[0];
         const p12Base64 = config.p12_certificado?.toString('base64');
 
-        // 2. Generar XML estructurado
+        // 2. Generar XML estructurado según el tipo de comprobante
         const accessKey = XmlGenerator.generateAccessKey(data);
         data.infoTributaria.claveAcceso = accessKey;
-        const rawXml = XmlGenerator.generateFacturaXml(data);
+
+        let rawXml;
+        const codDoc = data.infoTributaria.codDoc;
+
+        switch (codDoc) {
+            case '01':
+                rawXml = XmlGenerator.generateFacturaXml(data);
+                break;
+            case '03':
+                rawXml = XmlGenerator.generateLiquidacionXml(data);
+                break;
+            case '04':
+                rawXml = XmlGenerator.generateNotaCreditoXml(data);
+                break;
+            case '06':
+                rawXml = XmlGenerator.generateGuiaXml(data);
+                break;
+            case '07':
+                rawXml = XmlGenerator.generateRetencionXml(data);
+                break;
+            default:
+                throw new Error(`Tipo de comprobante ${codDoc} no soportado para generación de XML`);
+        }
 
         // 3. Firma Electrónica (Proceso Seguro en Backend)
         const signedXml = await SignatureService.signXml(rawXml, {

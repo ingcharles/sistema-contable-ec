@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import { Save, Building, Hash, MapPin, Stars, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { Sucursal } from '../../domain/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
@@ -45,80 +46,114 @@ export const SucursalModal = ({ onClose, onSave, sucursalEditar }: SucursalModal
         }
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleSubmit}
+                disabled={guardando}
+                className="flex items-center gap-2 min-w-[140px] justify-center"
+            >
+                {guardando ? (
+                    'Guardando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Guardar Sucursal
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                    <h2 className="text-xl font-bold text-slate-800">
-                        {sucursalEditar ? 'Editar Sucursal' : 'Nueva Sucursal'}
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
-                </div>
-
-                <div className="p-6 space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="col-span-1">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Código</label>
-                            <input
-                                type="text"
-                                value={formData.codigo}
-                                onChange={e => setFormData({ ...formData, codigo: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2 text-sm font-mono"
-                                placeholder="001"
-                                maxLength={3}
-                            />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
-                            <input
-                                type="text"
-                                value={formData.nombre}
-                                onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2 text-sm"
-                                placeholder="Sucursal Norte"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label>
-                        <textarea
-                            value={formData.direccion}
-                            onChange={e => setFormData({ ...formData, direccion: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg p-2 text-sm h-20 resize-none"
-                            placeholder="Av. 10 de Agosto..."
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={sucursalEditar ? 'Editar Sucursal' : 'Nueva Sucursal'}
+            description="Administre los puntos físicos de operación de su empresa."
+            icon={<Building size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="grid grid-cols-3 gap-6">
+                    <div className="col-span-1 space-y-1.5 text-center">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-center gap-2">
+                            <Hash size={14} className="text-sri-blue" /> Código *
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.codigo}
+                            onChange={e => setFormData({ ...formData, codigo: e.target.value })}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-black text-center text-sri-blue text-lg"
+                            placeholder="001"
+                            maxLength={3}
                         />
                     </div>
-
-                    <div className="flex flex-col gap-3 pt-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={formData.esMatriz}
-                                onChange={e => setFormData({ ...formData, esMatriz: e.target.checked })}
-                                className="rounded text-sri-blue focus:ring-sri-blue"
-                            />
-                            <span className="text-sm text-slate-700">Es Casa Matriz</span>
+                    <div className="col-span-2 space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Building size={14} className="text-sri-blue" /> Nombre Comercial *
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={formData.activa}
-                                onChange={e => setFormData({ ...formData, activa: e.target.checked })}
-                                className="rounded text-sri-blue focus:ring-sri-blue"
-                            />
-                            <span className="text-sm text-slate-700">Sucursal Activa</span>
-                        </label>
+                        <input
+                            type="text"
+                            value={formData.nombre}
+                            onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all text-sm font-medium"
+                            placeholder="Ej: Sucursal Norte"
+                        />
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl bg-slate-50">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                    <Button onClick={handleSubmit} className="flex items-center gap-2" disabled={guardando}>
-                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar'}
-                    </Button>
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <MapPin size={14} className="text-sri-blue" /> Dirección Completa
+                    </label>
+                    <textarea
+                        value={formData.direccion}
+                        onChange={e => setFormData({ ...formData, direccion: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all text-sm h-24 resize-none font-medium"
+                        placeholder="Av. Principal y Calle Secundaria..."
+                    />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <button
+                        onClick={() => setFormData({ ...formData, esMatriz: !formData.esMatriz })}
+                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${formData.esMatriz ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-200'}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl ${formData.esMatriz ? 'bg-amber-500 text-white' : 'bg-slate-300 text-white'}`}>
+                                <Stars size={18} />
+                            </div>
+                            <div className="text-left">
+                                <h4 className={`text-[10px] font-black uppercase tracking-tight ${formData.esMatriz ? 'text-amber-800' : 'text-slate-600'}`}>
+                                    Casa Matriz
+                                </h4>
+                                <p className="text-[8px] font-medium text-slate-400">Punto principal</p>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        onClick={() => setFormData({ ...formData, activa: !formData.activa })}
+                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${formData.activa ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-200'}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl ${formData.activa ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-white'}`}>
+                                {formData.activa ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                            </div>
+                            <div className="text-left">
+                                <h4 className={`text-[10px] font-black uppercase tracking-tight ${formData.activa ? 'text-emerald-800' : 'text-slate-600'}`}>
+                                    Estado
+                                </h4>
+                                <p className="text-[8px] font-medium text-slate-400">{formData.activa ? 'Operativa' : 'Cerrada'}</p>
+                            </div>
+                        </div>
+                    </button>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };

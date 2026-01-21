@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Save, Plus } from 'lucide-react';
+import { Save, Plus, Calendar, User, FileText, Hash, DollarSign } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { CuentaBancaria, TipoMovimientoBancario } from '../../domain/types';
 import { BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
@@ -48,58 +49,127 @@ export const NuevaTransaccionModal: React.FC<Props> = ({ cuentas, onClose, onSav
         }
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={monto <= 0 || guardando}
+                className="flex items-center gap-2 min-w-[160px] justify-center"
+            >
+                {guardando ? (
+                    'Registrando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Guardar Transacción
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <Plus className="text-sri-blue" /> Nueva Transacción
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
-                </div>
-                <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta Bancaria</label>
-                        <select value={cuentaId} onChange={e => setCuentaId(e.target.value)} className="w-full border rounded p-2 text-sm">
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Nueva Transacción"
+            description="Registre un movimiento bancario manual (cheque, transferencia, nota de débito/crédito)."
+            icon={<Plus size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cuenta Bancaria *</label>
+                        <select
+                            value={cuentaId}
+                            onChange={e => setCuentaId(e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium text-xs"
+                        >
                             {cuentas.map(c => <option key={c.id} value={c.id}>{c.banco} - {c.numeroCuenta}</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Tipo de Movimiento</label>
-                        <select value={tipo} onChange={e => setTipo(e.target.value as TipoMovimientoBancario)} className="w-full border rounded p-2 text-sm">
-                            {Object.values(TipoMovimientoBancario).map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tipo de Movimiento *</label>
+                        <select
+                            value={tipo}
+                            onChange={e => setTipo(e.target.value as TipoMovimientoBancario)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium text-xs"
+                        >
+                            {Object.values(TipoMovimientoBancario).map(t => (
+                                <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                            ))}
                         </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Monto ($)</label>
-                            <input type="number" value={monto} onChange={e => setMonto(parseFloat(e.target.value))} className="w-full border rounded p-2 text-sm text-right font-bold" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Fecha</label>
-                            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="w-full border rounded p-2 text-sm" />
-                        </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <DollarSign size={14} className="text-sri-blue" /> Monto ($) *
+                        </label>
+                        <input
+                            type="number"
+                            value={monto}
+                            onChange={e => setMonto(parseFloat(e.target.value))}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-black text-right text-sri-blue text-lg"
+                            step="0.01"
+                        />
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Beneficiario / Girado a</label>
-                        <input type="text" value={beneficiario} onChange={e => setBeneficiario(e.target.value)} className="w-full border rounded p-2 text-sm" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Concepto / Glosa</label>
-                        <textarea value={concepto} onChange={e => setConcepto(e.target.value)} className="w-full border rounded p-2 text-sm h-20" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Referencia (Nro Cheque/Transf)</label>
-                        <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)} className="w-full border rounded p-2 text-sm" />
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Calendar size={14} className="text-sri-blue" /> Fecha
+                        </label>
+                        <input
+                            type="date"
+                            value={fecha}
+                            onChange={e => setFecha(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium text-xs"
+                        />
                     </div>
                 </div>
-                <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={monto <= 0 || guardando} className="flex items-center gap-2">
-                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar Transacción'}
-                    </Button>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <User size={14} className="text-sri-blue" /> Beneficiario / Girado a
+                    </label>
+                    <input
+                        type="text"
+                        value={beneficiario}
+                        onChange={e => setBeneficiario(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all text-sm"
+                        placeholder="Nombre de la persona o empresa"
+                    />
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <FileText size={14} className="text-sri-blue" /> Concepto / Glosa
+                    </label>
+                    <textarea
+                        value={concepto}
+                        onChange={e => setConcepto(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all text-sm h-24 resize-none"
+                        placeholder="Descripción detallada del movimiento"
+                    />
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Hash size={14} className="text-sri-blue" /> Referencia (Nro. Cheque o Comprobante)
+                    </label>
+                    <input
+                        type="text"
+                        value={referencia}
+                        onChange={e => setReferencia(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all text-sm"
+                        placeholder="Ej: 000123"
+                    />
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };

@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/facturacion/comprobantes
- * Crea un comprobante electrónico
+ * Crea un comprobante electrónico (Factura, Nota de Crédito, etc.)
  */
 export async function POST(req: NextRequest) {
     const context = validateContext(req);
@@ -118,7 +118,14 @@ export async function POST(req: NextRequest) {
             subtotal,
             iva,
             total,
-            detalles
+            detalles,
+            // Metadatos SRI opcionales (si ya fue procesado)
+            secuencial: secuencialManual,
+            claveAcceso,
+            numeroAutorizacion,
+            estado = 'BORRADOR',
+            ambienteSri = '1',
+            tipoEmisionSri = '1'
         } = body;
 
         if (!tipoComprobante || !fechaEmision || !clienteId || !total || !detalles) {
@@ -128,25 +135,28 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Usar transacción para crear comprobante + detalles
         const result = await db.transaction(async (client) => {
-            // Generar secuencial
-            const secuencialResult = await client.query(`
-                SELECT COALESCE(MAX(secuencial), 0) + 1 as next_secuencial
-                FROM facturacion.comprobantes_electronicos
-                WHERE empresa_id = $1 AND tipo_comprobante = $2
-            `, [context.empresaId, tipoComprobante]);
+            let secuencial = secuencialManual;
 
-            const secuencial = secuencialResult.rows[0].next_secuencial;
+            // Si no viene secuencial, generar el siguiente
+            if (!secuencial) {
+                const secuencialResult = await client.query(`
+                    SELECT COALESCE(MAX(secuencial), 0) + 1 as next_secuencial
+                    FROM facturacion.comprobantes_electronicos
+                    WHERE empresa_id = $1 AND tipo_comprobante = $2
+                `, [context.empresaId, tipoComprobante]);
+                secuencial = secuencialResult.rows[0].next_secuencial;
+            }
 
-            // Insertar cabecera
+            // Insertar cabecera con estado y metadatos SRI
             const comprobanteResult = await client.query(`
                 INSERT INTO facturacion.comprobantes_electronicos 
                     (empresa_id, usuario_id, tipo_comprobante, secuencial, fecha_emision,
                      cliente_id, cliente_nombre, cliente_identificacion,
-                     subtotal, iva, total, estado, created_at, updated_at)
+                     subtotal, iva, total, estado, clave_acceso, numero_autorizacion,
+                     ambiente_sri, tipo_emision_sri, created_at, updated_at)
                 VALUES 
-                    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'BORRADOR', NOW(), NOW())
+                    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
                 RETURNING id
             `, [
                 context.empresaId,
@@ -159,7 +169,12 @@ export async function POST(req: NextRequest) {
                 clienteIdentificacion,
                 subtotal,
                 iva,
-                total
+                total,
+                estado,
+                claveAcceso,
+                numeroAutorizacion,
+                ambienteSri,
+                tipoEmisionSri
             ]);
 
             const comprobanteId = comprobanteResult.rows[0].id;
@@ -189,12 +204,12 @@ export async function POST(req: NextRequest) {
             success: true,
             id: result.comprobanteId,
             secuencial: result.secuencial,
-            mensaje: 'Comprobante creado exitosamente'
+            mensaje: 'Comprobante registrado exitosamente'
         });
     } catch (error: any) {
-        console.error('Error al crear comprobante:', error);
+        console.error('Error al registrar comprobante:', error);
         return NextResponse.json(
-            { error: error.message || 'Error al crear comprobante', details: error.message },
+            { error: error.message || 'Error al registrar comprobante', details: error.message },
             { status: 500 }
         );
     }

@@ -1,5 +1,8 @@
+'use client';
+
 import { useState } from 'react';
-import { X, Calculator, FileText, Save, AlertCircle } from 'lucide-react';
+import { Calculator, FileText, Save, AlertCircle, TrendingUp, TrendingDown, ReceiptText } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 
@@ -17,22 +20,20 @@ export const DeclaracionModal = ({ onClose, onSave, empresaId }: DeclaracionModa
 
     const handleCalcular = async () => {
         setCalculando(true);
-        // Simulate calculation delay
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // Mock values based on form type
         if (tipoFormulario === '104') {
             setValores({
                 ventas: 12500.00,
                 compras: 8400.00,
-                impuesto: 1500.00, // IVA Generado
-                saldo: 492.00 // A pagar (ejemplo)
+                impuesto: 1500.00,
+                saldo: 492.00
             });
         } else {
             setValores({
                 ventas: 12500.00,
                 compras: 8400.00,
-                impuesto: 125.00, // Retenciones
+                impuesto: 125.00,
                 saldo: 125.00
             });
         }
@@ -40,111 +41,156 @@ export const DeclaracionModal = ({ onClose, onSave, empresaId }: DeclaracionModa
     };
 
     const handleGuardar = async () => {
-        // Simulate save using empresaId
         console.log(`Guardando declaración ${tipoFormulario} para empresa:`, empresaId);
         await new Promise(resolve => setTimeout(resolve, 1000));
         onSave();
         onClose();
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={!valores}
+                className="flex items-center gap-2 min-w-[180px] justify-center"
+            >
+                <Save size={18} /> Guardar Declaración
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                    <div>
-                        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <Calculator size={20} className="text-sri-blue" />
-                            Nueva Declaración de Impuestos
-                        </h2>
-                        <p className="text-xs text-slate-500">Generación de formularios 103 y 104 en línea.</p>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Nueva Declaración"
+            description="Procese sus impuestos locales basándose en los registros contables del periodo."
+            icon={<Calculator size={24} />}
+            footer={footer}
+            size="lg"
+        >
+            <div className="space-y-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            Formulario del SRI
+                        </label>
+                        <select
+                            value={tipoFormulario}
+                            onChange={(e) => { setTipoFormulario(e.target.value as any); setValores(null); }}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-sri-blue focus:ring-4 focus:ring-sri-blue/10 outline-none transition-all"
+                        >
+                            <option value="104">Formulario 104 - IVA Mensual</option>
+                            <option value="103">Formulario 103 - Retenciones Fuente</option>
+                        </select>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-                        <X size={24} />
-                    </button>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            Periodo Fiscal (Mes/Año)
+                        </label>
+                        <input
+                            type="month"
+                            value={periodo}
+                            onChange={(e) => { setPeriodo(e.target.value); setValores(null); }}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 focus:ring-4 focus:ring-sri-blue/10 outline-none transition-all"
+                        />
+                    </div>
                 </div>
 
-                {/* Body */}
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Formulario</label>
-                            <select
-                                value={tipoFormulario}
-                                onChange={(e) => { setTipoFormulario(e.target.value as any); setValores(null); }}
-                                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                            >
-                                <option value="104">Formulario 104 - IVA Mensual</option>
-                                <option value="103">Formulario 103 - Retenciones en la Fuente</option>
-                            </select>
+                {!valores ? (
+                    <div className="py-12 px-6 text-center space-y-4">
+                        <div className="w-16 h-16 bg-sri-blue/5 rounded-2xl flex items-center justify-center mx-auto text-sri-blue animate-pulse">
+                            <Calculator size={32} />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Periodo Fiscal</label>
-                            <input
-                                type="month"
-                                value={periodo}
-                                onChange={(e) => { setPeriodo(e.target.value); setValores(null); }}
-                                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                            />
-                        </div>
-                    </div>
-
-                    {!valores ? (
-                        <div className="bg-slate-50 rounded-xl p-8 text-center border border-dashed border-slate-200">
-                            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm text-sri-blue">
-                                <Calculator size={24} />
-                            </div>
-                            <h3 className="font-medium text-slate-700 mb-1">Listo para calcular</h3>
-                            <p className="text-sm text-slate-500 mb-4 max-w-xs mx-auto">
-                                El sistema analizará todos los comprobantes electrónicos emitidos y recibidos en el periodo seleccionado.
+                        <div className="max-w-xs mx-auto space-y-2">
+                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">Analítico Contable</h3>
+                            <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                                El sistema consolidará automáticamente sus comprobantes electrónicos y asientos contables para este periodo.
                             </p>
-                            <Button onClick={handleCalcular} disabled={calculando} className="min-w-[150px]">
-                                {calculando ? 'Procesando...' : 'Calcular Valores'}
-                            </Button>
                         </div>
-                    ) : (
-                        <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
-                            <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
-                                <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                                    <FileText size={18} className="text-sri-blue" />
-                                    Resumen del Cálculo
-                                </h3>
-                                <div className="grid grid-cols-2 gap-y-2 text-sm">
-                                    <div className="text-slate-600">Total Ventas Netas:</div>
-                                    <div className="text-right font-medium">{formatMoney(valores.ventas)}</div>
+                        <Button
+                            onClick={handleCalcular}
+                            disabled={calculando}
+                            className="flex items-center gap-2 mx-auto min-w-[200px] justify-center"
+                        >
+                            {calculando ? (
+                                'Consolidando Datos...'
+                            ) : (
+                                <>
+                                    <ReceiptText size={18} /> Procesar Borrador
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden">
+                            <div className="bg-sri-blue/5 px-6 py-3 border-b border-slate-100">
+                                <h3 className="text-[10px] font-black text-sri-blue uppercase tracking-[0.2em]">Resumen de Valores Calculados</h3>
+                            </div>
+                            <div className="p-6 grid grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg group-hover:scale-110 transition-transform">
+                                                <TrendingUp size={16} />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Ventas Netas</span>
+                                        </div>
+                                        <span className="text-sm font-black text-slate-700">{formatMoney(valores.ventas)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
+                                                <TrendingDown size={16} />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Compras Netas</span>
+                                        </div>
+                                        <span className="text-sm font-black text-slate-700">{formatMoney(valores.compras)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-slate-50 text-slate-500 rounded-lg group-hover:scale-110 transition-transform">
+                                                <FileText size={16} />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">
+                                                {tipoFormulario === '104' ? 'IVA Generado' : 'Retenciones'}
+                                            </span>
+                                        </div>
+                                        <span className="text-sm font-black text-slate-700">{formatMoney(valores.impuesto)}</span>
+                                    </div>
+                                </div>
 
-                                    <div className="text-slate-600">Total Compras Netas:</div>
-                                    <div className="text-right font-medium">{formatMoney(valores.compras)}</div>
-
-                                    <div className="text-slate-600">{tipoFormulario === '104' ? 'IVA Generado:' : 'Retenciones Generadas:'}</div>
-                                    <div className="text-right font-medium">{formatMoney(valores.impuesto)}</div>
-
-                                    <div className="col-span-2 border-t border-blue-200 my-2"></div>
-
-                                    <div className="font-bold text-slate-800">Saldo a Pagar:</div>
-                                    <div className="text-right font-bold text-sri-blue text-lg">{formatMoney(valores.saldo)}</div>
+                                <div className="bg-slate-50 rounded-2xl p-6 flex flex-col justify-center items-center border border-slate-100 space-y-2">
+                                    <span className="text-[10px] font-black text-sri-blue uppercase tracking-widest">Saldo a Liquidar</span>
+                                    <div className="text-4xl font-black text-sri-blue tracking-tighter">
+                                        {formatMoney(valores.saldo)}
+                                    </div>
+                                    <div className="px-2 py-1 bg-sri-blue/10 rounded text-[9px] font-bold text-sri-blue uppercase">
+                                        Impuesto {tipoFormulario === '104' ? 'IVA' : 'Renta'}
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="flex items-start gap-3 p-3 bg-amber-50 text-amber-800 rounded-lg text-xs border border-amber-100">
-                                <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                                <p>
-                                    Este es un cálculo preliminar basado en los registros del sistema.
-                                    Verifique la información con sus documentos físicos antes de enviar al SRI.
+                        <div className="flex items-start gap-4 p-5 bg-amber-50/50 rounded-2xl border border-amber-100 shadow-sm shadow-amber-500/5">
+                            <div className="p-2 bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-500/20">
+                                <AlertCircle size={20} />
+                            </div>
+                            <div className="space-y-1">
+                                <h4 className="text-[11px] font-black text-amber-800 uppercase tracking-wide">Validación Requerida</h4>
+                                <p className="text-[10px] text-amber-700/80 font-medium leading-relaxed">
+                                    Este cálculo preliminar se genera basándose exclusivamente en los registros digitales.
+                                    Asegúrese de cruzar esta información con su libro diario antes de formalizar la declaración ante el SRI.
                                 </p>
                             </div>
                         </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={!valores} className="flex items-center gap-2">
-                        <Save size={18} /> Guardar Declaración
-                    </Button>
-                </div>
+                    </div>
+                )}
             </div>
-        </div>
+        </Modal>
     );
 };

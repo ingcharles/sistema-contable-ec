@@ -18,7 +18,7 @@ import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 // Repositorios para integración
-import { DirectorioUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { DirectorioUseCases, InventarioUseCases, FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Producto } from '@/modules/inventario/domain/types';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
@@ -27,9 +27,11 @@ export interface FacturaFormProps {
     factura?: Partial<FacturaViewModel>;
     onSubmit: (factura: FacturaViewModel) => void;
     onCancel: () => void;
+    id?: string;
+    showButtons?: boolean;
 }
 
-export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
+export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', showButtons = true }: FacturaFormProps) {
     const { currentEmpresa } = useEmpresa();
 
     // Estados para integración
@@ -53,10 +55,7 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
     useEffect(() => {
         if (currentEmpresa) {
             const loadData = async () => {
-                // Fetch users (real API) and products (real API)
                 const listaClientes = await DirectorioUseCases.listarTerceros('CLIENTE');
-
-                // Fetch products (max 1000 for dropdown)
                 const productosResponse = await InventarioUseCases.listarProductos('?limit=1000');
                 const productosData = productosResponse.data || [];
 
@@ -86,7 +85,6 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
     }, [currentEmpresa?.id]);
 
     // Datos del Cliente
-    // Default to '04' (RUC) if not provided
     const [tipoIdentificacion, setTipoIdentificacion] = useState(factura?.tipoIdentificacionAdquirente || '04');
     const [identificacion, setIdentificacion] = useState(factura?.identificacionAdquirente || '');
     const [razonSocial, setRazonSocial] = useState(factura?.razonSocialAdquirente || '');
@@ -142,7 +140,6 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
         setBusquedaCliente('');
         setMostrarListaClientes(false);
 
-        // Si es consumidor final, asegurar que el tipo de identificación sea el correcto
         if (cliente.identificacion === '9999999999999') {
             setTipoIdentificacion('07'); // Consumidor Final
         } else if (cliente.identificacion.length === 10) {
@@ -160,7 +157,6 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
             return;
         }
 
-        // Solo validar si tiene longitud mínima
         if (identificacion.length >= 5) {
             const resultado = validarIdentificacion(
                 tipoIdentificacion as '04' | '05' | '06' | '07' | '08',
@@ -219,20 +215,16 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
                 detalle.productoId = producto.id;
                 detalle.descripcion = producto.nombre;
                 detalle.precioUnitario = producto.precioVenta;
-                // Asumimos IVA 2 (12%/15%) si graba, 0 si no
                 detalle.codigoIVA = producto.grabaIva ? '2' : '0';
             }
         }
 
         detalle.baseImponible = (detalle.cantidad * detalle.precioUnitario) - detalle.descuento;
 
-        // Calcular IVA basado en el código seleccionado del catálogo
         let porcentajeIVA = 0;
         const tarifaSeleccionada = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
 
         if (tarifaSeleccionada) {
-            // Extraer porcentaje del valor (ej: "15%") - Puede venir como "12%", "15%", "0%"
-            // Si el valor es numérico puro en el futuro, ajustar aquí.
             const match = tarifaSeleccionada.valor.match(/(\d+)%/);
             if (match) {
                 porcentajeIVA = parseInt(match[1]) / 100;
@@ -266,7 +258,6 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
     };
 
     const calcularTotales = () => {
-        // Aseguramos que son números antes de sumar
         const totalSinImpuestos = detalles.reduce((sum, d) => sum + (Number(d.baseImponible) || 0), 0);
         const totalDescuento = detalles.reduce((sum, d) => sum + (Number(d.descuento) || 0), 0);
         const totalIVA = detalles.reduce((sum, d) => sum + (Number(d.valorIVA) || 0), 0);
@@ -277,20 +268,18 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
 
     const totales = calcularTotales();
 
-    // Sincronizar el total del primer pago con el total de la factura si solo hay un pago
     useEffect(() => {
         if (pagos.length === 1 && Math.abs(pagos[0].total - totales.importeTotal) > 0.001) {
             actualizarPago(0, 'total', parseFloat(totales.importeTotal.toFixed(2)));
         }
     }, [totales.importeTotal]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentEmpresa) return;
 
         const totalPagos = pagos.reduce((sum, p) => sum + (Number(p.total) || 0), 0);
 
-        // Pequeña tolerancia para errores de punto flotante
         if (Math.abs(totalPagos - totales.importeTotal) > 0.02) {
             alert(`El total de las formas de pago ($${totalPagos.toFixed(2)}) debe ser igual al importe total de la factura ($${totales.importeTotal.toFixed(2)})`);
             return;
@@ -321,15 +310,79 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
             obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
         };
 
-        // Estandarización para el SRI
         const dataSri = SriStandardizer.standardizeFactura(nuevaFactura);
-        console.log('JSON ESTANDARIZADO SRI:', JSON.stringify(dataSri, null, 2));
 
-        onSubmit(nuevaFactura);
+        let sriResult = {
+            success: false,
+            status: 'BORRADOR',
+            numeroAutorizacion: null as string | null,
+            claveAcceso: null as string | null
+        };
+
+        try {
+            const emisionRes = await FacturacionUseCases.emitirFactura(dataSri);
+            sriResult = {
+                success: true,
+                status: emisionRes.status || 'AUTORIZADO',
+                numeroAutorizacion: emisionRes.numeroAutorizacion,
+                claveAcceso: emisionRes.claveAcceso
+            };
+        } catch (sriError: any) {
+            console.error('Error SRI:', sriError);
+            sriResult.status = 'ERROR SRI';
+        }
+
+        try {
+            const resLocal = await FacturacionUseCases.registrarComprobante({
+                tipoComprobante: 'FACTURA',
+                fechaEmision,
+                clienteId: identificacion,
+                clienteNombre: razonSocial,
+                clienteIdentificacion: identificacion,
+                subtotal: totales.totalSinImpuestos,
+                iva: totales.totalIVA,
+                total: totales.importeTotal,
+                detalles: detalles.map(d => ({
+                    codigoPrincipal: d.codigoPrincipal,
+                    descripcion: d.descripcion,
+                    cantidad: d.cantidad,
+                    precioUnitario: d.precioUnitario,
+                    descuento: d.descuento,
+                    total: d.total
+                })),
+                secuencial: parseInt(secuencial),
+                claveAcceso: sriResult.claveAcceso,
+                numeroAutorizacion: sriResult.numeroAutorizacion,
+                estado: sriResult.status
+            });
+
+            await ContabilidadUseCases.registrarAsiento({
+                numero: `AS-VTA-${secuencial}`,
+                fecha: fechaEmision,
+                glosa: `P/R Venta Factura ${estab}-${ptoEmi}-${secuencial} - ${razonSocial}`,
+                tipo: 'INGRESO',
+                detalles: [
+                    { cuentaCodigo: '1.1.01.01', debe: totales.importeTotal, haber: 0 },
+                    { cuentaCodigo: '4.1.01.01', debe: 0, haber: totales.totalSinImpuestos },
+                    { cuentaCodigo: '2.1.05.01', debe: 0, haber: totales.totalIVA }
+                ]
+            });
+
+            if (sriResult.success) {
+                alert(`Factura emitida y autorizada: ${sriResult.numeroAutorizacion}`);
+            } else {
+                alert(`Factura guardada localmente. Error SRI: ${sriResult.status}. Deberá reintentar el envío después.`);
+            }
+
+            onSubmit({ ...nuevaFactura, id: resLocal.id, estado: sriResult.status as any });
+        } catch (error: any) {
+            console.error('Error al guardar localmente:', error);
+            alert(`Error al guardar la factura: ${error.message}`);
+        }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form id={id} onSubmit={handleSubmit} className="space-y-8">
             {/* Encabezado Técnico */}
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
                 <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -671,14 +724,16 @@ export function FacturaForm({ factura, onSubmit, onCancel }: FacturaFormProps) {
             </div>
 
             {/* Botones de Acción */}
-            <div className="flex justify-end gap-4">
-                <Button type="button" onClick={onCancel} variant="secondary" className="px-8">
-                    Cancelar
-                </Button>
-                <Button type="submit" variant="primary" className="px-12 bg-sri-blue hover:bg-sri-light shadow-lg shadow-blue-900/20">
-                    Emitir y Autorizar SRI
-                </Button>
-            </div>
+            {showButtons && (
+                <div className="flex justify-end gap-4">
+                    <Button type="button" onClick={onCancel} variant="secondary" className="px-8">
+                        Cancelar
+                    </Button>
+                    <Button type="submit" variant="primary" className="px-12 bg-sri-blue hover:bg-sri-light shadow-lg shadow-blue-900/20">
+                        Emitir y Autorizar SRI
+                    </Button>
+                </div>
+            )}
         </form>
     );
 }

@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Truck, MapPin, Package, User, Plus } from 'lucide-react';
+import { Save, Truck, MapPin, Package, User, Plus } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
+import { Modal } from '@/shared/ui/Modal';
 import { MotivoTraslado } from '../../domain/guias';
-import { useFacturacionMutations } from '../../hooks/useFacturacion';
 import { useTransportistas } from '../../hooks/useTransportistas';
 import { TransportistaModal } from './TransportistaModal';
+import { useEmpresa } from '@/shared/context/EmpresaContext';
+import { SriStandardizer } from '../../domain/services/SriStandardizer';
+import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 
 interface GuiaRemisionModalProps {
     facturaReferencia?: any;
@@ -16,7 +20,7 @@ interface GuiaRemisionModalProps {
 }
 
 export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRemisionModalProps) => {
-    const { guardarGuiaRemision, emitiendo: guardando } = useFacturacionMutations();
+    const { currentEmpresa } = useEmpresa();
     const { transportistas, cargarTransportistas } = useTransportistas();
     const [transportistaId, setTransportistaId] = useState('');
     const [puntoPartida, setPuntoPartida] = useState('Matriz / Bodega Principal');
@@ -25,6 +29,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     const [fechaFin, setFechaFin] = useState(new Date().toISOString().split('T')[0]);
     const [motivo, setMotivo] = useState(MotivoTraslado.VENTA);
     const [showNuevoTransportista, setShowNuevoTransportista] = useState(false);
+    const [guardando, setGuardando] = useState(false);
 
     useEffect(() => {
         cargarTransportistas();
@@ -48,189 +53,256 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
             return;
         }
 
+        setGuardando(true);
         try {
-            await guardarGuiaRemision({
-                clienteId: facturaReferencia?.terceroId || '9999999999999',
-                clienteNombre: facturaReferencia?.terceroNombre || 'CONSUMIDOR FINAL',
-                clienteIdentificacion: facturaReferencia?.terceroId || '9999999999999',
+            const secuencial = Math.floor(Math.random() * 999999999).toString().padStart(9, '0');
+
+            const dataGuia = {
+                ambiente: AMBIENTE.PRUEBAS,
+                tipoEmision: TIPO_EMISION.NORMAL,
+                razonSocial: currentEmpresa.razonSocial,
+                nombreComercial: currentEmpresa.nombreComercial,
+                ruc: currentEmpresa.ruc,
+                estab: '001',
+                ptoEmi: '001',
+                secuencial,
+                dirMatriz: currentEmpresa.direccionMatriz || 'Quito',
+                dirPartida: puntoPartida,
+                razonSocialTransportista: transportista.razonSocial,
+                tipoIdentificacionTransportista: '04',
+                rucTransportista: transportista.ruc,
+                obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
+                contribuyenteEspecial: currentEmpresa.contribuyenteEspecial,
+                fechaIniTraslado: fechaInicio,
+                fechaFinTraslado: fechaFin,
+                placa: transportista.placa,
+                destinatarios: [
+                    {
+                        identificacionDestinatario: facturaReferencia?.identificacionAdquirente || '9999999999999',
+                        razonSocialDestinatario: facturaReferencia?.razonSocialAdquirente || 'CONSUMIDOR FINAL',
+                        dirDestinatario: puntoDestino,
+                        motivoTraslado: motivo,
+                        codDocSustento: '01',
+                        numDocSustento: facturaReferencia?.secuencial || '001-001-000000001',
+                        numAutDocSustento: facturaReferencia?.numeroAutorizacion || '1234567890123456789012345678901234567',
+                        fechaEmisionDocSustento: facturaReferencia?.fechaEmision || new Date().toISOString().split('T')[0],
+                        detalles: facturaReferencia?.items?.map((i: any) => ({
+                            codigoInterno: i.codigo || 'S/N',
+                            descripcion: i.nombre || i.descripcion,
+                            cantidad: i.cantidad || 1
+                        })) || []
+                    }
+                ]
+            };
+
+            const guiaStandard = SriStandardizer.standardizeGuia(dataGuia);
+
+            let resSri = null;
+            try {
+                resSri = await FacturacionUseCases.emitirFactura(guiaStandard);
+            } catch (e) {
+                console.error('Error SRI Guía:', e);
+            }
+
+            await FacturacionUseCases.registrarComprobante({
+                tipoComprobante: 'GUIA_REMISION',
                 fechaEmision: new Date().toISOString().split('T')[0],
+                clienteId: facturaReferencia?.identificacionAdquirente || '9999999999999',
+                clienteNombre: facturaReferencia?.razonSocialAdquirente || 'CONSUMIDOR FINAL',
+                clienteIdentificacion: facturaReferencia?.identificacionAdquirente || '9999999999999',
+                subtotal: 0,
+                iva: 0,
+                total: 0,
+                secuencial: secuencial,
+                claveAcceso: resSri?.claveAcceso,
+                numeroAutorizacion: resSri?.numeroAutorizacion,
+                estado: resSri?.estado || 'ERROR',
                 direccionPartida: puntoPartida,
                 direccionDestino: puntoDestino,
                 transportistaNombre: transportista.razonSocial,
-                transportistaIdentificacion: transportista.ruc,
-                placaVehiculo: transportista.placa || '',
-                detalles: facturaReferencia?.items?.map((i: any) => ({
-                    codigo: i.codigo || 'S/N',
-                    descripcion: i.nombre || i.descripcion,
-                    cantidad: i.cantidad || 1
-                })) || []
+                placaVehiculo: transportista.placa,
+                detalles: dataGuia.destinatarios[0].detalles.map((d: any) => ({
+                    codigoPrincipal: d.codigoInterno,
+                    descripcion: d.descripcion,
+                    cantidad: d.cantidad,
+                    precioUnitario: 0,
+                    total: 0
+                }))
             });
+
             onSave();
             onClose();
         } catch (error) {
-            console.error('Error al guardar guía:', error);
-            alert('Error al guardar la guía de remisión');
+            console.error('Error al procesar guía:', error);
+            alert('Error al procesar la guía de remisión');
+        } finally {
+            setGuardando(false);
         }
     };
 
-    return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="bg-slate-800 p-6 text-white flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/10 rounded-lg">
-                            <Truck size={24} />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold">Generar Guía de Remisión</h2>
-                            <p className="text-slate-400 text-xs">Documento de acompañamiento para traslado de mercadería.</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
-
-                <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-                    {/* Sección Transportista */}
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                            <User size={16} /> Información del Transportista
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500">Seleccionar Transportista *</label>
-                                <select
-                                    value={transportistaId}
-                                    onChange={(e) => setTransportistaId(e.target.value)}
-                                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
-                                >
-                                    {transportistas.map(t => (
-                                        <option key={t.id} value={t.id}>{t.razonSocial} ({t.placa})</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="flex items-end">
-                                <Button
-                                    variant="secondary"
-                                    className="w-full flex items-center gap-2 justify-center"
-                                    onClick={() => setShowNuevoTransportista(true)}
-                                >
-                                    <Plus size={16} /> Nuevo Transportista
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Sección Ruta */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100">
-                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                            <MapPin size={16} /> Ruta y Tiempos
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500">Punto de Partida *</label>
-                                <input
-                                    type="text"
-                                    value={puntoPartida}
-                                    onChange={(e) => setPuntoPartida(e.target.value)}
-                                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500">Punto de Destino *</label>
-                                <input
-                                    type="text"
-                                    value={puntoDestino}
-                                    onChange={(e) => setPuntoDestino(e.target.value)}
-                                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500">Fecha Inicio Traslado</label>
-                                <input
-                                    type="date"
-                                    value={fechaInicio}
-                                    onChange={(e) => setFechaInicio(e.target.value)}
-                                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500">Fecha Fin Traslado</label>
-                                <input
-                                    type="date"
-                                    value={fechaFin}
-                                    onChange={(e) => setFechaFin(e.target.value)}
-                                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Sección Mercadería */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100">
-                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                            <Package size={16} /> Detalle de Mercadería
-                        </h3>
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                            <div className="flex justify-between items-center mb-4">
-                                <span className="text-xs font-bold text-slate-500">Motivo del Traslado:</span>
-                                <select
-                                    value={motivo}
-                                    onChange={(e) => setMotivo(e.target.value as MotivoTraslado)}
-                                    className="text-xs border-none bg-transparent font-bold text-sri-blue outline-none"
-                                >
-                                    <option value={MotivoTraslado.VENTA}>Venta</option>
-                                    <option value={MotivoTraslado.TRASLADO_BODEGAS}>Traslado entre Bodegas</option>
-                                    <option value={MotivoTraslado.DEVOLUCION}>Devolución</option>
-                                    <option value={MotivoTraslado.COMPRA}>Compra</option>
-                                </select>
-                            </div>
-                            <table className="w-full text-xs text-left">
-                                <thead className="text-slate-400 font-bold border-b border-slate-200">
-                                    <tr>
-                                        <th className="pb-2">Descripción</th>
-                                        <th className="pb-2 text-right">Cantidad</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {facturaReferencia?.items?.map((item: any, idx: number) => (
-                                        <tr key={idx}>
-                                            <td className="py-2 text-slate-700">{item.nombre || item.descripcion}</td>
-                                            <td className="py-2 text-right font-bold">{item.cantidad || 1}</td>
-                                        </tr>
-                                    )) || (
-                                            <tr><td colSpan={2} className="py-4 text-center text-slate-400 italic">No hay ítems cargados.</td></tr>
-                                        )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                        Cancelar
-                    </Button>
-                    <Button
-                        onClick={handleGuardar}
-                        disabled={guardando}
-                        className="flex items-center gap-2 min-w-[160px] justify-center bg-slate-800 hover:bg-slate-700"
-                    >
-                        {guardando ? 'Generando...' : <><Save size={18} /> Guardar y Emitir</>}
-                    </Button>
-                </div>
-            </div>
-            {showNuevoTransportista && (
-                <TransportistaModal
-                    onClose={() => setShowNuevoTransportista(false)}
-                    onSave={(nuevo) => {
-                        cargarTransportistas();
-                        setTransportistaId(nuevo.id);
-                        setShowNuevoTransportista(false);
-                    }}
-                />
-            )}
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={guardando}
+                className="flex items-center gap-2 min-w-[180px] justify-center"
+            >
+                {guardando ? 'Generando...' : <><Save size={18} /> Guardar y Emitir</>}
+            </Button>
         </div>
+    );
+
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Generar Guía de Remisión"
+            description="Documento de acompañamiento para el traslado de mercadería."
+            icon={<Truck size={24} />}
+            footer={footer}
+            size="2xl"
+        >
+            <div className="space-y-8">
+                {/* Sección Transportista */}
+                <div>
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <User size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Información del Transportista</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gradient-to-br from-slate-50 to-slate-100/50 p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <Truck size={14} className="text-sri-blue" /> Seleccionar Transportista *
+                            </label>
+                            <select
+                                value={transportistaId}
+                                onChange={(e) => setTransportistaId(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-medium text-slate-700"
+                            >
+                                {transportistas.map(t => (
+                                    <option key={t.id} value={t.id}>{t.razonSocial} ({t.placa})</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex items-end pb-0.5">
+                            <Button
+                                variant="secondary"
+                                className="w-full flex items-center gap-2 justify-center border-dashed border-2 hover:border-sri-blue hover:text-sri-blue hover:bg-sri-blue/5 transition-all"
+                                onClick={() => setShowNuevoTransportista(true)}
+                            >
+                                <Plus size={16} /> Agregar Transportista
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sección Ruta */}
+                <div>
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <MapPin size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Ruta y Cronograma</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Punto de Partida *</label>
+                            <input
+                                type="text"
+                                value={puntoPartida}
+                                onChange={(e) => setPuntoPartida(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Punto de Destino *</label>
+                            <input
+                                type="text"
+                                value={puntoDestino}
+                                onChange={(e) => setPuntoDestino(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha Inicio Traslado</label>
+                            <input
+                                type="date"
+                                value={fechaInicio}
+                                onChange={(e) => setFechaInicio(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha Fin Traslado</label>
+                            <input
+                                type="date"
+                                value={fechaFin}
+                                onChange={(e) => setFechaFin(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sección Mercadería */}
+                <div>
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <Package size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Contenido del Envío</h3>
+                    </div>
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-6 border border-slate-200 overflow-hidden shadow-sm">
+                        <div className="flex justify-between items-center mb-6">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Motivo del Traslado</span>
+                            <select
+                                value={motivo}
+                                onChange={(e) => setMotivo(e.target.value as MotivoTraslado)}
+                                className="text-sm border border-sri-blue/20 bg-white px-4 py-2 rounded-xl font-bold text-sri-blue outline-none focus:ring-4 focus:ring-sri-blue/10 shadow-sm transition-all"
+                            >
+                                <option value={MotivoTraslado.VENTA}>Venta de Mercadería</option>
+                                <option value={MotivoTraslado.TRASLADO_BODEGAS}>Traslado entre Bodegas</option>
+                                <option value={MotivoTraslado.DEVOLUCION}>Devolución de Compra</option>
+                                <option value={MotivoTraslado.COMPRA}>Compra de Mercadería</option>
+                            </select>
+                        </div>
+                        <table className="w-full text-xs text-left bg-white rounded-xl overflow-hidden shadow-sm">
+                            <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-200 bg-slate-50">
+                                <tr>
+                                    <th className="py-3 px-4">Descripción del Ítem</th>
+                                    <th className="py-3 px-4 text-right">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {facturaReferencia?.items?.map((item: any, idx: number) => (
+                                    <tr key={idx} className="hover:bg-sri-blue/5 transition-colors">
+                                        <td className="py-3 px-4 font-medium text-slate-700">{item.nombre || item.descripcion}</td>
+                                        <td className="py-3 px-4 text-right font-black text-sri-blue">{item.cantidad || 1}</td>
+                                    </tr>
+                                )) || (
+                                        <tr><td colSpan={2} className="py-8 text-center text-slate-400 italic">No se han cargado productos asociados.</td></tr>
+                                    )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {showNuevoTransportista && (
+                    <TransportistaModal
+                        onClose={() => setShowNuevoTransportista(false)}
+                        onSave={(nuevo) => {
+                            cargarTransportistas();
+                            setTransportistaId(nuevo.id);
+                            setShowNuevoTransportista(false);
+                        }}
+                    />
+                )}
+            </div>
+        </Modal>
     );
 };

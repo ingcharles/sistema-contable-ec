@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import { Save, Edit3, Hash, Info, Type, AlertTriangle } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
-
 import { CuentaContable } from '@/shared/types';
 
 interface EditarCuentaModalProps {
@@ -19,8 +19,7 @@ export const EditarCuentaModal = ({ cuenta, onClose, onSave }: EditarCuentaModal
     });
     const [error, setError] = useState('');
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = () => {
         setError('');
 
         if (!formData.nombre) {
@@ -38,109 +37,94 @@ export const EditarCuentaModal = ({ cuenta, onClose, onSave }: EditarCuentaModal
         onClose();
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleSubmit}
+                className="flex items-center gap-2 min-w-[160px] justify-center"
+            >
+                <Save size={18} /> Guardar Cambios
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6 rounded-t-2xl flex justify-between items-center">
-                    <div>
-                        <h2 className="text-2xl font-bold">Editar Cuenta</h2>
-                        <p className="text-sm text-amber-100 mt-1">
-                            Código: {cuenta.codigo} - Nivel {cuenta.nivel}
-                        </p>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Editar Cuenta"
+            description={`Modificando cuenta: ${cuenta.codigo}`}
+            icon={<Edit3 size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                {error && (
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-xs font-bold animate-in fade-in slide-in-from-top-2">
+                        <Info size={18} /> {error}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                    >
-                        <X size={24} />
-                    </button>
+                )}
+
+                <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl shadow-inner">
+                    <div className="space-y-1">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Código</span>
+                        <p className="font-mono font-black text-sri-blue text-sm">{cuenta.codigo}</p>
+                    </div>
+                    <div className="space-y-1">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tipo</span>
+                        <p className="font-black text-slate-700 text-sm">{cuenta.tipo}</p>
+                    </div>
+                    <div className="space-y-1">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nivel</span>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-sri-blue" />
+                            <p className="font-black text-slate-700 text-sm">{cuenta.nivel}</p>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
-                            {error}
-                        </div>
-                    )}
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Type size={14} className="text-sri-blue" /> Nombre de la Cuenta *
+                    </label>
+                    <input
+                        type="text"
+                        value={formData.nombre}
+                        onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-700 uppercase outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-medium"
+                        autoFocus
+                    />
+                </div>
 
-                    {/* Información No Editable */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Código</label>
-                            <p className="font-mono font-bold text-slate-800">{cuenta.codigo}</p>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Tipo</label>
-                            <p className="font-bold text-slate-800">{cuenta.tipo}</p>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Nivel</label>
-                            <p className="font-bold text-slate-800">{cuenta.nivel}</p>
-                        </div>
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Hash size={14} className="text-sri-blue" /> Saldo Actual
+                    </label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        value={formData.saldo}
+                        onChange={(e) => setFormData({ ...formData, saldo: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-mono font-bold text-right text-slate-600"
+                    />
+                </div>
+
+                <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50 flex items-start gap-4">
+                    <div className="p-2 bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-500/20">
+                        <AlertTriangle size={18} />
                     </div>
-
-                    {/* Nombre */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            Nombre de la Cuenta <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            value={formData.nombre}
-                            onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                            className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                            autoFocus
-                        />
-                    </div>
-
-                    {/* Saldo */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            Saldo Actual
-                        </label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            value={formData.saldo}
-                            onChange={(e) => setFormData({ ...formData, saldo: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                        />
-                        <p className="text-xs text-slate-500 mt-1">
-                            Modificar solo si es necesario ajustar el saldo
+                    <div className="space-y-1">
+                        <h4 className="text-[10px] font-black text-amber-800 uppercase tracking-wider">Aviso de Integridad</h4>
+                        <p className="text-[10px] text-amber-700/80 font-medium leading-relaxed">
+                            Los cambios en el saldo afectan directamente a los balances históricos.
+                            Use esta opción solo para ajustes de auditoría o correcciones de saldo inicial.
                         </p>
                     </div>
-
-                    {/* Información */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                        <h4 className="font-bold text-amber-900 mb-2">⚠️ Información Importante</h4>
-                        <ul className="text-sm text-amber-800 space-y-1">
-                            <li>• El código, tipo y nivel no pueden modificarse</li>
-                            <li>• Los nombres se guardarán en mayúsculas automáticamente</li>
-                            <li>• Cambiar el saldo afectará los reportes contables</li>
-                        </ul>
-                    </div>
-
-                    {/* Buttons */}
-                    <div className="flex gap-3 justify-end pt-4 border-t">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={onClose}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            type="submit"
-                            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600"
-                        >
-                            <Save size={18} />
-                            Guardar Cambios
-                        </Button>
-                    </div>
-                </form>
+                </div>
             </div>
-        </div>
+        </Modal>
     );
 };

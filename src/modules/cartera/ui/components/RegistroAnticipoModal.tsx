@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, Search, User } from 'lucide-react';
+import { X, Save, Search, User, Wallet, Calendar, Hash, DollarSign, Info } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { TipoCartera } from '../../domain/types';
 import { TipoTercero, Tercero } from '@/modules/directorio/domain/types';
 import { DirectorioUseCases, ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -58,7 +59,6 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
 
         setGuardando(true);
         try {
-            // 1. Registrar Anticipo en Cartera
             await CarteraUseCases.registrarAnticipo({
                 tipo,
                 fecha,
@@ -70,7 +70,6 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
                 observaciones: `Registro de anticipo ${esCliente ? 'recibido' : 'entregado'}`
             });
 
-            // 2. Registrar Movimiento Bancario
             await BancosUseCases.registrarTransaccion({
                 cuentaId: bancoId,
                 fecha,
@@ -82,7 +81,6 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
                 esEgreso: !esCliente
             });
 
-            // 3. Registrar Asiento Contable
             const params = await ConfiguracionUseCases.obtenerParametros();
             const ctaBanco = params.cuentaCaja || '1.1.01.01';
             const ctaAnticipo = esCliente ? params.cuentaAnticipoClientes : params.cuentaAnticipoProveedores;
@@ -113,93 +111,166 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
         }
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={monto <= 0 || !terceroId || guardando}
+                className="flex items-center gap-2 min-w-[180px] justify-center"
+            >
+                {guardando ? (
+                    'Procesando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Guardar Anticipo
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                    <h2 className="text-xl font-bold text-slate-800">Registrar Anticipo</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Registrar Anticipo"
+            description={`Registre un anticipo ${esCliente ? 'recibido de cliente' : 'entregado a proveedor'} (sin factura).`}
+            icon={<Wallet size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="bg-sri-blue/5 p-4 rounded-2xl border border-sri-blue/10 flex items-start gap-4">
+                    <div className="p-2 bg-sri-blue/10 rounded-xl text-sri-blue">
+                        <Info size={20} />
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-[11px] font-black text-sri-blue uppercase tracking-tighter">Información Importante</p>
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            Este proceso registrará un movimiento de banco y un saldo a favor que podrá cruzar posteriormente con facturas de venta o compra.
+                        </p>
+                    </div>
                 </div>
-                <div className="p-6 space-y-4">
-                    <div className="p-3 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
-                        Este proceso registra un movimiento de dinero (Banco) sin asociarlo a una factura. Se creará un saldo a favor para cruzarlo posteriormente.
+
+                <div className="relative">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">
+                        Buscar {esCliente ? 'Cliente' : 'Proveedor'} *
+                    </label>
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-sri-blue" size={18} />
+                        <input
+                            type="text"
+                            value={busqueda}
+                            onChange={e => setBusqueda(e.target.value)}
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-sri-blue/10 focus:bg-white transition-all text-sm font-medium"
+                            placeholder={`Identificación o Nombre del ${esCliente ? 'Cliente' : 'Proveedor'}...`}
+                        />
                     </div>
 
-                    <div className="relative">
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Buscar {esCliente ? 'Cliente' : 'Proveedor'}</label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="text"
-                                value={busqueda}
-                                onChange={e => setBusqueda(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                placeholder="Nombre o RUC..."
-                            />
-                        </div>
-
-                        {mostrarResultados && (
-                            <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                                {cargandoTerceros ? (
-                                    <div className="p-4 text-center text-xs text-slate-500">Buscando...</div>
-                                ) : terceros.length > 0 ? (
-                                    terceros.map(t => (
+                    {mostrarResultados && (
+                        <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl shadow-slate-200/50 max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+                            {cargandoTerceros ? (
+                                <div className="p-8 text-center">
+                                    <div className="inline-block w-6 h-6 border-2 border-sri-blue/30 border-t-sri-blue rounded-full animate-spin mb-2"></div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Buscando...</div>
+                                </div>
+                            ) : terceros.length > 0 ? (
+                                <div className="p-2">
+                                    {terceros.map(t => (
                                         <button
                                             key={t.id}
                                             onClick={() => seleccionarTercero(t)}
-                                            className="w-full p-3 text-left hover:bg-slate-50 border-b last:border-0 flex items-center gap-3"
+                                            className="w-full p-3 text-left hover:bg-sri-blue/5 rounded-xl transition-colors group flex items-center gap-4 border-b border-slate-50 last:border-0"
                                         >
-                                            <div className="bg-slate-100 p-2 rounded-full text-slate-500">
-                                                <User size={14} />
+                                            <div className="bg-slate-100 p-2.5 rounded-xl text-slate-500 group-hover:bg-sri-blue group-hover:text-white transition-all">
+                                                <User size={18} />
                                             </div>
                                             <div>
-                                                <div className="text-sm font-bold text-slate-800">{t.razonSocial}</div>
-                                                <div className="text-[10px] text-slate-500">{t.identificacion}</div>
+                                                <div className="text-sm font-black text-slate-800 uppercase tracking-tight">{t.razonSocial}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 capitalize">
+                                                    <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[9px] group-hover:bg-sri-blue/10 group-hover:text-sri-blue">{t.tipoIdentificacion}</span>
+                                                    {t.identificacion}
+                                                </div>
                                             </div>
                                         </button>
-                                    ))
-                                ) : (
-                                    <div className="p-4 text-center text-xs text-slate-500">No se encontraron resultados</div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {terceroId && (
-                        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
-                            <div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase">Seleccionado:</div>
-                                <div className="text-sm font-bold text-slate-700">{terceroNombre}</div>
-                            </div>
-                            <button onClick={() => { setTerceroId(''); setTerceroNombre(''); setBusqueda(''); }} className="text-slate-400 hover:text-red-500">
-                                <X size={16} />
-                            </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="p-12 text-center">
+                                    <div className="text-slate-300 mb-2"><Search size={32} className="mx-auto" /></div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No se encontraron resultados</div>
+                                </div>
+                            )}
                         </div>
                     )}
+                </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Monto ($)</label>
-                            <input type="number" value={monto} onChange={e => setMonto(parseFloat(e.target.value))} className="w-full border rounded p-2 text-sm text-right font-bold" />
+                {terceroId && (
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between shadow-inner animate-in slide-in-from-top-4 duration-300">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-sri-blue p-2.5 rounded-xl text-white shadow-lg shadow-blue-500/30">
+                                <User size={20} />
+                            </div>
+                            <div>
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Seleccionado</div>
+                                <div className="text-sm font-black text-slate-800 uppercase">{terceroNombre}</div>
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Fecha</label>
-                            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="w-full border rounded p-2 text-sm" />
+                        <button
+                            onClick={() => { setTerceroId(''); setTerceroNombre(''); setBusqueda(''); }}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <DollarSign size={14} className="text-sri-blue" /> Monto del Anticipo ($) *
+                        </label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-slate-400">$</span>
+                            <input
+                                type="number"
+                                value={monto}
+                                onChange={e => setMonto(parseFloat(e.target.value))}
+                                className="w-full pl-8 pr-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-black text-right text-sri-blue text-lg"
+                                step="0.01"
+                            />
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Referencia</label>
-                        <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="Nro Transferencia / Cheque" />
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Calendar size={14} className="text-sri-blue" /> Fecha de Registro
+                        </label>
+                        <input
+                            type="date"
+                            value={fecha}
+                            onChange={e => setFecha(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-sri-blue/10 focus:bg-white transition-all font-medium text-xs"
+                        />
                     </div>
                 </div>
-                <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={monto <= 0 || !terceroId || guardando} className="flex items-center gap-2">
-                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar Anticipo'}
-                    </Button>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Hash size={14} className="text-sri-blue" /> Referencia (Nro. Documento Bancario)
+                    </label>
+                    <input
+                        type="text"
+                        value={referencia}
+                        onChange={e => setReferencia(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-sri-blue/10 focus:bg-white transition-all text-sm font-medium"
+                        placeholder="Ej: Transferencia #987654"
+                    />
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };
 

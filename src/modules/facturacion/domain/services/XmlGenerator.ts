@@ -259,6 +259,73 @@ export class XmlGenerator {
     }
 
     /**
+     * Genera el XML completo para una Nota de Débito (05)
+     */
+    static generateNotaDebitoXml(data: any): string {
+        const accessKey = data.infoTributaria.claveAcceso || this.generateAccessKey(data);
+
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xml += '<notaDebito id="comprobante" version="1.0.0">\n';
+
+        xml += this.generateInfoTributaria(data.infoTributaria, accessKey);
+
+        // Info Nota Débito
+        xml += '  <infoNotaDebito>\n';
+        xml += `    <fechaEmision>${data.infoNotaDebito.fechaEmision}</fechaEmision>\n`;
+        xml += `    <dirEstablecimiento>${this.escapeXml(data.infoNotaDebito.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        xml += `    <tipoIdentificacionAdquirente>${data.infoNotaDebito.tipoIdentificacionAdquirente}</tipoIdentificacionAdquirente>\n`;
+        xml += `    <razonSocialAdquirente>${this.escapeXml(data.infoNotaDebito.razonSocialAdquirente)}</razonSocialAdquirente>\n`;
+        xml += `    <identificacionAdquirente>${data.infoNotaDebito.identificacionAdquirente}</identificacionAdquirente>\n`;
+        if (data.infoNotaDebito.contribuyenteEspecial) {
+            xml += `    <contribuyenteEspecial>${data.infoNotaDebito.contribuyenteEspecial}</contribuyenteEspecial>\n`;
+        }
+        xml += `    <obligadoContabilidad>${data.infoNotaDebito.obligadoContabilidad}</obligadoContabilidad>\n`;
+        xml += `    <codDocModificado>${data.infoNotaDebito.codDocModificado}</codDocModificado>\n`;
+        xml += `    <numDocModificado>${data.infoNotaDebito.numDocModificado}</numDocModificado>\n`;
+        xml += `    <fechaEmisionDocSustento>${data.infoNotaDebito.fechaEmisionDocSustento}</fechaEmisionDocSustento>\n`;
+        xml += `    <totalSinImpuestos>${data.infoNotaDebito.totalSinImpuestos.toFixed(2)}</totalSinImpuestos>\n`;
+
+        // Impuestos
+        xml += '    <impuestos>\n';
+        data.infoNotaDebito.impuestos.forEach((imp: any) => {
+            xml += '      <impuesto>\n';
+            xml += `        <codigo>${imp.codigo}</codigo>\n`;
+            xml += `        <codigoPorcentaje>${imp.codigoPorcentaje}</codigoPorcentaje>\n`;
+            xml += `        <tarifa>${imp.tarifa}</tarifa>\n`;
+            xml += `        <baseImponible>${imp.baseImponible.toFixed(2)}</baseImponible>\n`;
+            xml += `        <valor>${imp.valor.toFixed(2)}</valor>\n`;
+            xml += '      </impuesto>\n';
+        });
+        xml += '    </impuestos>\n';
+
+        xml += `    <valorTotal>${data.infoNotaDebito.valorTotal.toFixed(2)}</valorTotal>\n`;
+
+        // Pagos
+        xml += '    <pagos>\n';
+        data.infoNotaDebito.pagos.forEach((pago: any) => {
+            xml += '      <pago>\n';
+            xml += `        <formaPago>${pago.formaPago}</formaPago>\n`;
+            xml += `        <total>${pago.total.toFixed(2)}</total>\n`;
+            xml += '      </pago>\n';
+        });
+        xml += '    </pagos>\n';
+        xml += '  </infoNotaDebito>\n';
+
+        // Motivos
+        xml += '  <motivos>\n';
+        data.motivos.forEach((mot: any) => {
+            xml += '    <motivo>\n';
+            xml += `      <razon>${this.escapeXml(mot.razon)}</razon>\n`;
+            xml += `      <valor>${mot.valor.toFixed(2)}</valor>\n`;
+            xml += '    </motivo>\n';
+        });
+        xml += '  </motivos>\n';
+
+        xml += '</notaDebito>';
+        return xml;
+    }
+
+    /**
      * Genera el XML completo para un Comprobante de Retención (07)
      */
     static generateRetencionXml(data: any): string {

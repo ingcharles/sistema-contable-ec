@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import { Save, Monitor, Building2, Hash, Layers, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { PuntoEmision, Sucursal } from '../../domain/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
@@ -57,91 +58,129 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
         setFormData({ ...formData, secuenciales: newSecs });
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleSubmit}
+                disabled={guardando}
+                className="flex items-center gap-2 min-w-[140px] justify-center"
+            >
+                {guardando ? (
+                    'Guardando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Guardar Punto
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                    <h2 className="text-xl font-bold text-slate-800">
-                        {puntoEditar ? 'Editar Punto de Emisión' : 'Nuevo Punto de Emisión'}
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={puntoEditar ? 'Editar Punto de Emisión' : 'Nuevo Punto de Emisión'}
+            description="Configure una caja o terminal de facturación y sus secuenciales."
+            icon={<Monitor size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Building2 size={14} className="text-sri-blue" /> Sucursal de Pertenencia *
+                    </label>
+                    <select
+                        value={formData.sucursalId}
+                        onChange={e => setFormData({ ...formData, sucursalId: e.target.value })}
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-medium text-xs"
+                    >
+                        {sucursales.map(s => (
+                            <option key={s.id} value={s.id}>{s.codigo} - {s.nombre}</option>
+                        ))}
+                    </select>
                 </div>
 
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Sucursal</label>
-                        <select
-                            value={formData.sucursalId}
-                            onChange={e => setFormData({ ...formData, sucursalId: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg p-2 text-sm"
-                        >
-                            {sucursales.map(s => (
-                                <option key={s.id} value={s.id}>{s.codigo} - {s.nombre}</option>
-                            ))}
-                        </select>
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Hash size={14} className="text-sri-blue" /> Código (001) *
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.codigo}
+                            onChange={e => setFormData({ ...formData, codigo: e.target.value })}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-black text-center text-sri-blue text-lg"
+                            maxLength={3}
+                            placeholder="001"
+                        />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Código (Ej: 001)</label>
-                            <input
-                                type="text"
-                                value={formData.codigo}
-                                onChange={e => setFormData({ ...formData, codigo: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2 text-sm font-mono"
-                                maxLength={3}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Caja</label>
-                            <input
-                                type="text"
-                                value={formData.nombre}
-                                onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2 text-sm"
-                            />
-                        </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Monitor size={14} className="text-sri-blue" /> Nombre de Caja *
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.nombre}
+                            onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all text-sm font-medium"
+                            placeholder="Ej: Caja Principal"
+                        />
+                    </div>
+                </div>
+
+                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                    <div className="flex items-center gap-2 text-sri-blue mb-2">
+                        <Layers size={16} />
+                        <h3 className="text-[10px] font-black uppercase tracking-widest">Secuenciales de Documentos</h3>
                     </div>
 
-                    <div className="border-t border-slate-100 pt-4">
-                        <h4 className="text-sm font-bold text-slate-700 mb-3">Secuenciales Iniciales</h4>
-                        <div className="space-y-3">
-                            {formData.secuenciales?.map((sec, idx) => (
-                                <div key={sec.tipoComprobante} className="flex items-center justify-between text-sm">
-                                    <span className="text-slate-600 w-1/2">
-                                        {sec.tipoComprobante === TipoComprobante.FACTURA ? 'Factura' :
-                                            sec.tipoComprobante === TipoComprobante.RETENCION ? 'Retención' :
-                                                sec.tipoComprobante === TipoComprobante.NOTA_CREDITO ? 'Nota Crédito' :
-                                                    sec.tipoComprobante === TipoComprobante.GUIA_REMISION ? 'Guía Remisión' : sec.tipoComprobante}
-                                    </span>
+                    <div className="space-y-2">
+                        {formData.secuenciales?.map((sec, idx) => (
+                            <div key={sec.tipoComprobante} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm transition-all hover:border-sri-blue/20">
+                                <span className="text-[11px] font-black text-slate-600 uppercase tracking-tight">
+                                    {sec.tipoComprobante === TipoComprobante.FACTURA ? 'Factura Electrónica' :
+                                        sec.tipoComprobante === TipoComprobante.RETENCION ? 'Retención en la Fuente' :
+                                            sec.tipoComprobante === TipoComprobante.NOTA_CREDITO ? 'Nota de Crédito' :
+                                                sec.tipoComprobante === TipoComprobante.GUIA_REMISION ? 'Guía de Remisión' : sec.tipoComprobante}
+                                </span>
+                                <div className="relative">
                                     <input
                                         type="number"
                                         value={sec.secuencialActual}
                                         onChange={e => updateSecuencial(idx, Number(e.target.value))}
-                                        className="w-24 border border-slate-200 rounded p-1 text-right font-mono"
+                                        className="w-28 pl-3 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-right font-black text-sri-blue outline-none focus:ring-2 focus:ring-sri-blue/10"
                                     />
+                                    <span className="absolute -top-3 -right-1 px-1.5 py-0.5 bg-sri-blue text-[8px] text-white rounded-md font-black shadow-sm uppercase tracking-tighter">SIGUIENTE</span>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </div>
-
-                    <label className="flex items-center gap-2 cursor-pointer pt-2">
-                        <input
-                            type="checkbox"
-                            checked={formData.activo}
-                            onChange={e => setFormData({ ...formData, activo: e.target.checked })}
-                            className="rounded text-sri-blue focus:ring-sri-blue"
-                        />
-                        <span className="text-sm text-slate-700">Punto de Emisión Activo</span>
-                    </label>
                 </div>
 
-                <div className="p-6 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl bg-slate-50">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                    <Button onClick={handleSubmit} className="flex items-center gap-2" disabled={guardando}>
-                        <Save size={18} /> {guardando ? 'Guardando...' : 'Guardar'}
-                    </Button>
+                <div className="pt-2">
+                    <button
+                        onClick={() => setFormData({ ...formData, activo: !formData.activo })}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${formData.activo ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-200'}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl ${formData.activo ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-white'}`}>
+                                {formData.activo ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                            </div>
+                            <div className="text-left">
+                                <h4 className={`text-xs font-black uppercase tracking-tight ${formData.activo ? 'text-emerald-800' : 'text-slate-600'}`}>
+                                    {formData.activo ? 'Punto Habilitado' : 'Punto Deshabilitado'}
+                                </h4>
+                                <p className="text-[10px] font-medium text-slate-500">¿Permitir emisiones desde este punto?</p>
+                            </div>
+                        </div>
+                    </button>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };

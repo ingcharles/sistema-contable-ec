@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { Save, FolderTree, Type, Package, TrendingDown, TrendingUp } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { CategoriaProducto } from '../../domain/types';
 import { Button } from '@/shared/ui/Button';
 import { InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -74,80 +75,112 @@ export const CategoriaModal: React.FC<Props> = ({ onClose, onSave, empresaId, ca
         }
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleSave}
+                disabled={guardando || !formData.nombre}
+                className="flex items-center gap-2 min-w-[160px] justify-center"
+            >
+                {guardando ? (
+                    'Guardando...'
+                ) : (
+                    <>
+                        <Save size={18} /> {categoriaEditar ? 'Actualizar' : 'Guardar Categoría'}
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95">
-                <div className="p-5 border-b flex justify-between">
-                    <h3 className="font-bold text-slate-800">
-                        {categoriaEditar ? 'Editar Categoría' : 'Nueva Categoría (División Artículo)'}
-                    </h3>
-                    <button onClick={onClose} disabled={guardando}><X size={20} className="text-slate-400" /></button>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={categoriaEditar ? 'Editar Categoría' : 'Nueva Categoría'}
+            description="Organice su inventario en divisiones para mejor control contable."
+            icon={<FolderTree size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Type size={14} className="text-sri-blue" /> Nombre de la Categoría *
+                    </label>
+                    <input
+                        type="text"
+                        value={formData.nombre}
+                        onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-700 uppercase outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                        placeholder="EJ: LÍNEA BLANCA"
+                        disabled={guardando}
+                    />
                 </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre Categoría</label>
-                        <input
-                            type="text"
-                            value={formData.nombre}
-                            onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-                            className="w-full border rounded p-2 text-sm"
-                            placeholder="EJ: LINEA BLANCA"
+
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                        <div className="p-1.5 bg-sri-blue/10 rounded-lg">
+                            <Package size={16} className="text-sri-blue" />
+                        </div>
+                        <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Contabilización Automática</h4>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Package size={12} className="text-blue-500" /> Cuenta Inventario (Activo)
+                        </label>
+                        <select
+                            value={formData.cuentaInventario}
+                            onChange={e => setFormData({ ...formData, cuentaInventario: e.target.value })}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                             disabled={guardando}
-                        />
+                        >
+                            <option value="">-- Seleccione cuenta --</option>
+                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.03')).map(c => (
+                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                            ))}
+                        </select>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded border border-slate-100 space-y-3">
-                        <h4 className="text-xs font-bold text-sri-blue">Contabilización Automática</h4>
-                        <div>
-                            <label className="block text-xs text-slate-600 mb-1">Cuenta Inventario (Activo)</label>
-                            <select
-                                value={formData.cuentaInventario}
-                                onChange={e => setFormData({ ...formData, cuentaInventario: e.target.value })}
-                                className="w-full border rounded p-1.5 text-xs font-mono"
-                                disabled={guardando}
-                            >
-                                <option value="">Seleccione una cuenta...</option>
-                                {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.03')).map(c => (
-                                    <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs text-slate-600 mb-1">Cuenta Costo Venta (Costo)</label>
-                            <select
-                                value={formData.cuentaCostoVenta}
-                                onChange={e => setFormData({ ...formData, cuentaCostoVenta: e.target.value })}
-                                className="w-full border rounded p-1.5 text-xs font-mono"
-                                disabled={guardando}
-                            >
-                                <option value="">Seleccione una cuenta...</option>
-                                {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('5.1.01')).map(c => (
-                                    <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs text-slate-600 mb-1">Cuenta Venta (Ingreso)</label>
-                            <select
-                                value={formData.cuentaVenta}
-                                onChange={e => setFormData({ ...formData, cuentaVenta: e.target.value })}
-                                className="w-full border rounded p-1.5 text-xs font-mono"
-                                disabled={guardando}
-                            >
-                                <option value="">Seleccione una cuenta...</option>
-                                {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('4.1.01')).map(c => (
-                                    <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                ))}
-                            </select>
-                        </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <TrendingDown size={12} className="text-red-500" /> Cuenta Costo de Venta (Egreso)
+                        </label>
+                        <select
+                            value={formData.cuentaCostoVenta}
+                            onChange={e => setFormData({ ...formData, cuentaCostoVenta: e.target.value })}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            disabled={guardando}
+                        >
+                            <option value="">-- Seleccione cuenta --</option>
+                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('5.1.01')).map(c => (
+                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                            ))}
+                        </select>
                     </div>
-                </div>
-                <div className="p-5 border-t flex justify-end gap-2">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                    <Button onClick={handleSave} disabled={guardando}>
-                        {guardando ? 'Guardando...' : (categoriaEditar ? 'Guardar Cambios' : 'Guardar')}
-                    </Button>
+
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <TrendingUp size={12} className="text-emerald-500" /> Cuenta Venta (Ingreso)
+                        </label>
+                        <select
+                            value={formData.cuentaVenta}
+                            onChange={e => setFormData({ ...formData, cuentaVenta: e.target.value })}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                            disabled={guardando}
+                        >
+                            <option value="">-- Seleccione cuenta --</option>
+                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('4.1.01')).map(c => (
+                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };

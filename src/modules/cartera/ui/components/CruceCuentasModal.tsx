@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft, Calendar, FileText, DollarSign, Wallet } from 'lucide-react';
+import { Modal } from '@/shared/ui/Modal';
 import { DocumentoPendiente, Anticipo, TipoCartera } from '../../domain/types';
 import { ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
@@ -30,7 +31,6 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
         setGuardando(true);
         try {
             const params = await ConfiguracionUseCases.obtenerParametros();
-            // 1. Registrar Cruce en Cartera
             await CarteraUseCases.registrarPago({
                 documentoId: documento.id,
                 anticipoId: anticipoSeleccionado.id,
@@ -73,62 +73,113 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <ArrowRightLeft className="text-sri-blue" /> Cruce de Cuentas
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div className="bg-slate-50 p-3 rounded text-sm mb-4 border border-slate-200">
-                        <p><strong>Documento:</strong> {documento.nroComprobante}</p>
-                        <p><strong>Saldo Pendiente:</strong> {formatMoney(documento.saldoPendiente)}</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Seleccionar Anticipo Disponible</label>
-                        <select
-                            value={selectedAnticipoId}
-                            onChange={e => {
-                                setSelectedAnticipoId(e.target.value);
-                                const ant = anticipos.find(a => a.id === e.target.value);
-                                if (ant) setValorCruce(Math.min(ant.saldoDisponible, documento.saldoPendiente));
-                            }}
-                            className="w-full border rounded p-2 text-sm"
-                        >
-                            <option value="">-- Seleccione --</option>
-                            {anticipos.map(a => (
-                                <option key={a.id} value={a.id}>
-                                    {a.fecha} - Ref: {a.referencia} - Disp: {formatMoney(a.saldoDisponible)}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {anticipoSeleccionado && (
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Valor a Cruzar</label>
-                            <input
-                                type="number"
-                                value={valorCruce}
-                                onChange={e => setValorCruce(parseFloat(e.target.value))}
-                                max={maxCruce}
-                                className="w-full border rounded p-2 text-sm text-right font-bold"
-                            />
-                            <p className="text-xs text-slate-400 mt-1 text-right">Máximo posible: {formatMoney(maxCruce)}</p>
-                        </div>
-                    )}
-                </div>
-                <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                    <Button onClick={handleCruce} disabled={!selectedAnticipoId || valorCruce <= 0 || guardando} className="flex items-center gap-2 disabled:opacity-50">
-                        <ArrowRightLeft size={18} /> {guardando ? 'Procesando...' : 'Procesar Cruce'}
-                    </Button>
-                </div>
-            </div>
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleCruce}
+                disabled={!selectedAnticipoId || valorCruce <= 0 || guardando}
+                className="flex items-center gap-2 min-w-[160px] justify-center"
+            >
+                {guardando ? (
+                    'Procesando...'
+                ) : (
+                    <>
+                        <ArrowRightLeft size={18} /> Procesar Cruce
+                    </>
+                )}
+            </Button>
         </div>
+    );
+
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Cruce de Cuentas"
+            description="Liquide facturas pendientes utilizando saldos de anticipos existentes."
+            icon={<ArrowRightLeft size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-inner flex justify-between items-center transition-all">
+                    <div className="space-y-1">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Pendiente Doc.</span>
+                        <div className="text-xl font-black text-slate-800">{formatMoney(documento.saldoPendiente)}</div>
+                        <div className="text-[10px] font-bold text-sri-blue flex items-center gap-1 uppercase">
+                            <FileText size={10} /> {documento.nroComprobante}
+                        </div>
+                    </div>
+                    <div className="p-3 bg-white rounded-xl shadow-sm border border-slate-100">
+                        <Wallet size={24} className="text-sri-blue" />
+                    </div>
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Calendar size={14} className="text-sri-blue" /> Seleccionar Anticipo Disponible *
+                    </label>
+                    <select
+                        value={selectedAnticipoId}
+                        onChange={e => {
+                            setSelectedAnticipoId(e.target.value);
+                            const ant = anticipos.find(a => a.id === e.target.value);
+                            if (ant) setValorCruce(Math.min(ant.saldoDisponible, documento.saldoPendiente));
+                        }}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-medium text-xs"
+                    >
+                        <option value="">-- Seleccione un anticipo --</option>
+                        {anticipos.map(a => (
+                            <option key={a.id} value={a.id}>
+                                {a.fecha} | {a.referencia} | Disponible: {formatMoney(a.saldoDisponible)}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {anticipoSeleccionado && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <DollarSign size={14} className="text-sri-blue" /> Valor a Cruzar *
+                            </label>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-slate-400">$</span>
+                                <input
+                                    type="number"
+                                    value={valorCruce}
+                                    onChange={e => setValorCruce(parseFloat(e.target.value))}
+                                    max={maxCruce}
+                                    className="w-full pl-8 pr-4 py-3 text-2xl font-black text-sri-blue bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-sri-blue/10 outline-none transition-all"
+                                    step="0.01"
+                                />
+                            </div>
+                            <div className="flex justify-between items-center px-1">
+                                <span className="text-[10px] font-bold text-slate-400 italic">Máximo a cruzar: {formatMoney(maxCruce)}</span>
+                                <button
+                                    onClick={() => setValorCruce(maxCruce)}
+                                    className="text-[9px] font-black text-sri-blue uppercase hover:underline"
+                                >
+                                    Usar todo el saldo
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-start gap-3">
+                            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-600">
+                                <ArrowRightLeft size={18} />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-tight">Efecto en Contabilidad</p>
+                                <p className="text-[10px] text-emerald-700 font-medium">Se cruzará el pasivo (Anticipo) con el activo (CxC) o viceversa, sin movimiento de efectivo.</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </Modal>
     );
 };

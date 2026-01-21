@@ -1,6 +1,9 @@
+'use client';
+
 import { useState } from 'react';
-import { X, DollarSign, Calendar, CreditCard, Save } from 'lucide-react';
+import { DollarSign, Calendar, CreditCard, Save } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
+import { Modal } from '@/shared/ui/Modal';
 import { DocumentoPendiente, TipoCartera } from '../../domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -26,7 +29,6 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
         setGuardando(true);
 
         try {
-            // 1. Registrar Pago en Cartera (API Real)
             await CarteraUseCases.registrarPago({
                 documentoId: documento.id,
                 fecha,
@@ -35,7 +37,6 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
                 referencia
             });
 
-            // 2. Registrar Movimiento Bancario (API Real)
             await BancosUseCases.registrarTransaccion({
                 cuentaId: 'cta1',
                 fecha,
@@ -47,7 +48,6 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
                 esEgreso: !esCobro
             });
 
-            // 3. Registrar Asiento Contable
             const params = await ConfiguracionUseCases.obtenerParametros();
             const ctaBanco = params.cuentaCaja || '1.1.01.01';
             const ctaCartera = esCobro ? params.cuentaCxcClientes || '1.1.02.01' : params.cuentaCxpProveedores || '2.1.01.01';
@@ -78,95 +78,105 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
         }
     };
 
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={guardando || monto <= 0}
+                className="flex items-center gap-2 min-w-[180px] justify-center"
+            >
+                {guardando ? (
+                    'Procesando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Confirmar {esCobro ? 'Cobro' : 'Pago'}
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className={`px-6 py-4 border-b border-slate-100 flex justify-between items-center ${tipo === TipoCartera.CXC ? 'bg-emerald-50' : 'bg-blue-50'}`}>
-                    <div>
-                        <h2 className={`text-lg font-bold flex items-center gap-2 ${tipo === TipoCartera.CXC ? 'text-emerald-800' : 'text-blue-800'}`}>
-                            <DollarSign size={20} />
-                            {tipo === TipoCartera.CXC ? 'Registrar Cobro' : 'Registrar Pago'}
-                        </h2>
-                        <p className="text-xs text-slate-500">{documento.terceroNombre} - {documento.nroComprobante}</p>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={esCobro ? 'Registrar Cobro' : 'Registrar Pago'}
+            description={`${documento.terceroNombre} - Comprobante: ${documento.nroComprobante}`}
+            icon={<DollarSign size={24} />}
+            footer={footer}
+            size="md"
+        >
+            <div className="space-y-6">
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex justify-between items-center shadow-inner">
+                    <div className="space-y-1">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Pendiente</span>
+                        <div className="text-2xl font-black text-slate-800">{formatMoney(documento.saldoPendiente)}</div>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-                        <X size={24} />
-                    </button>
+                    <div className="p-3 bg-white rounded-xl shadow-sm border border-slate-100">
+                        <DollarSign size={24} className="text-sri-blue" />
+                    </div>
                 </div>
 
-                {/* Body */}
-                <div className="p-6 space-y-4">
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
-                        <span className="text-sm text-slate-500">Saldo Pendiente:</span>
-                        <span className="text-lg font-bold text-slate-800">{formatMoney(documento.saldoPendiente)}</span>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Monto a {tipo === TipoCartera.CXC ? 'Cobrar' : 'Pagar'}</label>
-                        <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="number"
-                                value={monto}
-                                onChange={(e) => setMonto(Number(e.target.value))}
-                                className="w-full pl-9 pr-4 py-2 text-lg font-bold text-slate-800 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                max={documento.saldoPendiente}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="date"
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pago</label>
-                            <div className="relative">
-                                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <select
-                                    value={formaPago}
-                                    onChange={(e) => setFormaPago(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none appearance-none bg-white"
-                                >
-                                    <option value="EFECTIVO">Efectivo</option>
-                                    <option value="TRANSFERENCIA">Transferencia</option>
-                                    <option value="CHEQUE">Cheque</option>
-                                    <option value="TARJETA">Tarjeta Crédito/Débito</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Referencia / Nro. Documento</label>
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                        Monto a {esCobro ? 'Cobrar' : 'Pagar'} *
+                    </label>
+                    <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-slate-400">$</span>
                         <input
-                            type="text"
-                            value={referencia}
-                            onChange={(e) => setReferencia(e.target.value)}
-                            placeholder="Ej: Transferencia #123456"
-                            className="w-full px-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-sri-blue/20 outline-none"
+                            type="number"
+                            value={monto}
+                            onChange={(e) => setMonto(Number(e.target.value))}
+                            className="w-full pl-8 pr-4 py-3 text-2xl font-black text-sri-blue bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-sri-blue/10 outline-none transition-all"
+                            max={documento.saldoPendiente}
+                            step="0.01"
                         />
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
-                    <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleGuardar} disabled={guardando || monto <= 0} className={`flex items-center gap-2 ${tipo === TipoCartera.CXC ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                        <Save size={18} /> {guardando ? 'Procesando...' : 'Confirmar Transacción'}
-                    </Button>
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                            <Calendar size={14} className="text-sri-blue" /> Fecha
+                        </label>
+                        <input
+                            type="date"
+                            value={fecha}
+                            onChange={(e) => setFecha(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sri-blue/20 outline-none transition-all font-medium"
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                            <CreditCard size={14} className="text-sri-blue" /> Forma de Pago
+                        </label>
+                        <select
+                            value={formaPago}
+                            onChange={(e) => setFormaPago(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sri-blue/20 outline-none appearance-none transition-all font-medium"
+                        >
+                            <option value="EFECTIVO">Efectivo (Caja)</option>
+                            <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="TARJETA">Tarjeta Crédito/Débito</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Referencia / Observaciones</label>
+                    <input
+                        type="text"
+                        value={referencia}
+                        onChange={(e) => setReferencia(e.target.value)}
+                        placeholder="Ej: Transferencia #123456 o Banco Pichincha"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sri-blue/20 outline-none transition-all"
+                    />
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };

@@ -102,7 +102,8 @@ export async function POST(req: NextRequest) {
                 proveedorId, tipoComprobante, secuencial, autorizacion,
                 fechaEmision, fechaRegistro, sustento, descripcion,
                 subtotal15, subtotal0, montoIva, total,
-                ordenCompraId, tieneRetencion = false
+                ordenCompraId, tieneRetencion = false,
+                nroRetencion = null, estadoRetencion = 'PENDIENTE'
             } = body;
 
             const result = await db.transaction(async (client) => {
@@ -122,16 +123,16 @@ export async function POST(req: NextRequest) {
                         secuencial, autorizacion, fecha_emision, fecha_registro,
                         sustento, descripcion, subtotal_15, subtotal_0, 
                         monto_iva, total, orden_compra_id, tiene_retencion,
-                        estado_retencion, created_at
+                        estado_retencion, nro_retencion, created_at
                     ) VALUES (
                         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 
-                        'PENDIENTE', NOW()
+                        $18, $19, NOW()
                     )
                 `, [
                     compraId, context.empresaId, context.usuarioId, tId,
                     tipoComprobante, secuencial, autorizacion, fechaEmision, fechaRegistro,
                     sustento, descripcion, subtotal15, subtotal0, montoIva, total,
-                    ordenCompraId, tieneRetencion
+                    ordenCompraId, tieneRetencion, estadoRetencion, nroRetencion
                 ]);
 
                 // 2. Si viene de una OC, marcarla como FACTURADA
