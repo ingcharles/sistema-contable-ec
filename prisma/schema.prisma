@@ -1,0 +1,403 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// MÓDULO: CONFIGURACIÓN
+// ============================================
+
+model Empresa {
+  id                    String   @id @default(uuid())
+  ruc                   String   @unique
+  razonSocial           String
+  nombreComercial       String?
+  direccionMatriz       String
+  obligadoContabilidad  Boolean  @default(true)
+  contribuyenteEspecial String?
+  agenteRetencion       Boolean  @default(false)
+  email                 String?
+  telefono              String?
+  logo                  String?
+  activo                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relaciones
+  sucursales            Sucursal[]
+  usuarios              Usuario[]
+  productos             Producto[]
+  categorias            CategoriaProducto[]
+  bodegas               Bodega[]
+  terceros              Tercero[]
+  empleados             Empleado[]
+  cuentasContables      CuentaContable[]
+  centrosCosto          CentroCosto[]
+  comprobantes          Comprobante[]
+
+  @@map("empresas")
+}
+
+model Sucursal {
+  id              String   @id @default(uuid())
+  empresaId       String
+  codigo          String
+  nombre          String
+  direccion       String
+  telefono        String?
+  email           String?
+  esMatriz        Boolean  @default(false)
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  empresa         Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  puntosEmision   PuntoEmision[]
+
+  @@unique([empresaId, codigo])
+  @@map("sucursales")
+}
+
+model PuntoEmision {
+  id              String   @id @default(uuid())
+  sucursalId      String
+  codigo          String
+  nombre          String
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Secuenciales SRI
+  secuencialFactura         Int @default(1)
+  secuencialNotaCredito     Int @default(1)
+  secuencialNotaDebito      Int @default(1)
+  secuencialGuiaRemision    Int @default(1)
+  secuencialRetencion       Int @default(1)
+
+  // Relaciones
+  sucursal        Sucursal     @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+  comprobantes    Comprobante[]
+
+  @@unique([sucursalId, codigo])
+  @@map("puntos_emision")
+}
+
+model CodigoRetencion {
+  id              String   @id @default(uuid())
+  codigo          String
+  concepto        String
+  porcentaje      Float
+  tipo            String   // 'RENTA' | 'IVA'
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("codigos_retencion")
+}
+
+// ============================================
+// MÓDULO: USUARIOS Y SEGURIDAD
+// ============================================
+
+model Usuario {
+  id              String   @id @default(uuid())
+  empresaId       String
+  email           String   @unique
+  nombre          String
+  password        String
+  rol             String   // 'ADMIN' | 'CONTADOR' | 'VENDEDOR' | 'USUARIO'
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@map("usuarios")
+}
+
+// ============================================
+// MÓDULO: INVENTARIO
+// ============================================
+
+model CategoriaProducto {
+  id                      String   @id @default(uuid())
+  empresaId               String
+  nombre                  String
+  descripcion             String?
+  activo                  Boolean  @default(true)
+  
+  // Contabilización automática
+  cuentaInventario        String?
+  cuentaCostoVenta        String?
+  cuentaIngreso           String?
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relaciones
+  empresa                 Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  productos               Producto[]
+
+  @@map("categorias_producto")
+}
+
+model Producto {
+  id                      String   @id @default(uuid())
+  empresaId               String
+  categoriaId             String?
+  codigoPrincipal         String
+  codigoAuxiliar          String?
+  nombre                  String
+  descripcion             String?
+  unidadMedida            String   @default("UND")
+  precio                  Float
+  costo                   Float    @default(0)
+  stock                   Float    @default(0)
+  stockMinimo             Float    @default(0)
+  codigoIVA               String   @default("2") // 0%, 12%, 15%, etc
+  tipo                    String   @default("BIEN") // 'BIEN' | 'SERVICIO'
+  activo                  Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relaciones
+  empresa                 Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  categoria               CategoriaProducto? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  movimientosKardex       MovimientoKardex[]
+  detallesComprobante     DetalleComprobante[]
+
+  @@unique([empresaId, codigoPrincipal])
+  @@map("productos")
+}
+
+model Bodega {
+  id              String   @id @default(uuid())
+  empresaId       String
+  codigo          String
+  nombre          String
+  direccion       String?
+  responsable     String?
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  empresa         Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  movimientos     MovimientoKardex[]
+
+  @@unique([empresaId, codigo])
+  @@map("bodegas")
+}
+
+model MovimientoKardex {
+  id                      String   @id @default(uuid())
+  productoId              String
+  bodegaId                String
+  fecha                   DateTime
+  tipo                    String   // 'COMPRA' | 'VENTA' | 'AJUSTE_ENTRADA' | 'AJUSTE_SALIDA' | 'TRASLADO'
+  referenciaComprobante   String?
+  cantidadEntrada         Float    @default(0)
+  cantidadSalida          Float    @default(0)
+  costoUnitario           Float
+  valorEntrada            Float    @default(0)
+  valorSalida             Float    @default(0)
+  saldoCantidad           Float
+  saldoValor              Float
+  createdAt               DateTime @default(now())
+
+  // Relaciones
+  producto                Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  bodega                  Bodega   @relation(fields: [bodegaId], references: [id], onDelete: Cascade)
+
+  @@map("movimientos_kardex")
+}
+
+// ============================================
+// MÓDULO: DIRECTORIO (TERCEROS)
+// ============================================
+
+model Tercero {
+  id                      String   @id @default(uuid())
+  empresaId               String
+  tipoIdentificacion      String   // 'RUC' | 'CEDULA' | 'PASAPORTE'
+  identificacion          String
+  razonSocial             String
+  nombreComercial         String?
+  direccion               String?
+  telefono                String?
+  email                   String?
+  esCliente               Boolean  @default(false)
+  esProveedor             Boolean  @default(false)
+  obligadoContabilidad    Boolean  @default(false)
+  contribuyenteEspecial   String?
+  activo                  Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relaciones
+  empresa                 Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  comprobantes            Comprobante[]
+
+  @@unique([empresaId, identificacion])
+  @@map("terceros")
+}
+
+// ============================================
+// MÓDULO: NÓMINA
+// ============================================
+
+model Empleado {
+  id                      String   @id @default(uuid())
+  empresaId               String
+  identificacion          String
+  nombres                 String
+  apellidos               String
+  cargo                   String?
+  sueldoBase              Float
+  fechaIngreso            DateTime
+  email                   String?
+  telefono                String?
+  direccion               String?
+  
+  // Información bancaria
+  banco                   String?
+  tipoCuenta              String?
+  numeroCuenta            String?
+  
+  activo                  Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relaciones
+  empresa                 Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, identificacion])
+  @@map("empleados")
+}
+
+// ============================================
+// MÓDULO: CONTABILIDAD
+// ============================================
+
+model CuentaContable {
+  id              String   @id @default(uuid())
+  empresaId       String
+  codigo          String
+  nombre          String
+  nivel           Int
+  tipo            String   // 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'EGRESO'
+  naturaleza      String   // 'DEUDORA' | 'ACREEDORA'
+  aceptaMovimiento Boolean @default(false)
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, codigo])
+  @@map("cuentas_contables")
+}
+
+model CentroCosto {
+  id              String   @id @default(uuid())
+  empresaId       String
+  codigo          String
+  nombre          String
+  descripcion     String?
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, codigo])
+  @@map("centros_costo")
+}
+
+// ============================================
+// MÓDULO: FACTURACIÓN ELECTRÓNICA
+// ============================================
+
+model Comprobante {
+  id                      String   @id @default(uuid())
+  empresaId               String
+  puntoEmisionId          String?
+  terceroId               String?
+  tipoComprobante         String   // 'FACTURA' | 'NOTA_CREDITO' | 'NOTA_DEBITO' | 'GUIA_REMISION' | 'RETENCION'
+  fechaEmision            DateTime
+  establecimiento         String   @default("001")
+  puntoEmision            String   @default("001")
+  secuencial              Int
+  claveAcceso             String?
+  numeroAutorizacion      String?
+  estado                  String   @default("BORRADOR") // 'BORRADOR' | 'AUTORIZADO' | 'ERROR' | 'ANULADO'
+  
+  // Datos del cliente
+  clienteIdentificacion   String
+  clienteNombre           String
+  clienteDireccion        String?
+  clienteEmail            String?
+  
+  // Valores
+  subtotal                Float
+  descuento               Float    @default(0)
+  subtotalConDescuento    Float
+  iva                     Float
+  total                   Float
+  
+  // Datos adicionales para guías
+  direccionPartida        String?
+  direccionDestino        String?
+  transportistaNombre     String?
+  placaVehiculo           String?
+  
+  // Metadata
+  xmlGenerado             String?  @db.Text
+  pdfGenerado             String?
+  emailEnviado            Boolean  @default(false)
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relaciones
+  empresa                 Empresa             @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  puntoEmisionRel         PuntoEmision?       @relation(fields: [puntoEmisionId], references: [id], onDelete: SetNull)
+  tercero                 Tercero?            @relation(fields: [terceroId], references: [id], onDelete: SetNull)
+  detalles                DetalleComprobante[]
+
+  @@unique([empresaId, establecimiento, puntoEmision, secuencial, tipoComprobante])
+  @@map("comprobantes")
+}
+
+model DetalleComprobante {
+  id                      String   @id @default(uuid())
+  comprobanteId           String
+  productoId              String?
+  codigoPrincipal         String
+  descripcion             String
+  cantidad                Float
+  precioUnitario          Float
+  descuento               Float    @default(0)
+  subtotal                Float
+  codigoIVA               String
+  valorIVA                Float
+  total                   Float
+  
+  createdAt               DateTime @default(now())
+
+  // Relaciones
+  comprobante             Comprobante @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+  producto                Producto?   @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@map("detalles_comprobante")
+}
