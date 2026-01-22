@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { apiClient } from '@/shared/utils/api-client';
+import { ImpuestosUseCases } from '../../shared/application/useCases/systemUseCases';
 
 /**
  * Hook para gestionar impuestos y formularios SRI
@@ -14,7 +14,7 @@ export const useImpuestos = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiClient.get<any[]>(`/api/impuestos?tipo=${tipo}`);
+            const data = await ImpuestosUseCases.listarFormularios(tipo);
             setFormularios(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar formularios');
@@ -27,7 +27,7 @@ export const useImpuestos = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiClient.get<any[]>('/api/impuestos?tipo=ATS');
+            const data = await ImpuestosUseCases.listarFormularios('ATS');
             setAnexos(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar anexos');
@@ -36,10 +36,10 @@ export const useImpuestos = () => {
         }
     }, []);
 
-    const generarFormulario = async (tipo: string, periodo: string) => {
+    const generarFormulario = useCallback(async (tipo: string, periodo: string) => {
         setLoading(true);
         try {
-            await apiClient.post('/api/impuestos', { action: 'generar', tipo, periodo });
+            await ImpuestosUseCases.generarFormulario(tipo, periodo);
             await cargarFormularios(tipo);
         } catch (err: any) {
             setError(err.message || 'Error al generar formulario');
@@ -47,12 +47,12 @@ export const useImpuestos = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [cargarFormularios]);
 
-    const generarATS = async (periodo: string) => {
+    const generarATS = useCallback(async (periodo: string) => {
         setLoading(true);
         try {
-            await apiClient.post('/api/impuestos', { action: 'generar', tipo: 'ATS', periodo });
+            await ImpuestosUseCases.generarFormulario('ATS', periodo);
             await cargarAnexos();
         } catch (err: any) {
             setError(err.message || 'Error al generar ATS');
@@ -60,7 +60,7 @@ export const useImpuestos = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [cargarAnexos]);
 
     return {
         formularios,

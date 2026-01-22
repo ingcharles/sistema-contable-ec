@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { apiClient } from '@/shared/utils/api-client';
+import { ComprasUseCases } from '../../shared/application/useCases/systemUseCases';
 
 /**
  * Hook para gestionar compras y órdenes de compra
@@ -14,7 +14,7 @@ export const useCompras = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiClient.get<any[]>('/api/compras');
+            const data = await ComprasUseCases.listarCompras();
             setCompras(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar compras');
@@ -27,7 +27,7 @@ export const useCompras = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiClient.get<any[]>('/api/compras/ordenes');
+            const data = await ComprasUseCases.listarOrdenes();
             setOrdenes(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar órdenes de compra');
@@ -53,11 +53,11 @@ export const useComprasMutations = () => {
     const [guardando, setGuardando] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const registrarCompra = async (compra: any) => {
+    const registrarCompra = useCallback(async (compra: any) => {
         setGuardando(true);
         setError(null);
         try {
-            const result = await apiClient.post('/api/compras', compra);
+            const result = await ComprasUseCases.registrarCompra(compra);
             return result;
         } catch (err: any) {
             setError(err.message || 'Error al registrar compra');
@@ -65,13 +65,13 @@ export const useComprasMutations = () => {
         } finally {
             setGuardando(false);
         }
-    };
+    }, []);
 
-    const registrarOrden = async (orden: any) => {
+    const registrarOrden = useCallback(async (orden: any) => {
         setGuardando(true);
         setError(null);
         try {
-            const result = await apiClient.post('/api/compras/ordenes', orden);
+            const result = await ComprasUseCases.registrarOrden(orden);
             return result;
         } catch (err: any) {
             setError(err.message || 'Error al registrar orden de compra');
@@ -79,13 +79,13 @@ export const useComprasMutations = () => {
         } finally {
             setGuardando(false);
         }
-    };
+    }, []);
 
-    const generarRetencion = async (compraId: string) => {
+    const generarRetencion = useCallback(async (compraId: string) => {
         setGuardando(true);
         setError(null);
         try {
-            const result = await apiClient.post('/api/compras', { action: 'retencion', compraId });
+            const result = await ComprasUseCases.generarRetencion(compraId);
             return result;
         } catch (err: any) {
             setError(err.message || 'Error al generar retención');
@@ -93,7 +93,7 @@ export const useComprasMutations = () => {
         } finally {
             setGuardando(false);
         }
-    };
+    }, []);
 
     return {
         guardando,

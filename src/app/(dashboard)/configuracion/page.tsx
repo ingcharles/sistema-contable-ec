@@ -5,7 +5,7 @@ import { Settings, Building2, Monitor, Users, Database, Save, Plus, Edit2, Trash
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Sucursal, UsuarioSistema, PuntoEmision, CodigoRetencion } from '@/modules/configuracion/domain/types';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
-import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { ContabilidadUseCases, ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { RetencionModal } from '@/modules/configuracion/ui/components/RetencionModal';
@@ -13,9 +13,11 @@ import { PuntoEmisionModal } from '@/modules/configuracion/ui/components/PuntoEm
 import { SucursalModal } from '@/modules/configuracion/ui/components/SucursalModal';
 import { CuentaContable } from '@/shared/types';
 import { fileToBase64 } from '@/shared/utils/fileHelpers';
+import { useToast } from '@/shared/context/ToastContext';
 
 export default function ConfiguracionPage() {
     const { currentEmpresa } = useEmpresa();
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'empresa' | 'sucursales' | 'puntos' | 'usuarios' | 'parametros' | 'firma' | 'impuestos' | 'cierre'>('empresa');
 
     // Hooks para datos reales
@@ -114,17 +116,17 @@ export default function ConfiguracionPage() {
             });
 
             if (response.ok) {
-                alert(`Configuración de firma guardada exitosamente.\nAmbiente: ${ambiente}`);
+                showToast(`Configuración de firma guardada exitosamente.\nAmbiente: ${ambiente}`, 'success');
                 setFirmaVigencia(new Date().toISOString().split('T')[0]);
                 setFirmaFile(null);
                 setFirmaPassword('');
             } else {
                 const error = await response.json();
-                alert(`Error: ${error.error || 'No se pudo guardar la configuración'}`);
+                showToast(`Error: ${error.error || 'No se pudo guardar la configuración'}`, 'error');
             }
         } catch (error) {
             console.error('Error al guardar firma:', error);
-            alert('Error al guardar la configuración de firma');
+            showToast('Error al guardar la configuración de firma', 'error');
         }
     };
 
@@ -132,9 +134,9 @@ export default function ConfiguracionPage() {
         if (!currentEmpresa || !parametros) return;
         try {
             await guardarParametros({ ...parametros, fechaCierre });
-            alert('Fecha de cierre actualizada exitosamente.');
+            showToast('Fecha de cierre actualizada exitosamente.', 'success');
         } catch (error) {
-            alert('Error al actualizar fecha de cierre');
+            showToast('Error al actualizar fecha de cierre', 'error');
         }
     };
 
@@ -142,9 +144,53 @@ export default function ConfiguracionPage() {
         if (!currentEmpresa || !parametros) return;
         try {
             await guardarParametros(parametros);
-            alert('Parámetros contables actualizados exitosamente.');
+            showToast('Parámetros contables actualizados exitosamente.', 'success');
         } catch (error) {
-            alert('Error al guardar parámetros');
+            showToast('Error al guardar parámetros', 'error');
+        }
+    };
+
+    const handleGuardarEmpresa = async () => {
+        if (!currentEmpresa) return;
+
+        // Obtener los valores actuales de los inputs
+        const form = document.querySelector('form') || document;
+        const nombreComercial = (form.querySelector('input[defaultValue="' + currentEmpresa.nombreComercial + '"]') as HTMLInputElement)?.value || currentEmpresa.nombreComercial;
+        const direccionMatriz = (form.querySelector('input[defaultValue="' + currentEmpresa.direccionMatriz + '"]') as HTMLInputElement)?.value || currentEmpresa.direccionMatriz;
+
+        // Email y Logo
+        const emailInputs = Array.from(form.querySelectorAll('input[type="email"]')) as HTMLInputElement[];
+        const email = emailInputs.find(input => input.placeholder?.includes('correo'))?.value || '';
+
+        const logoInputs = Array.from(form.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
+        const logoUrl = logoInputs.find(input => input.placeholder?.includes('logo'))?.value || '';
+
+        // Obligado a contabilidad
+        const obligadoContSelect = Array.from(form.querySelectorAll('select')).find(select =>
+            select.options[0]?.value === 'SI' && select.parentElement?.textContent?.includes('Obligado')
+        ) as HTMLSelectElement;
+        const obligadoContabilidad = obligadoContSelect?.value === 'SI';
+
+        // Contribuyente especial
+        const contribuyenteEspecialSelect = Array.from(form.querySelectorAll('select')).find(select =>
+            select.options[0]?.value === 'SI' && select.parentElement?.textContent?.includes('Contribuyente')
+        ) as HTMLSelectElement;
+        const contribuyenteEspecial = contribuyenteEspecialSelect?.value === 'SI';
+
+        try {
+            await ConfiguracionUseCases.actualizarEmpresa({
+                id: currentEmpresa.id,
+                nombreComercial,
+                direccionMatriz,
+                email,
+                logoUrl,
+                obligadoContabilidad,
+                contribuyenteEspecial
+            });
+            showToast('Datos de empresa actualizados exitosamente', 'success');
+        } catch (error: any) {
+            console.error('Error al guardar datos de empresa:', error);
+            showToast(error.message || 'Error al guardar datos de empresa', 'error');
         }
     };
 
@@ -247,9 +293,6 @@ export default function ConfiguracionPage() {
                     <h1 className="text-2xl font-bold text-slate-800">Configuración del Sistema</h1>
                     <p className="text-slate-500 text-sm mt-1">Gestione su empresa, sucursales, usuarios y parámetros globales.</p>
                 </div>
-                <Button className="flex items-center gap-2">
-                    <Save size={18} /> Guardar Cambios
-                </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -297,9 +340,17 @@ export default function ConfiguracionPage() {
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre Comercial</label>
                                     <input type="text" defaultValue={currentEmpresa.nombreComercial} className="w-full border rounded-lg p-2.5 text-sm" />
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Correo Electrónico</label>
+                                    <input type="email" defaultValue={currentEmpresa.email || ''} className="w-full border rounded-lg p-2.5 text-sm" placeholder="correo@empresa.com" />
+                                </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Dirección Matriz</label>
                                     <input type="text" defaultValue={currentEmpresa.direccionMatriz} className="w-full border rounded-lg p-2.5 text-sm" />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">URL del Logo</label>
+                                    <input type="text" defaultValue={currentEmpresa.logoUrl || ''} className="w-full border rounded-lg p-2.5 text-sm" placeholder="https://ejemplo.com/logo.png" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Obligado a Contabilidad</label>
@@ -310,8 +361,16 @@ export default function ConfiguracionPage() {
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Contribuyente Especial</label>
-                                    <input type="text" defaultValue={currentEmpresa.contribuyenteEspecial || ''} className="w-full border rounded-lg p-2.5 text-sm" placeholder="Nro. Resolución" />
+                                    <select className="w-full border rounded-lg p-2.5 text-sm" defaultValue={currentEmpresa.contribuyenteEspecial ? 'SI' : 'NO'}>
+                                        <option value="SI">SÍ</option>
+                                        <option value="NO">NO</option>
+                                    </select>
                                 </div>
+                            </div>
+                            <div className="flex justify-end pt-4">
+                                <Button onClick={handleGuardarEmpresa} className="flex items-center gap-2">
+                                    <Save size={18} /> Guardar Cambios
+                                </Button>
                             </div>
                         </div>
                     )}
@@ -623,31 +682,37 @@ export default function ConfiguracionPage() {
                 </div>
             </div>
 
-            {showModalRet && (
-                <RetencionModal
-                    onClose={() => setShowModalRet(false)}
-                    onSave={loadData}
-                    empresaId={currentEmpresa.id}
-                    retencionEditar={selectedRet}
-                />
-            )}
+            {
+                showModalRet && (
+                    <RetencionModal
+                        onClose={() => setShowModalRet(false)}
+                        onSave={loadData}
+                        empresaId={currentEmpresa.id}
+                        retencionEditar={selectedRet}
+                    />
+                )
+            }
 
-            {showModalPunto && (
-                <PuntoEmisionModal
-                    onClose={() => setShowModalPunto(false)}
-                    onSave={loadData}
-                    sucursales={sucursales}
-                    puntoEditar={selectedPunto}
-                />
-            )}
+            {
+                showModalPunto && (
+                    <PuntoEmisionModal
+                        onClose={() => setShowModalPunto(false)}
+                        onSave={loadData}
+                        sucursales={sucursales}
+                        puntoEditar={selectedPunto}
+                    />
+                )
+            }
 
-            {showModalSuc && (
-                <SucursalModal
-                    onClose={() => setShowModalSuc(false)}
-                    onSave={loadData}
-                    sucursalEditar={selectedSuc}
-                />
-            )}
-        </div>
+            {
+                showModalSuc && (
+                    <SucursalModal
+                        onClose={() => setShowModalSuc(false)}
+                        onSave={loadData}
+                        sucursalEditar={selectedSuc}
+                    />
+                )
+            }
+        </div >
     );
 }

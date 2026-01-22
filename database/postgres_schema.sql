@@ -10,12 +10,14 @@
 -- ============================================================================
 -- EXTENSIONES Y CONFIGURACIÓN
 -- ============================================================================
+/*
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- Para búsqueda full-text y trigramas
-
+*/
 -- ============================================================================
 -- SCHEMAS
 -- ============================================================================
+/*
 CREATE SCHEMA IF NOT EXISTS seguridad;
 CREATE SCHEMA IF NOT EXISTS contabilidad;
 CREATE SCHEMA IF NOT EXISTS directorio;
@@ -29,6 +31,7 @@ CREATE SCHEMA IF NOT EXISTS configuracion;
 CREATE SCHEMA IF NOT EXISTS caja_chica;
 CREATE SCHEMA IF NOT EXISTS buzon;
 CREATE SCHEMA IF NOT EXISTS compras;
+*/
 
 -- ============================================================================
 -- TIPOS ENUMERADOS
@@ -58,6 +61,7 @@ CREATE TABLE seguridad.empresas (
     email VARCHAR(255),
     logo_url TEXT,
     obligado_contabilidad BOOLEAN DEFAULT true,
+    es_contribuyente_especial BOOLEAN DEFAULT false,
     activa BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -73,6 +77,7 @@ COMMENT ON COLUMN seguridad.empresas.telefono IS 'Teléfono de contacto principa
 COMMENT ON COLUMN seguridad.empresas.email IS 'Correo electrónico para notificaciones del sistema';
 COMMENT ON COLUMN seguridad.empresas.logo_url IS 'URL o path del logo de la empresa';
 COMMENT ON COLUMN seguridad.empresas.obligado_contabilidad IS 'Indica si la empresa está obligada a llevar contabilidad (TRUE/FALSE)';
+COMMENT ON COLUMN seguridad.empresas.es_contribuyente_especial IS 'Indica si la empresa es contribuyente especial (TRUE/FALSE)';
 COMMENT ON COLUMN seguridad.empresas.activa IS 'Estado de la empresa. FALSE impide el acceso a sus usuarios';
 COMMENT ON COLUMN seguridad.empresas.created_at IS 'Fecha y hora de creación del registro';
 COMMENT ON COLUMN seguridad.empresas.updated_at IS 'Fecha y hora de última actualización';
@@ -186,15 +191,15 @@ CREATE TABLE contabilidad.asientos (
 );
 
 COMMENT ON TABLE contabilidad.asientos IS 'Cabecera de los asientos contables (Diario General).';
-COMMENT ON COLUMN contabilidad.asientos_cab.id IS 'Identificador único del asiento';
-COMMENT ON COLUMN contabilidad.asientos_cab.empresa_id IS 'Empresa a la que pertenece el asiento';
-COMMENT ON COLUMN contabilidad.asientos_cab.usuario_id IS 'Usuario que creó el asiento';
-COMMENT ON COLUMN contabilidad.asientos_cab.numero IS 'Número secuencial o código del asiento. Único por empresa';
-COMMENT ON COLUMN contabilidad.asientos_cab.fecha IS 'Fecha contable del registro';
-COMMENT ON COLUMN contabilidad.asientos_cab.glosa IS 'Descripción o detalle general del asiento';
-COMMENT ON COLUMN contabilidad.asientos_cab.tipo IS 'Tipo de asiento: DIARIO, INGRESO, EGRESO, AJUSTE, CIERRE';
-COMMENT ON COLUMN contabilidad.asientos_cab.estado IS 'Estado del ciclo de vida: BORRADOR, MAYORIZADO (afecta saldos), ANULADO';
-COMMENT ON COLUMN contabilidad.asientos_cab.centro_costo_id IS 'Referencia opcional a un centro de costos principal';
+COMMENT ON COLUMN contabilidad.asientos.id IS 'Identificador único del asiento';
+COMMENT ON COLUMN contabilidad.asientos.empresa_id IS 'Empresa a la que pertenece el asiento';
+COMMENT ON COLUMN contabilidad.asientos.usuario_id IS 'Usuario que creó el asiento';
+COMMENT ON COLUMN contabilidad.asientos.numero IS 'Número secuencial o código del asiento. Único por empresa';
+COMMENT ON COLUMN contabilidad.asientos.fecha IS 'Fecha contable del registro';
+COMMENT ON COLUMN contabilidad.asientos.glosa IS 'Descripción o detalle general del asiento';
+COMMENT ON COLUMN contabilidad.asientos.tipo IS 'Tipo de asiento: DIARIO, INGRESO, EGRESO, AJUSTE, CIERRE';
+COMMENT ON COLUMN contabilidad.asientos.estado IS 'Estado del ciclo de vida: BORRADOR, MAYORIZADO (afecta saldos), ANULADO';
+COMMENT ON COLUMN contabilidad.asientos.centro_costo_id IS 'Referencia opcional a un centro de costos principal';
 
 -- Tabla: contabilidad.asientos_detalles
 CREATE TABLE contabilidad.asientos_detalles (
@@ -207,12 +212,12 @@ CREATE TABLE contabilidad.asientos_detalles (
 );
 
 COMMENT ON TABLE contabilidad.asientos_detalles IS 'Detalle de líneas del asiento contable (Movimientos).';
-COMMENT ON COLUMN contabilidad.asientos_det.id IS 'Identificador único de la línea de detalle';
-COMMENT ON COLUMN contabilidad.asientos_det.asiento_id IS 'Referencia al asiento cabecera';
-COMMENT ON COLUMN contabilidad.asientos_det.cuenta_codigo IS 'Código de la cuenta contable afectada (Desnormalizado para eficiencia histórica)';
-COMMENT ON COLUMN contabilidad.asientos_det.debe IS 'Monto en la columna del DEBE (Débito)';
-COMMENT ON COLUMN contabilidad.asientos_det.haber IS 'Monto en la columna del HABER (Crédito)';
-COMMENT ON COLUMN contabilidad.asientos_det.concepto IS 'Descripción específica de la línea (opcional)';
+COMMENT ON COLUMN contabilidad.asientos_detalles.id IS 'Identificador único de la línea de detalle';
+COMMENT ON COLUMN contabilidad.asientos_detalles.asiento_id IS 'Referencia al asiento cabecera';
+COMMENT ON COLUMN contabilidad.asientos_detalles.cuenta_codigo IS 'Código de la cuenta contable afectada (Desnormalizado para eficiencia histórica)';
+COMMENT ON COLUMN contabilidad.asientos_detalles.debe IS 'Monto en la columna del DEBE (Débito)';
+COMMENT ON COLUMN contabilidad.asientos_detalles.haber IS 'Monto en la columna del HABER (Crédito)';
+COMMENT ON COLUMN contabilidad.asientos_detalles.concepto IS 'Descripción específica de la línea (opcional)';
 
 -- ============================================================================
 -- 3. MÓDULO: DIRECTORIO (TERCEROS)
@@ -302,7 +307,7 @@ CREATE INDEX idx_terceros_empresa ON directorio.terceros(empresa_id);
 CREATE INDEX idx_terceros_identificacion ON directorio.terceros(identificacion);
 CREATE INDEX idx_terceros_tipo ON directorio.terceros(tipo_tercero);
 CREATE INDEX idx_terceros_activo ON directorio.terceros(activo);
-CREATE INDEX idx_terceros_razon_social ON terceros USING gin(to_tsvector('spanish', razon_social));
+CREATE INDEX idx_terceros_razon_social ON directorio.terceros USING gin(to_tsvector('spanish', razon_social));
 
 -- Trigger para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_terceros_updated_at()
@@ -772,7 +777,7 @@ CREATE INDEX idx_comprobantes_empresa ON facturacion.comprobantes_electronicos(e
 -- COMENTARIOS GENERALES
 -- ============================================================================
 
-COMMENT ON DATABASE ecucontable IS 'Base de datos del sistema EcuContable Pro - Sistema contable multi-tenant para Ecuador.';
+COMMENT ON DATABASE ecucontabledb IS 'Base de datos del sistema EcuContable Pro - Sistema contable multi-tenant para Ecuador.';
 
 -- ============================================================================
 -- 9. MÓDULO: CONFIGURACIÓN Y PARÁMETROS
@@ -1137,7 +1142,7 @@ CREATE TABLE IF NOT EXISTS compras.compras (
     fecha_registro DATE NOT NULL DEFAULT CURRENT_DATE,
     sustento VARCHAR(2),
     descripcion TEXT,
-    subtotal_15 NUMERIC(18,2) DEFAULT 0,
+    subtotal_iva NUMERIC(18,2) DEFAULT 0,
     subtotal_0 NUMERIC(18,2) DEFAULT 0,
     monto_iva NUMERIC(18,2) DEFAULT 0,
     total NUMERIC(18,2) NOT NULL,

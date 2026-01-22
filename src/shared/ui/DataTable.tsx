@@ -47,11 +47,14 @@ export function DataTable<T extends { id: string | number }>({
     });
 
     // ... (rest of the previous logic updated to use pageSize)
+    // Ensure data is always an array
+    const safeData = Array.isArray(data) ? data : [];
+
     // Filter
     const filteredData = React.useMemo(() => {
-        if (!searchTerm) return data;
+        if (!searchTerm) return safeData;
         const lowerTerm = searchTerm.toLowerCase();
-        return data.filter((item) => {
+        return safeData.filter((item) => {
             if (searchKeys && searchKeys.length > 0) {
                 return searchKeys.some(key =>
                     String(item[key]).toLowerCase().includes(lowerTerm)
@@ -61,7 +64,7 @@ export function DataTable<T extends { id: string | number }>({
                 String(val).toLowerCase().includes(lowerTerm)
             );
         });
-    }, [data, searchTerm, searchKeys]);
+    }, [safeData, searchTerm, searchKeys]);
 
     // Sort
     const sortedData = React.useMemo(() => {

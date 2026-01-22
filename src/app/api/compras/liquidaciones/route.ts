@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
             }
 
             // 2. Calcular subtotales según el IVA de cada detalle
-            const subtotal15 = detalles.filter((d: any) => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc: number, d: any) => acc + d.total, 0);
+            const subtotalIva = detalles.filter((d: any) => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc: number, d: any) => acc + d.total, 0);
             const subtotal0 = detalles.filter((d: any) => d.codigoIVA === '0').reduce((acc: number, d: any) => acc + d.total, 0);
 
             // 3. Insertar la liquidación en compras.compras
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
                 INSERT INTO compras.compras (
                     id, empresa_id, usuario_id, proveedor_id, tipo_comprobante, 
                     secuencial, autorizacion, fecha_emision, fecha_registro,
-                    sustento, descripcion, subtotal_15, subtotal_0, 
+                    sustento, descripcion, subtotal_iva, subtotal_0, 
                     monto_iva, total, tiene_retencion, estado_retencion, created_at
                 ) VALUES (
                     $1, $2, $3, $4, '03', $5, $12, $6, CURRENT_DATE,
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
             `, [
                 compraId, context.empresaId, context.usuarioId, proveedorId,
                 secuencial, fechaEmision, `Liquidación de Compra ${secuencial}`,
-                subtotal15, subtotal0,
+                subtotalIva, subtotal0,
                 totalIVA, importeTotal,
                 numeroAutorizacion || claveAcceso, // autorizacion
                 estadoSri // estado_retencion (usado como estado general del doc en este contexto)

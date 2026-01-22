@@ -37,8 +37,10 @@ export function useCatalogos(codigosArray: string[]) {
                 setCatalogos(data);
                 setError(null);
             } catch (err: any) {
-                console.error('Hook useCatalogos Error:', err);
+                // Silenciar error si el endpoint no existe aún
+                console.warn('Hook useCatalogos: No se pudieron cargar catálogos', err.message);
                 setError(err.message || 'Error desconocido');
+                setCatalogos({}); // Retornar objeto vacío en caso de error
             } finally {
                 setLoading(false);
             }

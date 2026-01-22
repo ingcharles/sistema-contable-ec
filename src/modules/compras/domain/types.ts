@@ -59,7 +59,7 @@ export interface Compra extends Auditable {
     descripcion: string;
 
     // Valores
-    subtotal15: number;
+    subtotalIva: number;
     subtotal0: number;
     montoIva: number;
     montoIce?: number;

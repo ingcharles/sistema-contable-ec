@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { apiClient } from '@/shared/utils/api-client';
+import { ActivosUseCases } from '../../shared/application/useCases/systemUseCases';
 
 /**
  * Hook para gestionar activos fijos
@@ -13,7 +13,7 @@ export const useActivos = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiClient.get<any[]>('/api/activos');
+            const data = await ActivosUseCases.listarActivos();
             setActivos(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar activos');
@@ -37,11 +37,11 @@ export const useActivosMutations = () => {
     const [guardando, setGuardando] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const guardarActivo = async (activo: any) => {
+    const guardarActivo = useCallback(async (activo: any) => {
         setGuardando(true);
         setError(null);
         try {
-            const result = await apiClient.post('/api/activos', activo);
+            const result = await ActivosUseCases.guardarActivo(activo);
             return result;
         } catch (err: any) {
             setError(err.message || 'Error al guardar activo');
@@ -49,26 +49,26 @@ export const useActivosMutations = () => {
         } finally {
             setGuardando(false);
         }
-    };
+    }, []);
 
-    const eliminarActivo = async (id: string) => {
+    const eliminarActivo = useCallback(async (id: string) => {
         setGuardando(true);
         setError(null);
         try {
-            await apiClient.delete(`/api/activos?id=${id}`);
+            await ActivosUseCases.eliminarActivo(id);
         } catch (err: any) {
             setError(err.message || 'Error al eliminar activo');
             throw err;
         } finally {
             setGuardando(false);
         }
-    };
+    }, []);
 
-    const calcularDepreciacion = async (periodo: string) => {
+    const calcularDepreciacion = useCallback(async (periodo: string) => {
         setGuardando(true);
         setError(null);
         try {
-            const result = await apiClient.post('/api/activos', { action: 'depreciar', periodo });
+            const result = await ActivosUseCases.calcularDepreciacion(periodo);
             return result;
         } catch (err: any) {
             setError(err.message || 'Error al calcular depreciación');
@@ -76,7 +76,7 @@ export const useActivosMutations = () => {
         } finally {
             setGuardando(false);
         }
-    };
+    }, []);
 
     return {
         guardando,

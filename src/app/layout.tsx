@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import '../styles/globals.css';
 import { AuthProvider } from '@/shared/context/AuthContext';
 import { EmpresaProvider } from '@/shared/context/EmpresaContext';
+import { ToastProvider } from '@/shared/context/ToastContext';
+import { ToastContainer } from '@/shared/ui/Toast';
 
 export const metadata: Metadata = {
     title: 'EcuContable Pro - Sistema Contable Ecuador',
@@ -16,11 +18,14 @@ export default function RootLayout({
     return (
         <html lang="es">
             <body>
-                <AuthProvider>
-                    <EmpresaProvider>
-                        {children}
-                    </EmpresaProvider>
-                </AuthProvider>
+                <ToastProvider>
+                    <AuthProvider>
+                        <EmpresaProvider>
+                            {children}
+                            <ToastContainer />
+                        </EmpresaProvider>
+                    </AuthProvider>
+                </ToastProvider>
             </body>
         </html>
     );

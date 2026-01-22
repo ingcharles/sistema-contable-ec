@@ -248,11 +248,16 @@ export default function FacturacionPage() {
 
     if (!currentEmpresa) return null;
 
+    const tabs = [
+        { id: 'comprobantes', label: 'Comprobantes Emitidos' },
+        { id: 'guias', label: 'Guías de Remisión' }
+    ];
+
     return (
-        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
                         <div className="p-2 bg-sri-blue rounded-xl text-white">
                             <Receipt size={24} />
                         </div>
@@ -260,49 +265,57 @@ export default function FacturacionPage() {
                     </h1>
                     <p className="text-slate-500 text-sm mt-1">Gestión de comprobantes y guías de remisión autorizados por el SRI</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex gap-2">
+                    <div className="flex bg-slate-100 p-1 rounded-lg">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={loadData} className="gap-2">
                         <RotateCw size={18} className={loading ? 'animate-spin' : ''} />
                         Actualizar
                     </Button>
-                    <Button onClick={() => setShowModalFactura(true)} className="gap-2">
-                        <Plus size={18} />
-                        Nueva Factura
-                    </Button>
+                    {activeTab === 'comprobantes' && (
+                        <Button onClick={() => setShowModalFactura(true)} className="gap-2">
+                            <Plus size={18} />
+                            Nueva Factura
+                        </Button>
+                    )}
+                    {activeTab === 'guias' && (
+                        <Button onClick={() => { setSelectedFacturaGuia(null); setShowModalGuia(true); }} className="gap-2">
+                            <Plus size={18} />
+                            Nueva Guía
+                        </Button>
+                    )}
                 </div>
-            </div>
 
-            <div className="flex border-b border-slate-100 gap-8">
-                <button
-                    onClick={() => setActiveTab('comprobantes')}
-                    className={`pb-4 text-sm font-bold transition-all relative ${activeTab === 'comprobantes' ? 'text-sri-blue' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                    Comprobantes Emitidos
-                    {activeTab === 'comprobantes' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-sri-blue rounded-t-full" />}
-                </button>
-                <button
-                    onClick={() => setActiveTab('guias')}
-                    className={`pb-4 text-sm font-bold transition-all relative ${activeTab === 'guias' ? 'text-sri-blue' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                    Guías de Remisión
-                    {activeTab === 'guias' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-sri-blue rounded-t-full" />}
-                </button>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                {activeTab === 'comprobantes' ? (
-                    <DataTable
-                        columns={columns}
-                        data={facturas}
-                        loading={loading}
-                    />
-                ) : (
-                    <DataTable
-                        columns={guiaColumns}
-                        data={guias}
-                        loading={loading}
-                    />
-                )}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    {activeTab === 'comprobantes' ? (
+                        <DataTable
+                            columns={columns}
+                            data={facturas}
+                            loading={loading}
+                        />
+                    ) : (
+                        <DataTable
+                            columns={guiaColumns}
+                            data={guias}
+                            loading={loading}
+                        />
+                    )}
+                </div>
             </div>
 
             {/* Modals */}

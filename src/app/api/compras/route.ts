@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
                     SELECT 
                         c.id, c.secuencial, c.autorizacion, c.fecha_emision as "fechaEmision",
                         c.fecha_registro as "fechaRegistro", c.tipo_comprobante as "tipoComprobante",
-                        c.sustento, c.descripcion, c.subtotal_15 as "subtotal15", 
+                        c.sustento, c.descripcion, c.subtotal_iva as "subtotalIva", 
                         c.subtotal_0 as "subtotal0", c.monto_iva as "montoIva", c.total,
                         c.tiene_retencion as "tieneRetencion", c.estado_retencion as "estadoRetencion",
                         c.nro_retencion as "nroRetencion",
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
             const {
                 proveedorId, tipoComprobante, secuencial, autorizacion,
                 fechaEmision, fechaRegistro, sustento, descripcion,
-                subtotal15, subtotal0, montoIva, total,
+                subtotalIva, subtotal0, montoIva, total,
                 ordenCompraId, tieneRetencion = false,
                 nroRetencion = null, estadoRetencion = 'PENDIENTE'
             } = body;
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
                     INSERT INTO compras.compras (
                         id, empresa_id, usuario_id, proveedor_id, tipo_comprobante, 
                         secuencial, autorizacion, fecha_emision, fecha_registro,
-                        sustento, descripcion, subtotal_15, subtotal_0, 
+                        sustento, descripcion, subtotal_iva, subtotal_0, 
                         monto_iva, total, orden_compra_id, tiene_retencion,
                         estado_retencion, nro_retencion, created_at
                     ) VALUES (
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
                 `, [
                     compraId, context.empresaId, context.usuarioId, tId,
                     tipoComprobante, secuencial, autorizacion, fechaEmision, fechaRegistro,
-                    sustento, descripcion, subtotal15, subtotal0, montoIva, total,
+                    sustento, descripcion, subtotalIva, subtotal0, montoIva, total,
                     ordenCompraId, tieneRetencion, estadoRetencion, nroRetencion
                 ]);
 

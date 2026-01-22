@@ -5,13 +5,13 @@
 
 export const apiClient = {
     getHeaders() {
-        const empresaId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : 'empresa-uuid-123';
-        const usuarioId = typeof window !== 'undefined' ? localStorage.getItem('current_usuario_id') : 'usuario-uuid-456';
+        const empresaId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : 'c9bf9e57-1685-4c89-bafb-ff5af830be9a';
+        const usuarioId = typeof window !== 'undefined' ? localStorage.getItem('current_usuario_id') : 'c9bf9e57-1685-4c89-bafb-ff5af830be9u';
 
         return {
             'Content-Type': 'application/json',
-            'x-empresa-id': empresaId || 'empresa-uuid-123',
-            'x-usuario-id': usuarioId || 'usuario-uuid-456'
+            'x-empresa-id': empresaId || 'c9bf9e57-1685-4c89-bafb-ff5af830be9a',
+            'x-usuario-id': usuarioId || 'c9bf9e57-1685-4c89-bafb-ff5af830be9u'
         };
     },
 

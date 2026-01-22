@@ -8,6 +8,7 @@ import { Bell, Search, ChevronDown, Menu, User, Building, LogOut, Sparkles } fro
 import { useAuth } from '@/shared/context/AuthContext';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { AsistenteFloating } from '@/shared/ui/AsistenteFloating';
+import { EmpresaModal } from '@/modules/configuracion/ui/components/EmpresaModal';
 
 export default function DashboardLayout({
     children,
@@ -16,10 +17,11 @@ export default function DashboardLayout({
 }) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isEmpresaMenuOpen, setEmpresaMenuOpen] = useState(false);
+    const [isEmpresaModalOpen, setEmpresaModalOpen] = useState(false);
     const pathname = usePathname();
 
     const { user, logout } = useAuth();
-    const { currentEmpresa, setCurrentEmpresa, empresas } = useEmpresa();
+    const { currentEmpresa, setCurrentEmpresa, empresas, refreshEmpresas } = useEmpresa();
 
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
@@ -170,7 +172,13 @@ export default function DashboardLayout({
                                             ))}
                                         </div>
                                         <div className="mt-2 pt-2 px-4">
-                                            <button className="w-full py-3 rounded-xl text-xs font-bold text-sri-blue hover:bg-sri-blue hover:text-white transition-all duration-300 border border-dashed border-blue-200 hover:border-transparent flex items-center justify-center gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setEmpresaModalOpen(true);
+                                                    setEmpresaMenuOpen(false);
+                                                }}
+                                                className="w-full py-3 rounded-xl text-xs font-bold text-sri-blue hover:bg-sri-blue hover:text-white transition-all duration-300 border border-dashed border-blue-200 hover:border-transparent flex items-center justify-center gap-2"
+                                            >
                                                 <span>+</span> Agregar Nueva Empresa
                                             </button>
                                         </div>
@@ -214,6 +222,17 @@ export default function DashboardLayout({
 
                 {/* AI Assistant Floating Button */}
                 <AsistenteFloating empresaId={currentEmpresa.id} />
+
+                {/* Modals */}
+                {isEmpresaModalOpen && (
+                    <EmpresaModal
+                        onClose={() => setEmpresaModalOpen(false)}
+                        onSave={async (nuevaEmpresa) => {
+                            await refreshEmpresas();
+                            setEmpresaModalOpen(false);
+                        }}
+                    />
+                )}
             </div>
 
             <style jsx global>{`

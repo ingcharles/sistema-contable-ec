@@ -13,7 +13,7 @@ export interface NavItem {
 
 export const MOCK_EMPRESAS: Empresa[] = [
     {
-        id: '1',
+        id: 'c9bf9e57-1685-4c89-bafb-ff5af830be1a',
         razonSocial: 'COMERCIAL ECUADOR S.A.',
         nombreComercial: 'COMERCIAL ECUADOR',
         ruc: '1790011223001',
@@ -25,7 +25,7 @@ export const MOCK_EMPRESAS: Empresa[] = [
         logoUrl: 'https://picsum.photos/40/40'
     },
     {
-        id: '2',
+        id: 'c9bf9e57-1685-4c89-bafb-ff5af830be2a',
         razonSocial: 'SERVICIOS TECNOLÓGICOS DEL SUR C.A.',
         nombreComercial: 'SERVICIOS DEL SUR',
         ruc: '0992233445001',

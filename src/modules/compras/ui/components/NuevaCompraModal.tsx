@@ -35,7 +35,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
 
     const [centroCostoId, setCentroCostoId] = useState('');
 
-    const [subtotal15, setSubtotal15] = useState(ordenPrevia ? ordenPrevia.detalles.filter(d => d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0) : 0);
+    const [subtotalIva, setsubtotalIva] = useState(ordenPrevia ? ordenPrevia.detalles.filter(d => d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0) : 0);
     const [subtotal0, setSubtotal0] = useState(ordenPrevia ? ordenPrevia.detalles.filter(d => !d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0) : 0);
 
     const [aplicaRetencion, setAplicaRetencion] = useState(true);
@@ -76,13 +76,13 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
         cargarCentros();
     }, [cargarCentros]);
 
-    const montoIva = Number((subtotal15 * 0.15).toFixed(2));
-    const totalFactura = subtotal15 + subtotal0 + montoIva;
+    const montoIva = Number((subtotalIva * 0.15).toFixed(2));
+    const totalFactura = subtotalIva + subtotal0 + montoIva;
 
     const selectedRetRenta = retencionesDisponibles.find(c => c.codigo === codRetRenta && c.tipo === 'RENTA');
     const selectedRetIva = retencionesDisponibles.find(c => c.codigo === codRetIva && c.tipo === 'IVA');
 
-    const baseImponibleRenta = subtotal15 + subtotal0;
+    const baseImponibleRenta = subtotalIva + subtotal0;
     const valorRetRenta = Number((baseImponibleRenta * ((selectedRetRenta?.porcentaje || 0) / 100)).toFixed(2));
     const valorRetIva = Number((montoIva * ((selectedRetIva?.porcentaje || 0) / 100)).toFixed(2));
     const totalRetenido = valorRetRenta + valorRetIva;
@@ -188,7 +188,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                 fechaRegistro: new Date().toISOString().split('T')[0],
                 sustento,
                 descripcion: `Factura ${secuencial} de ${proveedorNombre}`,
-                subtotal15,
+                subtotalIva,
                 subtotal0,
                 montoIva,
                 total: totalFactura,
@@ -210,7 +210,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                 detalles: [
                     {
                         cuentaCodigo: '1.1.03.01',
-                        debe: subtotal15 + subtotal0,
+                        debe: subtotalIva + subtotal0,
                         haber: 0,
                         centroCostoId: centroCostoId || undefined
                     },
@@ -319,7 +319,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                             <label className="block text-xs font-bold text-slate-600 mb-1.5">Subtotal 15%</label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                                <input type="number" value={subtotal15} onChange={e => setSubtotal15(Number(e.target.value))} className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all text-sm text-right font-mono font-bold" />
+                                <input type="number" value={subtotalIva} onChange={e => setsubtotalIva(Number(e.target.value))} className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all text-sm text-right font-mono font-bold" />
                             </div>
                         </div>
                         <div>

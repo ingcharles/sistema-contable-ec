@@ -5,13 +5,13 @@ export class BaseUseCase {
     protected static getHeaders() {
         // En una app real, estos vendrían de un store global (Pinia/Redux) o sesión
         // Intentamos obtener de localStorage si están disponibles
-        const empresaId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : 'empresa-uuid-123';
-        const usuarioId = typeof window !== 'undefined' ? localStorage.getItem('current_usuario_id') : 'usuario-uuid-456';
+        const empresaId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : 'c9bf9e57-1685-4c89-bafb-ff5af830be1a';
+        const usuarioId = typeof window !== 'undefined' ? localStorage.getItem('current_usuario_id') : 'c9bf9e57-1685-4c89-bafb-ff5af830be1u';
 
         return {
             'Content-Type': 'application/json',
-            'x-empresa-id': empresaId || 'empresa-uuid-123',
-            'x-usuario-id': usuarioId || 'usuario-uuid-456'
+            'x-empresa-id': empresaId || 'c9bf9e57-1685-4c89-bafb-ff5af830be1a',
+            'x-usuario-id': usuarioId || 'c9bf9e57-1685-4c89-bafb-ff5af830be1u'
         };
     }
 
@@ -366,6 +366,24 @@ export class ConfiguracionUseCases extends BaseUseCase {
             body: JSON.stringify(params)
         });
     }
+
+    static async actualizarEmpresa(empresa: any) {
+        return this.request(`/api/empresas/${empresa.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(empresa)
+        });
+    }
+
+    static async crearEmpresa(empresa: any) {
+        return this.request('/api/empresas', {
+            method: 'POST',
+            body: JSON.stringify(empresa)
+        });
+    }
+
+    static async listarEmpresas() {
+        return this.request('/api/empresas');
+    }
 }
 
 /**
@@ -398,6 +416,13 @@ export class ComprasUseCases extends BaseUseCase {
         return this.request('/api/compras/liquidaciones', {
             method: 'POST',
             body: JSON.stringify(liquidacion)
+        });
+    }
+
+    static async generarRetencion(compraId: string) {
+        return this.request('/api/compras', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'retencion', compraId })
         });
     }
 }
@@ -446,6 +471,51 @@ export class BuzonUseCases extends BaseUseCase {
                 desde,
                 hasta
             })
+        });
+    }
+}
+
+/**
+ * MÓDULO: ACTIVOS FIJOS
+ */
+export class ActivosUseCases extends BaseUseCase {
+    static async listarActivos() {
+        return this.request('/api/activos');
+    }
+
+    static async guardarActivo(activo: any) {
+        return this.request('/api/activos', {
+            method: 'POST',
+            body: JSON.stringify(activo)
+        });
+    }
+
+    static async eliminarActivo(id: string) {
+        return this.request(`/api/activos?id=${id}`, {
+            method: 'DELETE'
+        });
+    }
+
+    static async calcularDepreciacion(periodo: string) {
+        return this.request('/api/activos', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'depreciar', periodo })
+        });
+    }
+}
+
+/**
+ * MÓDULO: IMPUESTOS
+ */
+export class ImpuestosUseCases extends BaseUseCase {
+    static async listarFormularios(tipo: string) {
+        return this.request(`/api/impuestos?tipo=${tipo}`);
+    }
+
+    static async generarFormulario(tipo: string, periodo: string) {
+        return this.request('/api/impuestos', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'generar', tipo, periodo })
         });
     }
 }
