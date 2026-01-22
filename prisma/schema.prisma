@@ -41,6 +41,9 @@ model Empresa {
   cuentasContables      CuentaContable[]
   centrosCosto          CentroCosto[]
   comprobantes          Comprobante[]
+  cuentasBancarias      BancoCuenta[]
+  documentosCartera     CarteraDocumento[]
+  transportistas        Transportista[]
 
   @@map("empresas")
 }
@@ -163,7 +166,8 @@ model Producto {
   costo                   Float    @default(0)
   stock                   Float    @default(0)
   stockMinimo             Float    @default(0)
-  codigoIVA               String   @default("2") // 0%, 12%, 15%, etc
+  codigoTarifaIva         String   @default("2") @map("codigo_tarifa_iva") // 0%, 12%, 15%, etc
+  grabaIva                Boolean  @default(true) @map("graba_iva")
   tipo                    String   @default("BIEN") // 'BIEN' | 'SERVICIO'
   activo                  Boolean  @default(true)
   createdAt               DateTime @default(now())
@@ -227,21 +231,37 @@ model MovimientoKardex {
 
 model Tercero {
   id                      String   @id @default(uuid())
-  empresaId               String
-  tipoIdentificacion      String   // 'RUC' | 'CEDULA' | 'PASAPORTE'
+  empresaId               String   @map("empresa_id")
+  tipoIdentificacion      String   @map("tipo_identificacion") // '04', '05', etc
   identificacion          String
-  razonSocial             String
-  nombreComercial         String?
+  razonSocial             String   @map("razon_social")
+  nombreComercial         String?  @map("nombre_comercial")
   direccion               String?
   telefono                String?
+  celular                 String?
   email                   String?
-  esCliente               Boolean  @default(false)
-  esProveedor             Boolean  @default(false)
-  obligadoContabilidad    Boolean  @default(false)
-  contribuyenteEspecial   String?
+  
+  // Ubicación
+  provincia               String?
+  ciudad                  String?
+  codigoPostal            String?  @map("codigo_postal")
+
+  // Clasificación y Comercial
+  tipoTercero            String    @map("tipo_tercero") // 'CLIENTE', 'PROVEEDOR', 'AMBOS', etc
+  esContribuyenteEspecial Boolean  @default(false) @map("es_contribuyente_especial")
+  obligadoContabilidad    Boolean  @default(false) @map("es_obligado_contabilidad")
+  
+  limiteCredito           Float    @default(0) @map("limite_credito")
+  diasCredito             Int      @default(0) @map("dias_credito")
+  descuentoPorcentaje     Float    @default(0) @map("descuento_porcentaje")
+
+  // Contabilidad
+  cuentaContableCxc       String?  @map("cuenta_contable_cxc")
+  cuentaContableCxp       String?  @map("cuenta_contable_cxp")
+
   activo                  Boolean  @default(true)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
 
   // Relaciones
   empresa                 Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
@@ -257,30 +277,32 @@ model Tercero {
 
 model Empleado {
   id                      String   @id @default(uuid())
-  empresaId               String
-  identificacion          String
+  empresaId               String   @map("empresa_id")
+  cedula                  String
   nombres                 String
   apellidos               String
-  cargo                   String?
-  sueldoBase              Float
-  fechaIngreso            DateTime
   email                   String?
   telefono                String?
   direccion               String?
+  cargo                   String?
+  departamento            String?
+  sueldoBase              Float    @map("sueldo_base")
+  fechaIngreso            DateTime @map("fecha_ingreso") @default(now())
+  tipoContrato            String   @default("INDEFINIDO") @map("tipo_contrato")
   
   // Información bancaria
   banco                   String?
-  tipoCuenta              String?
-  numeroCuenta            String?
+  tipoCuenta              String?  @map("tipo_cuenta")
+  numeroCuenta            String?  @map("numero_cuenta")
   
   activo                  Boolean  @default(true)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
 
   // Relaciones
   empresa                 Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 
-  @@unique([empresaId, identificacion])
+  @@unique([empresaId, cedula])
   @@map("empleados")
 }
 
@@ -294,10 +316,10 @@ model CuentaContable {
   codigo          String
   nombre          String
   nivel           Int
-  tipo            String   // 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'EGRESO'
-  naturaleza      String   // 'DEUDORA' | 'ACREEDORA'
-  aceptaMovimiento Boolean @default(false)
-  activo          Boolean  @default(true)
+  tipo            String   // 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'GASTO'
+  naturaleza      String?  // 'DEUDORA' | 'ACREEDORA'
+  aceptaMovimiento Boolean @default(false) @map("acepta_movimiento")
+  activo          Boolean  @default(true) @map("activa")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -402,3 +424,135 @@ model DetalleComprobante {
 
   @@map("detalles_comprobante")
 }
+
+model Transportista {
+  id              String   @id @default(uuid())
+  empresaId       String   @map("empresa_id")
+  identificacion  String
+  razonSocial     String   @map("razon_social")
+  placa           String
+  email           String?
+  telefono        String?
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, identificacion])
+  @@map("transportistas")
+}
+
+// ============================================
+// MÓDULO: BANCOS
+// ============================================
+
+model BancoCuenta {
+  id              String   @id @default(uuid())
+  empresaId       String   @map("empresa_id")
+  numeroCuenta    String   @map("numero_cuenta")
+  nombre          String
+  tipoCuenta      String?  @map("tipo_cuenta")
+  banco           String
+  saldoActual     Float    @default(0) @map("saldo_actual")
+  moneda          String   @default("USD")
+  activa          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  movimientos     BancoMovimiento[]
+  conciliaciones  BancoConciliacion[]
+
+  @@unique([empresaId, numeroCuenta])
+  @@map("bancos_cuentas")
+}
+
+model BancoMovimiento {
+  id                String   @id @default(uuid())
+  empresaId         String   @map("empresa_id")
+  cuentaId          String   @map("cuenta_id")
+  fecha             DateTime
+  tipo              String   // 'CHEQUE' | 'TRANSFERENCIA' | 'DEPOSITO' | etc
+  referencia        String?
+  beneficiario      String?
+  concepto          String?
+  monto             Float
+  esEgreso          Boolean  @map("es_egreso")
+  conciliado        Boolean  @default(false)
+  conciliacionId    String?  @map("conciliacion_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  cuenta            BancoCuenta        @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  conciliacion      BancoConciliacion? @relation(fields: [conciliacionId], references: [id], onDelete: SetNull)
+
+  @@map("bancos_movimientos")
+}
+
+model BancoConciliacion {
+  id                        String   @id @default(uuid())
+  empresaId                 String   @map("empresa_id")
+  cuentaId                  String   @map("cuenta_id")
+  fechaCorte                DateTime @map("fecha_corte")
+  saldoLibro                Float    @map("saldo_libro")
+  saldoExtracto             Float    @map("saldo_extracto")
+  chequesNoCobrados         Float    @default(0) @map("cheques_no_cobrados")
+  depositosEnTransito       Float    @default(0) @map("depositos_en_transito")
+  diferencia                Float    @default(0)
+  estado                    String   @default("BORRADOR") // 'BORRADOR' | 'CUADRADO' | 'PENDIENTE'
+  observaciones             String?  @db.Text
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+  createdBy                 String?  @map("created_by")
+
+  cuenta                    BancoCuenta       @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  movimientos               BancoMovimiento[]
+
+  @@map("bancos_conciliaciones")
+}
+
+// ============================================
+// MÓDULO: CARTERA
+// ============================================
+
+model CarteraDocumento {
+  id                String   @id @default(uuid())
+  empresaId         String   @map("empresa_id")
+  tipoCartera       String   @map("tipo_cartera") // 'CXC' | 'CXP'
+  tipoDocumento     String   @map("tipo_documento")
+  nroComprobante    String   @map("nro_comprobante")
+  terceroId         String   @map("tercero_id")
+  terceroNombre     String   @map("tercero_nombre")
+  fechaEmision      DateTime @map("fecha_emision")
+  fechaVencimiento  DateTime @map("fecha_vencimiento")
+  montoTotal        Float    @map("monto_total")
+  saldoPendiente    Float    @map("saldo_pendiente")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  empresa           Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@map("cartera_documentos")
+}
+
+// ============================================
+// MÓDULO: NÓMINA (COMPLEMENTO)
+// ============================================
+
+model NominaRol {
+  id              String   @id @default(uuid())
+  empresaId       String   @map("empresa_id")
+  empleadoId      String   @map("empleado_id")
+  periodo         String   // YYYY-MM
+  totalIngresos   Float    @map("total_ingresos")
+  totalEgresos    Float    @map("total_egresos")
+  netoPagar       Float    @map("neto_pagar")
+  estado          String   @default("BORRADOR")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([empresaId, empleadoId, periodo])
+  @@map("nomina_roles")
+}
+

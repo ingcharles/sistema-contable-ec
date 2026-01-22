@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 import { useToast, Toast as ToastType } from '@/shared/context/ToastContext';
 
@@ -57,8 +57,8 @@ const ToastItem: React.FC<{ toast: ToastType }> = ({ toast }) => {
                 <div className="absolute bottom-0 left-0 h-1 bg-slate-200/30 w-full rounded-b-2xl overflow-hidden">
                     <div
                         className={`h-full transition-all linear ${toast.type === 'success' ? 'bg-green-500' :
-                                toast.type === 'error' ? 'bg-rose-500' :
-                                    toast.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'
+                            toast.type === 'error' ? 'bg-rose-500' :
+                                toast.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'
                             }`}
                         style={{
                             animation: `toast-progress ${toast.duration}ms linear forwards`

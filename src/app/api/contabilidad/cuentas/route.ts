@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { codigo, nombre, tipo, nivel, saldo = 0, activa = true } = body;
+        const { codigo, nombre, tipo, nivel, saldo = 0, aceptaMovimiento = false, activa = true } = body;
 
         // Validaciones básicas
         if (!codigo || !nombre || !tipo) {
@@ -94,15 +94,16 @@ export async function POST(req: NextRequest) {
             {
                 text: `
                     INSERT INTO contabilidad.plan_cuentas 
-                        (empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo, activa, created_at, updated_at)
+                        (empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo, acepta_movimiento, activa, created_at, updated_at)
                     VALUES 
-                        ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+                        ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
                     ON CONFLICT (empresa_id, codigo) 
                     DO UPDATE SET
                         nombre = EXCLUDED.nombre,
                         tipo = EXCLUDED.tipo,
                         nivel = EXCLUDED.nivel,
                         saldo = EXCLUDED.saldo,
+                        acepta_movimiento = EXCLUDED.acepta_mov_movimiento,
                         activa = EXCLUDED.activa,
                         updated_at = NOW()
                     RETURNING *
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
                     tipo,
                     nivel || codigo.split('.').length,
                     saldo,
+                    aceptaMovimiento,
                     activa
                 ]
             },

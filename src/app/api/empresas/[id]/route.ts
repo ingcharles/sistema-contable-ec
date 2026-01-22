@@ -34,7 +34,7 @@ export async function PUT(
                 direccion = $2,
                 email = $3,
                 logo_url = $4,
-                obligado_contabilidad = $5,
+                es_obligado_contabilidad = $5,
                 es_contribuyente_especial = $6,
                 updated_at = NOW()
             WHERE id = $7
@@ -46,7 +46,7 @@ export async function PUT(
                 direccion AS "direccionMatriz",
                 email,
                 logo_url AS "logoUrl",
-                obligado_contabilidad AS "obligadoContabilidad",
+                es_obligado_contabilidad AS "obligadoContabilidad",
                 es_contribuyente_especial AS "contribuyenteEspecial",
                 created_at AS "createdAt",
                 updated_at AS "updatedAt"

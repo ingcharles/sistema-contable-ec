@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { Settings, Building2, Monitor, Database, Save, Plus, Edit2, Trash2, Shield, Key, CalendarOff, Upload, CheckCircle2, Eye, EyeOff, AlertTriangle, Lock } from 'lucide-react';
+// Imports eliminados por no uso
 
 // Helper function to convert File to base64
 async function fileToBase64(file: File): Promise<string> {

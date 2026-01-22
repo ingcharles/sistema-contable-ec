@@ -1,13 +1,13 @@
-'use client';
-
-import { useState } from 'react';
-import { DollarSign, Calendar, CreditCard, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { DollarSign, Calendar, CreditCard, Save, Landmark } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { DocumentoPendiente, TipoCartera } from '../../domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { TipoMovimientoBancario } from '@/modules/bancos/domain/types';
+import { CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useEmpresa } from '@/shared/context/EmpresaContext';
+import { generateReceiptPDF } from '@/shared/utils/pdfGenerator';
+import { CheckCircle2, Download } from 'lucide-react';
 
 interface CobroPagoModalProps {
     documento: DocumentoPendiente;
@@ -22,61 +22,101 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [formaPago, setFormaPago] = useState('TRANSFERENCIA');
     const [referencia, setReferencia] = useState('');
+    const [cuentaBancoId, setCuentaBancoId] = useState('');
+    const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]);
     const [guardando, setGuardando] = useState(false);
+    const [exito, setExito] = useState(false);
+    const [transactionData, setTransactionData] = useState<any>(null);
+    const { currentEmpresa } = useEmpresa();
+
+    useEffect(() => {
+        const cargarCuentas = async () => {
+            try {
+                const data = await BancosUseCases.listarCuentas();
+                setCuentasBancarias(data);
+                if (data.length > 0) setCuentaBancoId(data[0].id);
+            } catch (error) {
+                console.error('Error cargando cuentas bancarias:', error);
+            }
+        };
+        cargarCuentas();
+    }, []);
 
     const handleGuardar = async () => {
-        if (monto <= 0) return;
+        if (monto <= 0 || !cuentaBancoId) {
+            alert('Debe ingresar un monto válido y seleccionar una cuenta.');
+            return;
+        }
         setGuardando(true);
 
         try {
-            await CarteraUseCases.registrarPago({
+            const response = await CarteraUseCases.registrarPago({
                 documentoId: documento.id,
                 fecha,
                 formaPago,
                 valorEfectivo: monto,
-                referencia
+                referencia,
+                cuentaBancoId
             });
 
-            await BancosUseCases.registrarTransaccion({
-                cuentaId: 'cta1',
-                fecha,
-                tipo: esCobro ? TipoMovimientoBancario.TRANSFERENCIA_RECIBIDA : TipoMovimientoBancario.TRANSFERENCIA_ENVIADA,
-                referencia: referencia || 'PAGO/COBRO',
-                beneficiario: documento.terceroNombre,
-                concepto: `${esCobro ? 'Cobro' : 'Pago'} Factura ${documento.nroComprobante}`,
-                monto,
-                esEgreso: !esCobro
-            });
-
-            const params = await ConfiguracionUseCases.obtenerParametros();
-            const ctaBanco = params.cuentaCaja || '1.1.01.01';
-            const ctaCartera = esCobro ? params.cuentaCxcClientes || '1.1.02.01' : params.cuentaCxpProveedores || '2.1.01.01';
-
-            const detalles = esCobro ? [
-                { cuentaCodigo: ctaBanco, debe: monto, haber: 0 },
-                { cuentaCodigo: ctaCartera, debe: 0, haber: monto }
-            ] : [
-                { cuentaCodigo: ctaCartera, debe: monto, haber: 0 },
-                { cuentaCodigo: ctaBanco, debe: 0, haber: monto }
-            ];
-
-            await ContabilidadUseCases.registrarAsiento({
-                numero: `${esCobro ? 'COB' : 'PAG'}-${crypto.randomUUID().slice(0, 8)}`,
-                fecha,
-                glosa: `${esCobro ? 'Cobro' : 'Pago'} ${documento.terceroNombre} - Fact. ${documento.nroComprobante}`,
-                tipo: esCobro ? 'INGRESO' : 'EGRESO',
-                detalles
-            });
-
+            setTransactionData(response);
+            setExito(true);
             onSave();
-            onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error al procesar transacción:', error);
-            alert('Error al procesar la transacción.');
+            alert(error.message || 'Error al procesar la transacción.');
         } finally {
             setGuardando(false);
         }
     };
+
+    const handleDownloadPDF = () => {
+        if (!currentEmpresa) return;
+
+        generateReceiptPDF({
+            tipo: esCobro ? 'INGRESO' : 'EGRESO',
+            numero: transactionData?.asientoNumero || `REC-${Date.now().toString().slice(-6)}`,
+            fecha,
+            beneficiario: documento.terceroNombre,
+            monto,
+            concepto: `${esCobro ? 'Cobro' : 'Pago'} de Factura ${documento.nroComprobante}`,
+            referencia,
+            empresa: {
+                nombre: currentEmpresa.razonSocial,
+                ruc: currentEmpresa.ruc,
+                direccion: currentEmpresa.direccionMatriz
+            }
+        });
+    };
+
+    if (exito) {
+        return (
+            <Modal
+                isOpen={true}
+                onClose={onClose}
+                title="Transacción Exitosa"
+                icon={<CheckCircle2 size={24} className="text-white" />}
+                footer={
+                    <div className="flex gap-3 w-full justify-end">
+                        <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+                        <Button onClick={handleDownloadPDF} className="flex items-center gap-2">
+                            <Download size={18} /> Descargar Comprobante
+                        </Button>
+                    </div>
+                }
+            >
+                <div className="text-center space-y-4 py-8">
+                    <div className="inline-flex p-4 bg-emerald-50 rounded-full text-emerald-600 mb-4">
+                        <CheckCircle2 size={48} />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-800">¡Registro Completado!</h3>
+                    <p className="text-slate-500 max-w-xs mx-auto">
+                        Se ha registrado el {esCobro ? 'cobro' : 'pago'} de <strong>{formatMoney(monto)}</strong> y se ha generado el asiento contable correspondiente.
+                    </p>
+                </div>
+            </Modal>
+        );
+    }
 
     const footer = (
         <div className="flex justify-end gap-3 w-full">
@@ -85,7 +125,7 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
             </Button>
             <Button
                 onClick={handleGuardar}
-                disabled={guardando || monto <= 0}
+                disabled={guardando || monto <= 0 || !cuentaBancoId}
                 className="flex items-center gap-2 min-w-[180px] justify-center"
             >
                 {guardando ? (
@@ -164,6 +204,24 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
                             <option value="TARJETA">Tarjeta Crédito/Débito</option>
                         </select>
                     </div>
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                        <Landmark size={14} className="text-sri-blue" /> Cuenta Origen/Destino *
+                    </label>
+                    <select
+                        value={cuentaBancoId}
+                        onChange={(e) => setCuentaBancoId(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sri-blue/20 outline-none appearance-none transition-all font-medium"
+                    >
+                        <option value="">Seleccione una cuenta...</option>
+                        {cuentasBancarias.map((cta) => (
+                            <option key={cta.id} value={cta.id}>
+                                {cta.banco} - {cta.nombre} ({formatMoney(cta.saldo_actual)})
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="space-y-1.5">

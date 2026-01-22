@@ -106,10 +106,12 @@ export async function POST(req: NextRequest) {
             codigoAuxiliar,
             nombre,
             descripcion,
+            unidadMedida = 'UND',
             stockMinimo = 0,
             costoPromedio = 0,
             precioVenta,
             grabaIva = true,
+            codigoTarifaIva = '2',
             categoriaId,
             activo = true
         } = body;
@@ -128,18 +130,20 @@ export async function POST(req: NextRequest) {
                 text: `
                     INSERT INTO inventario.productos 
                         (empresa_id, usuario_id, codigo_principal, codigo_auxiliar, nombre, descripcion,
-                         stock_actual, stock_minimo, costo_promedio, precio_venta, graba_iva, 
-                         categoria_id, activo, created_at, updated_at)
+                         unidad_medida, stock_actual, stock_minimo, costo_promedio, precio_venta, graba_iva, 
+                         codigo_tarifa_iva, categoria_id, activo, created_at, updated_at)
                     VALUES 
-                        ($1, $2, $3, $4, $5, $6, 0, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+                        ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
                     ON CONFLICT (empresa_id, codigo_principal) 
                     DO UPDATE SET
                         codigo_auxiliar = EXCLUDED.codigo_auxiliar,
                         nombre = EXCLUDED.nombre,
                         descripcion = EXCLUDED.descripcion,
+                        unidad_medida = EXCLUDED.unidad_medida,
                         stock_minimo = EXCLUDED.stock_minimo,
                         precio_venta = EXCLUDED.precio_venta,
                         graba_iva = EXCLUDED.graba_iva,
+                        codigo_tarifa_iva = EXCLUDED.codigo_tarifa_iva,
                         categoria_id = EXCLUDED.categoria_id,
                         activo = EXCLUDED.activo,
                         updated_at = NOW()
@@ -152,10 +156,12 @@ export async function POST(req: NextRequest) {
                     codigoAuxiliar,
                     nombre,
                     descripcion,
+                    unidadMedida,
                     stockMinimo,
                     costoPromedio,
                     precioVenta,
                     grabaIva,
+                    codigoTarifaIva,
                     categoriaId,
                     activo
                 ]

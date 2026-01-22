@@ -158,10 +158,7 @@ export default function ConfiguracionPage() {
         const nombreComercial = (form.querySelector('input[defaultValue="' + currentEmpresa.nombreComercial + '"]') as HTMLInputElement)?.value || currentEmpresa.nombreComercial;
         const direccionMatriz = (form.querySelector('input[defaultValue="' + currentEmpresa.direccionMatriz + '"]') as HTMLInputElement)?.value || currentEmpresa.direccionMatriz;
 
-        // Email y Logo
-        const emailInputs = Array.from(form.querySelectorAll('input[type="email"]')) as HTMLInputElement[];
-        const email = emailInputs.find(input => input.placeholder?.includes('correo'))?.value || '';
-
+        // Logo
         const logoInputs = Array.from(form.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
         const logoUrl = logoInputs.find(input => input.placeholder?.includes('logo'))?.value || '';
 
@@ -182,7 +179,6 @@ export default function ConfiguracionPage() {
                 id: currentEmpresa.id,
                 nombreComercial,
                 direccionMatriz,
-                email,
                 logoUrl,
                 obligadoContabilidad,
                 contribuyenteEspecial
@@ -339,10 +335,6 @@ export default function ConfiguracionPage() {
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre Comercial</label>
                                     <input type="text" defaultValue={currentEmpresa.nombreComercial} className="w-full border rounded-lg p-2.5 text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Correo Electrónico</label>
-                                    <input type="email" defaultValue={currentEmpresa.email || ''} className="w-full border rounded-lg p-2.5 text-sm" placeholder="correo@empresa.com" />
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Dirección Matriz</label>

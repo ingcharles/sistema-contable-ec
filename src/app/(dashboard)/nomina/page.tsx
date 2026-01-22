@@ -1,16 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UserPlus, FileText, Calculator, CheckCircle2, Trash2, Users, FileSpreadsheet, Calendar } from 'lucide-react';
+import { UserPlus, FileText, Calculator, CheckCircle2, Trash2, Users, FileSpreadsheet, Calendar, CreditCard, Download } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Empleado, RolPago } from '@/modules/nomina/domain/types';
 import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
+import { generatePayrollPDF } from '@/shared/utils/pdfGenerator';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 
 import { RolPagoModal } from '@/modules/nomina/ui/components/RolPagoModal';
 import { EmpleadoModal } from '@/modules/nomina/ui/components/EmpleadoModal';
+import { PagarRolModal } from '@/modules/nomina/ui/components/PagarRolModal';
 
 export default function NominaPage() {
     const { currentEmpresa } = useEmpresa();
@@ -24,6 +26,8 @@ export default function NominaPage() {
     const [selectedEmpleadoEdit, setSelectedEmpleadoEdit] = useState<Empleado | null>(null);
     const [showRolModal, setShowRolModal] = useState(false);
     const [showEmpleadoModal, setShowEmpleadoModal] = useState(false);
+    const [showPagarModal, setShowPagarModal] = useState(false);
+    const [selectedRol, setSelectedRol] = useState<any | null>(null);
 
     const loadData = async () => {
         if (!currentEmpresa) return;
@@ -43,6 +47,51 @@ export default function NominaPage() {
     };
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id, periodo]);
+
+    const handleDownloadRol = (rol: RolPago) => {
+        if (!currentEmpresa) return;
+
+        const empleado = empleados.find(e => e.id === rol.empleadoId);
+        if (!empleado) {
+            alert('No se encontró información del empleado');
+            return;
+        }
+
+        generatePayrollPDF({
+            empleado: {
+                nombre: `${empleado.nombres} ${empleado.apellidos}`,
+                cedula: empleado.identificacion,
+                cargo: empleado.cargo,
+                sueldoBase: empleado.sueldoBase
+            },
+            periodo: rol.periodo,
+            ingresos: {
+                sueldoBase: empleado.sueldoBase,
+                horasExtras: rol.horasExtras,
+                comisiones: rol.comisiones,
+                otros: rol.otrosIngresos
+            },
+            egresos: {
+                aportePersonal: rol.aportePersonal,
+                anticipos: rol.anticipos,
+                prestamos: rol.prestamosIESS,
+                otros: rol.otrosDescuentos
+            },
+            provisiones: {
+                decimoTercero: rol.decimoTercero,
+                decimoCuarto: rol.decimoCuarto,
+                fondosReserva: rol.fondosReserva,
+                vacaciones: rol.vacaciones,
+                aportePatronal: rol.aportePatronal
+            },
+            netoPagar: rol.netoAPagar,
+            empresa: {
+                nombre: currentEmpresa.razonSocial,
+                ruc: currentEmpresa.ruc,
+                direccion: currentEmpresa.direccionMatriz
+            }
+        });
+    };
 
     const handleGenerarNomina = async () => {
         if (!currentEmpresa) return;
@@ -168,10 +217,25 @@ export default function NominaPage() {
         {
             header: 'Acciones',
             className: 'text-right',
-            cell: () => (
-                <button className="p-1.5 text-slate-400 hover:text-sri-blue rounded-lg" title="Ver Detalle">
-                    <FileText size={18} />
-                </button>
+            cell: (rol) => (
+                <div className="flex justify-end gap-1">
+                    {rol.estado !== 'PAGADO' && (
+                        <button
+                            className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg"
+                            title="Pagar"
+                            onClick={() => { setSelectedRol(rol); setShowPagarModal(true); }}
+                        >
+                            <CreditCard size={18} />
+                        </button>
+                    )}
+                    <button
+                        className="p-1.5 text-sri-blue hover:bg-sri-blue/10 rounded-lg"
+                        title="Descargar PDF"
+                        onClick={() => handleDownloadRol(rol)}
+                    >
+                        <Download size={18} />
+                    </button>
+                </div>
             )
         }
     ];
@@ -271,6 +335,14 @@ export default function NominaPage() {
                 <EmpleadoModal
                     empleado={selectedEmpleadoEdit || undefined}
                     onClose={() => { setShowEmpleadoModal(false); setSelectedEmpleadoEdit(null); }}
+                    onSave={loadData}
+                />
+            )}
+
+            {showPagarModal && selectedRol && (
+                <PagarRolModal
+                    rol={selectedRol}
+                    onClose={() => { setShowPagarModal(false); setSelectedRol(null); }}
                     onSave={loadData}
                 />
             )}

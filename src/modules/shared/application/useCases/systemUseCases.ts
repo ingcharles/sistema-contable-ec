@@ -27,6 +27,15 @@ export class BaseUseCase {
 }
 
 /**
+ * MÓDULO: DASHBOARD
+ */
+export class DashboardUseCases extends BaseUseCase {
+    static async obtenerEstadisticas() {
+        return this.request('/api/dashboard/stats');
+    }
+}
+
+/**
  * MÓDULO: CONTABILIDAD
  */
 export class ContabilidadUseCases extends BaseUseCase {
@@ -181,6 +190,13 @@ export class BancosUseCases extends BaseUseCase {
             body: JSON.stringify(transaccion)
         });
     }
+
+    static async guardarCuenta(cuenta: any) {
+        return this.request('/api/bancos/cuentas', {
+            method: 'POST',
+            body: JSON.stringify(cuenta)
+        });
+    }
 }
 
 /**
@@ -191,7 +207,7 @@ export class NominaUseCases extends BaseUseCase {
         return this.request('/api/nomina/empleados');
     }
     static async generarRol(periodo: string) {
-        return this.request('/api/nomina/roles/generar', {
+        return this.request('/api/nomina/roles', {
             method: 'POST',
             body: JSON.stringify({ periodo })
         });
@@ -205,6 +221,13 @@ export class NominaUseCases extends BaseUseCase {
             body: JSON.stringify(empleado)
         });
     }
+    static async pagarRol(pago: any) {
+        return this.request('/api/nomina/roles', {
+            method: 'PUT',
+            body: JSON.stringify(pago)
+        });
+    }
+
     static async eliminarEmpleado(id: string) {
         return this.request(`/api/nomina/empleados/${id}`, {
             method: 'DELETE'
@@ -263,7 +286,7 @@ export class DirectorioUseCases extends BaseUseCase {
             nombreComercial: t.nombre_comercial,
             tipo: t.tipo_tercero,
             esContribuyenteEspecial: t.es_contribuyente_especial,
-            llevaContabilidad: t.obligado_contabilidad,
+            llevaContabilidad: t.es_obligado_contabilidad,
             email: t.email,
             telefono: t.telefono,
             celular: t.celular,

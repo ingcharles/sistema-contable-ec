@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { extractPaginationParams, buildPaginatedResponse } from '@/shared/utils/pagination';
+import { PeriodoService } from '@/modules/contabilidad/domain/services/PeriodoService';
 
 /**
  * POST /api/contabilidad/asientos
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
                 { status: 400 }
             );
         }
+
+        // Verificar periodo abierto
+        await PeriodoService.validarFecha(context.empresaId!, fecha);
 
         // Verificar cuadratura
         const totalDebe = detalles.reduce((sum: number, d: any) => sum + (d.debe || 0), 0);
@@ -138,11 +142,13 @@ export async function GET(req: NextRequest) {
                         (
                             SELECT json_agg(json_build_object(
                                 'cuentaCodigo', d.cuenta_codigo,
+                                'cuentaNombre', c.nombre,
                                 'debe', d.debe,
                                 'haber', d.haber,
                                 'concepto', d.concepto
                             ))
                             FROM contabilidad.asientos_detalles d
+                            LEFT JOIN contabilidad.cuentas c ON c.codigo = d.cuenta_codigo AND c.empresa_id = a.empresa_id
                             WHERE d.asiento_id = a.id
                         ) as detalles
                     FROM contabilidad.asientos a

@@ -23,6 +23,7 @@ export interface CuentaBancaria extends Auditable {
     saldoContable: number;
     saldoDisponible: number;
     moneda: string;
+    cuentaContableCodigo?: string;
 }
 
 export interface MovimientoBancario extends Auditable {
@@ -36,10 +37,39 @@ export interface MovimientoBancario extends Auditable {
     monto: number;
     esEgreso: boolean; // True si resta, False si suma
     conciliado: boolean;
+    conciliacionId?: string;
 }
+
+export enum EstadoConciliacion {
+    BORRADOR = 'BORRADOR',
+    CUADRADO = 'CUADRADO',
+    PENDIENTE = 'PENDIENTE'
+}
+
+export interface BancoConciliacion extends Auditable {
+    id: string;
+    empresaId: string;
+    cuentaId: string;
+    fechaCorte: string;
+    saldoLibro: number;
+    saldoExtracto: number;
+    chequesNoCobrados: number;
+    depositosEnTransito: number;
+    diferencia: number;
+    estado: EstadoConciliacion;
+    observaciones?: string;
+}
+
 
 export interface BancosRepository {
     getCuentas(empresaId: string): Promise<CuentaBancaria[]>;
     getMovimientos(cuentaId: string, fechaInicio: string, fechaFin: string): Promise<MovimientoBancario[]>;
     saveMovimiento(movimiento: MovimientoBancario): Promise<void>;
+
+    // Conciliación
+    getConciliaciones(cuentaId: string): Promise<BancoConciliacion[]>;
+    getConciliacion(id: string): Promise<BancoConciliacion | null>;
+    saveConciliacion(conciliacion: BancoConciliacion): Promise<BancoConciliacion>;
+    updateMovimientosConciliados(movimientoIds: string[], conciliacionId: string): Promise<void>;
 }
+

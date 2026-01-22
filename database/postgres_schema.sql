@@ -60,7 +60,7 @@ CREATE TABLE seguridad.empresas (
     telefono VARCHAR(20),
     email VARCHAR(255),
     logo_url TEXT,
-    obligado_contabilidad BOOLEAN DEFAULT true,
+    es_obligado_contabilidad BOOLEAN DEFAULT true,
     es_contribuyente_especial BOOLEAN DEFAULT false,
     activa BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW(),
@@ -76,7 +76,7 @@ COMMENT ON COLUMN seguridad.empresas.direccion IS 'Dirección matriz de la empre
 COMMENT ON COLUMN seguridad.empresas.telefono IS 'Teléfono de contacto principal';
 COMMENT ON COLUMN seguridad.empresas.email IS 'Correo electrónico para notificaciones del sistema';
 COMMENT ON COLUMN seguridad.empresas.logo_url IS 'URL o path del logo de la empresa';
-COMMENT ON COLUMN seguridad.empresas.obligado_contabilidad IS 'Indica si la empresa está obligada a llevar contabilidad (TRUE/FALSE)';
+COMMENT ON COLUMN seguridad.empresas.es_obligado_contabilidad IS 'Indica si la empresa está obligada a llevar contabilidad (TRUE/FALSE)';
 COMMENT ON COLUMN seguridad.empresas.es_contribuyente_especial IS 'Indica si la empresa es contribuyente especial (TRUE/FALSE)';
 COMMENT ON COLUMN seguridad.empresas.activa IS 'Estado de la empresa. FALSE impide el acceso a sus usuarios';
 COMMENT ON COLUMN seguridad.empresas.created_at IS 'Fecha y hora de creación del registro';
@@ -137,6 +137,7 @@ CREATE TABLE contabilidad.plan_cuentas (
     tipo tipo_cuenta NOT NULL,
     nivel INTEGER NOT NULL,
     saldo NUMERIC(18,2) DEFAULT 0,
+    acepta_movimiento BOOLEAN DEFAULT false,
     activa BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
@@ -237,7 +238,7 @@ CREATE TABLE directorio.terceros (
     -- Clasificación
     tipo_tercero VARCHAR(20) NOT NULL,
     es_contribuyente_especial BOOLEAN DEFAULT FALSE,
-    obligado_contabilidad BOOLEAN DEFAULT FALSE,
+    es_obligado_contabilidad BOOLEAN DEFAULT FALSE,
     
     -- Contacto
     email VARCHAR(100),
@@ -283,7 +284,7 @@ COMMENT ON COLUMN directorio.terceros.razon_social IS 'Razón social o nombre le
 COMMENT ON COLUMN directorio.terceros.nombre_comercial IS 'Nombre comercial o de fantasía (opcional)';
 COMMENT ON COLUMN directorio.terceros.tipo_tercero IS 'Clasificación del tercero: CLIENTE, PROVEEDOR, AMBOS (cliente y proveedor), EMPLEADO, OTRO';
 COMMENT ON COLUMN directorio.terceros.es_contribuyente_especial IS 'Indica si el tercero es contribuyente especial según el SRI (aplica descuentos adicionales)';
-COMMENT ON COLUMN directorio.terceros.obligado_contabilidad IS 'Indica si el tercero está obligado a llevar contabilidad';
+COMMENT ON COLUMN directorio.terceros.es_obligado_contabilidad IS 'Indica si el tercero está obligado a llevar contabilidad';
 COMMENT ON COLUMN directorio.terceros.email IS 'Correo electrónico principal de contacto';
 COMMENT ON COLUMN directorio.terceros.telefono IS 'Teléfono fijo de contacto';
 COMMENT ON COLUMN directorio.terceros.celular IS 'Número de celular/móvil de contacto';
@@ -389,6 +390,7 @@ CREATE TABLE inventario.productos (
     costo_promedio NUMERIC(18,6) DEFAULT 0,
     precio_venta NUMERIC(18,6) NOT NULL,
     graba_iva BOOLEAN DEFAULT true,
+    codigo_tarifa_iva VARCHAR(5) DEFAULT '2', -- Código SRI (2: 12%, 4: 15%, 0: 0%, etc)
     categoria_id UUID REFERENCES inventario.categorias_producto(id),
     activo BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW(),
@@ -487,6 +489,13 @@ CREATE TABLE nomina.nomina_roles (
     total_ingresos NUMERIC(18,2) NOT NULL,
     total_egresos NUMERIC(18,2) NOT NULL,
     neto_pagar NUMERIC(18,2) NOT NULL,
+    aporte_personal NUMERIC(18,2) DEFAULT 0,
+    aporte_patronal NUMERIC(18,2) DEFAULT 0,
+    decimo_tercero NUMERIC(18,2) DEFAULT 0,
+    decimo_cuarto NUMERIC(18,2) DEFAULT 0,
+    fondos_reserva NUMERIC(18,2) DEFAULT 0,
+    vacaciones NUMERIC(18,2) DEFAULT 0,
+    asiento_id UUID REFERENCES contabilidad.asientos(id),
     estado estado_rol_pago DEFAULT 'BORRADOR',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
@@ -516,6 +525,7 @@ CREATE TABLE bancos.bancos_cuentas (
     saldo_actual NUMERIC(18,2) DEFAULT 0,
     moneda VARCHAR(3) DEFAULT 'USD',
     activa BOOLEAN DEFAULT true,
+    cuenta_contable_codigo VARCHAR(50), -- Código de cuenta contable asociada (ej: 1.1.01.01)
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(empresa_id, numero_cuenta)

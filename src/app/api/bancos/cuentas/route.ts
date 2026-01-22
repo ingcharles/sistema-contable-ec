@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
                 text: `
                     SELECT 
                         c.id, c.numero_cuenta, c.nombre, c.tipo_cuenta, c.banco,
-                        c.saldo_actual, c.moneda, c.activa, c.created_at, c.updated_at,
+                        c.saldo_actual, c.moneda, c.activa, c.cuenta_contable_codigo, c.created_at, c.updated_at,
                         (
                             SELECT COUNT(*) 
                             FROM bancos.bancos_movimientos m 
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { numeroCuenta, nombre, tipoCuenta, banco, saldoInicial = 0, moneda = 'USD', activa = true } = body;
+        const { numeroCuenta, nombre, tipoCuenta, banco, saldoInicial = 0, moneda = 'USD', activa = true, cuentaContableCodigo } = body;
 
         if (!numeroCuenta || !nombre || !banco) {
             return NextResponse.json(
@@ -85,9 +85,9 @@ export async function POST(req: NextRequest) {
                 text: `
                     INSERT INTO bancos.bancos_cuentas 
                         (empresa_id, usuario_id, numero_cuenta, nombre, tipo_cuenta, banco,
-                         saldo_actual, moneda, activa, created_at, updated_at)
+                         saldo_actual, moneda, activa, cuenta_contable_codigo, created_at, updated_at)
                     VALUES 
-                        ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+                        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
                     ON CONFLICT (empresa_id, numero_cuenta) 
                     DO UPDATE SET
                         nombre = EXCLUDED.nombre,
@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
                         banco = EXCLUDED.banco,
                         moneda = EXCLUDED.moneda,
                         activa = EXCLUDED.activa,
+                        cuenta_contable_codigo = EXCLUDED.cuenta_contable_codigo,
                         updated_at = NOW()
                     RETURNING *
                 `,
@@ -107,7 +108,8 @@ export async function POST(req: NextRequest) {
                     banco,
                     saldoInicial,
                     moneda,
-                    activa
+                    activa,
+                    cuentaContableCodigo
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }

@@ -75,7 +75,7 @@ El módulo de **Directorio** ha sido completamente implementado desde cero, elim
 #### Clasificación
 - `tipo_tercero` → CLIENTE, PROVEEDOR, AMBOS, EMPLEADO, OTRO
 - `es_contribuyente_especial` → Boolean
-- `obligado_contabilidad` → Boolean
+- `es_obligado_contabilidad` → Boolean
 
 #### Contacto
 - `email`, `telefono`, `celular`

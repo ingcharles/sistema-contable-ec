@@ -11,6 +11,7 @@ import { DepositoModal } from '@/modules/bancos/ui/components/DepositoModal';
 import { NuevaTransaccionModal } from '@/modules/bancos/ui/components/NuevaTransaccionModal';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
+import { CuentaBancariaModal } from '@/modules/bancos/ui/components/CuentaBancariaModal';
 
 export default function BancosPage() {
     const { currentEmpresa } = useEmpresa();
@@ -22,6 +23,8 @@ export default function BancosPage() {
     const [showConciliacion, setShowConciliacion] = useState(false);
     const [showNuevaTransaccion, setShowNuevaTransaccion] = useState(false);
     const [showDeposito, setShowDeposito] = useState(false);
+    const [showNuevaCuenta, setShowNuevaCuenta] = useState(false);
+    const [editingCuenta, setEditingCuenta] = useState<CuentaBancaria | undefined>(undefined);
 
     const loadCuentas = async () => {
         if (!currentEmpresa) return;
@@ -182,7 +185,15 @@ export default function BancosPage() {
                             <div className={`p-2 rounded-lg ${selectedCuenta === cuenta.id ? 'bg-white/10' : 'bg-slate-100'}`}>
                                 <Landmark size={24} className={selectedCuenta === cuenta.id ? 'text-white' : 'text-sri-blue'} />
                             </div>
-                            <MoreVertical size={20} className="opacity-50" />
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingCuenta(cuenta);
+                                }}
+                                className={`p-2 rounded-lg hover:bg-white/10 transition-colors ${selectedCuenta === cuenta.id ? 'text-white' : 'text-slate-400'}`}
+                            >
+                                <MoreVertical size={20} />
+                            </button>
                         </div>
                         <h3 className="font-bold text-lg mb-1">{cuenta.banco}</h3>
                         <p className={`text-sm mb-4 ${selectedCuenta === cuenta.id ? 'text-slate-300' : 'text-slate-500'}`}>
@@ -208,6 +219,10 @@ export default function BancosPage() {
                 <Button variant="secondary" onClick={() => setShowConciliacion(true)} disabled={!selectedCuenta} className="flex items-center gap-2">
                     <FileCheck size={16} /> Conciliar
                 </Button>
+                <Button onClick={() => setShowNuevaCuenta(true)} variant="secondary" className="flex items-center gap-2 border-dashed border-slate-300">
+                    <Plus size={16} /> Nueva Cuenta
+                </Button>
+                <div className="flex-1" />
                 <Button onClick={() => setShowNuevaTransaccion(true)} className="flex items-center gap-2 shadow-sm">
                     <Plus size={16} /> Nueva Transacción
                 </Button>
@@ -280,6 +295,21 @@ export default function BancosPage() {
                     onSave={() => {
                         loadMovimientos();
                         setShowDeposito(false);
+                    }}
+                />
+            )}
+
+            {(showNuevaCuenta || editingCuenta) && (
+                <CuentaBancariaModal
+                    cuenta={editingCuenta}
+                    onClose={() => {
+                        setShowNuevaCuenta(false);
+                        setEditingCuenta(undefined);
+                    }}
+                    onSave={() => {
+                        loadCuentas();
+                        setShowNuevaCuenta(false);
+                        setEditingCuenta(undefined);
                     }}
                 />
             )}

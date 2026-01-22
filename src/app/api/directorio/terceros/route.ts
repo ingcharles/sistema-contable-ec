@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
                     SELECT 
                         id, tipo_identificacion, identificacion, razon_social,
                         nombre_comercial, tipo_tercero, es_contribuyente_especial,
-                        obligado_contabilidad, email, telefono, celular, direccion,
+                        es_obligado_contabilidad, email, telefono, celular, direccion,
                         provincia, ciudad, codigo_postal, limite_credito, dias_credito,
                         descuento_porcentaje, activo, created_at, updated_at
                     FROM directorio.terceros
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
                     INSERT INTO directorio.terceros (
                         id, empresa_id, tipo_identificacion, identificacion, razon_social,
                         nombre_comercial, tipo_tercero, es_contribuyente_especial,
-                        obligado_contabilidad, email, telefono, celular, direccion,
+                        es_obligado_contabilidad, email, telefono, celular, direccion,
                         provincia, ciudad, codigo_postal, limite_credito, dias_credito,
                         descuento_porcentaje, cuenta_contable_cxc, cuenta_contable_cxp,
                         activo, created_at, updated_at, created_by
@@ -234,7 +234,7 @@ export async function PUT(req: NextRequest) {
                     UPDATE directorio.terceros
                     SET tipo_identificacion = $1, identificacion = $2, razon_social = $3,
                         nombre_comercial = $4, tipo_tercero = $5, es_contribuyente_especial = $6,
-                        obligado_contabilidad = $7, email = $8, telefono = $9, celular = $10,
+                        es_obligado_contabilidad = $7, email = $8, telefono = $9, celular = $10,
                         direccion = $11, provincia = $12, ciudad = $13, codigo_postal = $14,
                         limite_credito = $15, dias_credito = $16, descuento_porcentaje = $17,
                         cuenta_contable_cxc = $18, cuenta_contable_cxp = $19, activo = $20,

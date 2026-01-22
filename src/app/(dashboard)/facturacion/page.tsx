@@ -5,7 +5,7 @@ import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { TipoComprobante, EstadoSRI, Factura } from '@/shared/types';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
 import {
-    Plus, RotateCcw, Truck, Receipt, X, Eye, FileCode, Send, RotateCw, Download, FileText
+    Plus, RotateCcw, Truck, Receipt, X, Eye, FileCode, Send, RotateCw, Download
 } from 'lucide-react';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { Button } from '@/shared/ui/Button';

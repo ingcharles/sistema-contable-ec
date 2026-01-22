@@ -17,7 +17,7 @@ export async function GET() {
                 direccion AS "direccionMatriz",
                 email,
                 logo_url AS "logoUrl",
-                obligado_contabilidad AS "obligadoContabilidad",
+                es_obligado_contabilidad AS "obligadoContabilidad",
                 es_contribuyente_especial AS "contribuyenteEspecial",
                 created_at AS "createdAt",
                 updated_at AS "updatedAt"
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
                 direccion,
                 email,
                 logo_url,
-                obligado_contabilidad,
+                es_obligado_contabilidad,
                 es_contribuyente_especial,
                 created_at,
                 updated_at
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
                 direccion AS "direccionMatriz",
                 email,
                 logo_url AS "logoUrl",
-                obligado_contabilidad AS "obligadoContabilidad",
+                es_obligado_contabilidad AS "obligadoContabilidad",
                 es_contribuyente_especial AS "contribuyenteEspecial",
                 created_at AS "createdAt",
                 updated_at AS "updatedAt"

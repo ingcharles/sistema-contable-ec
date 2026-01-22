@@ -26,7 +26,7 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
 
     const { guardarTercero, actualizarTercero, guardando, error: errorSaving } = useDirectorioMutations();
 
-    const [formData, setFormData] = useState<Partial<Tercero>>(terceroEditar || {
+    const [formData, setFormData] = useState<Partial<any>>(terceroEditar || {
         tipoIdentificacion: TipoIdentificacion.RUC,
         identificacion: '',
         razonSocial: '',
@@ -34,15 +34,19 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
         tipo: TipoTercero.CLIENTE,
         direccion: '',
         telefono: '',
+        celular: '',
         email: '',
+        provincia: '',
+        ciudad: '',
         esContribuyenteEspecial: false,
         llevaContabilidad: false,
-        parteRelacionada: false
+        limiteCredito: 0,
+        diasCredito: 0
     });
 
     const [errorId, setErrorId] = useState('');
 
-    const handleChange = (field: keyof Tercero, value: any) => {
+    const handleChange = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
 
         if (field === 'identificacion') {
@@ -101,10 +105,10 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
             isOpen={true}
             onClose={onClose}
             title={terceroEditar ? 'Editar Contacto' : 'Nuevo Contacto'}
-            description="Administre la información fiscal de su cliente o proveedor."
+            description="Administre la información fiscal y comercial de su cliente o proveedor."
             icon={terceroEditar ? <Contact size={24} /> : <UserPlus size={24} />}
             footer={footer}
-            size="lg"
+            size="xl"
         >
             <div className="space-y-6">
                 {errorSaving && (
@@ -114,102 +118,154 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* SECCIÓN 1: IDENTIFICACIÓN PRINCIPAL */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Identificación</label>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Tipo Identificación</label>
                         <select
                             value={formData.tipoIdentificacion}
                             onChange={e => handleChange('tipoIdentificacion', e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium"
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium"
                         >
-                            {tiposIdentificacion && tiposIdentificacion.length > 0 ? (
-                                tiposIdentificacion.map(tipo => (
-                                    <option key={tipo.codigo} value={tipo.codigo}>{tipo.valor}</option>
-                                ))
-                            ) : (
-                                <>
-                                    <option value="04">RUC</option>
-                                    <option value="05">CEDULA</option>
-                                    <option value="06">PASAPORTE</option>
-                                </>
-                            )}
+                            {tiposIdentificacion?.map(tipo => (
+                                <option key={tipo.codigo} value={tipo.codigo}>{tipo.valor}</option>
+                            )) || (
+                                    <>
+                                        <option value="04">RUC</option>
+                                        <option value="05">CEDULA</option>
+                                        <option value="06">PASAPORTE</option>
+                                    </>
+                                )}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Número Identificación *</label>
+                    <div className="md:col-span-1">
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Identificación *</label>
                         <input
                             type="text"
                             value={formData.identificacion}
                             onChange={e => handleChange('identificacion', e.target.value)}
-                            className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono ${errorId ? 'border-red-500 bg-red-50' : 'border-slate-200'}`}
+                            className={`w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono font-bold ${errorId ? 'border-red-500 bg-red-50' : 'border-slate-200'}`}
                             placeholder="Ej: 1712345678001"
                         />
-                        {errorId && <span className="text-xs text-red-500 mt-1 block font-medium">{errorId}</span>}
+                        {errorId && <span className="text-[10px] text-red-500 mt-1 block font-medium">{errorId}</span>}
+                    </div>
+                    <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Tipo de Contacto</label>
+                        <select
+                            value={formData.tipo}
+                            onChange={e => handleChange('tipo', e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold text-sri-blue"
+                        >
+                            <option value={TipoTercero.CLIENTE}>Cliente</option>
+                            <option value={TipoTercero.PROVEEDOR}>Proveedor</option>
+                            <option value="AMBOS">Cliente y Proveedor</option>
+                        </select>
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Razón Social / Nombres Completos *</label>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Razón Social / Nombres Completos *</label>
                     <input
                         type="text"
                         value={formData.razonSocial}
                         onChange={e => handleChange('razonSocial', e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all uppercase"
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold uppercase"
                         placeholder="Ej: EMPRESA S.A. o JUAN PEREZ"
                     />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Relación</label>
-                        <select
-                            value={formData.tipo}
-                            onChange={e => handleChange('tipo', e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium"
-                        >
-                            <option value={TipoTercero.CLIENTE}>Cliente</option>
-                            <option value={TipoTercero.PROVEEDOR}>Proveedor</option>
-                            <option value="AMBOS">Ambos (Cliente/Prov)</option>
-                        </select>
+                {/* SECCIÓN 2: CONTACTO Y UBICACIÓN */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Email Facturación *</label>
+                        <input
+                            type="email"
+                            value={formData.email}
+                            onChange={e => handleChange('email', e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                            placeholder="ejemplo@correo.com"
+                        />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Teléfono / Celular</label>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Celular</label>
                         <input
                             type="text"
-                            value={formData.telefono}
-                            onChange={e => handleChange('telefono', e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
-                            placeholder="Ej: 0998877665"
+                            value={formData.celular}
+                            onChange={e => handleChange('celular', e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                            placeholder="0998877665"
                         />
                     </div>
                 </div>
 
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Email Facturación Electrónica *</label>
-                    <input
-                        type="email"
-                        value={formData.email}
-                        onChange={e => handleChange('email', e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
-                        placeholder="ejemplo@correo.com"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Provincia</label>
+                        <input
+                            type="text"
+                            value={formData.provincia}
+                            onChange={e => handleChange('provincia', e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Ciudad</label>
+                        <input
+                            type="text"
+                            value={formData.ciudad}
+                            onChange={e => handleChange('ciudad', e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Teléfono Fijo</label>
+                        <input
+                            type="text"
+                            value={formData.telefono}
+                            onChange={e => handleChange('telefono', e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                        />
+                    </div>
                 </div>
 
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Información Tributaria (SRI)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                            <input type="checkbox" checked={formData.llevaContabilidad} onChange={e => handleChange('llevaContabilidad', e.target.checked)} className="w-5 h-5 rounded-lg border-slate-300 text-sri-blue focus:ring-sri-blue/20" />
-                            <span className="text-sm font-medium text-slate-700 group-hover:text-sri-blue transition-colors">Obligado Contabilidad</span>
-                        </label>
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                            <input type="checkbox" checked={formData.esContribuyenteEspecial} onChange={e => handleChange('esContribuyenteEspecial', e.target.checked)} className="w-5 h-5 rounded-lg border-slate-300 text-sri-blue focus:ring-sri-blue/20" />
-                            <span className="text-sm font-medium text-slate-700 group-hover:text-sri-blue transition-colors">Contribuyente Especial</span>
-                        </label>
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                            <input type="checkbox" checked={formData.parteRelacionada} onChange={e => handleChange('parteRelacionada', e.target.checked)} className="w-5 h-5 rounded-lg border-slate-300 text-sri-blue focus:ring-sri-blue/20" />
-                            <span className="text-sm font-medium text-slate-700 group-hover:text-sri-blue transition-colors">Parte Relacionada</span>
-                        </label>
+                {/* SECCIÓN 3: COMERCIAL Y SRI */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Configuración SRI</h3>
+                        <div className="flex flex-wrap gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" checked={formData.llevaContabilidad} onChange={e => handleChange('llevaContabilidad', e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-sri-blue focus:ring-sri-blue/20" />
+                                <span className="text-xs font-bold text-slate-700 group-hover:text-sri-blue transition-colors">Obligado Contabilidad</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" checked={formData.esContribuyenteEspecial} onChange={e => handleChange('esContribuyenteEspecial', e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-sri-blue focus:ring-sri-blue/20" />
+                                <span className="text-xs font-bold text-slate-700 group-hover:text-sri-blue transition-colors">Contribuyente Especial</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50 space-y-4">
+                        <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Información de Crédito</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1">Límite Crédito ($)</label>
+                                <input
+                                    type="number"
+                                    value={formData.limiteCredito}
+                                    onChange={e => handleChange('limiteCredito', Number(e.target.value))}
+                                    className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-sm font-bold"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1">Días Crédito</label>
+                                <input
+                                    type="number"
+                                    value={formData.diasCredito}
+                                    onChange={e => handleChange('diasCredito', Number(e.target.value))}
+                                    className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-sm font-bold"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

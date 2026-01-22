@@ -66,6 +66,7 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
             costoPromedio: 0,
             precioVenta,
             grabaIva,
+            codigoTarifaIva,
             stockMinimo,
             activo: true
         });
@@ -113,30 +114,41 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
             size="lg"
         >
             <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2 col-span-1">
                         <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                            <Tag size={14} className="text-sri-blue" /> Nombre del Producto *
+                            <Tag size={14} className="text-sri-blue" /> Nombre *
                         </label>
                         <input
                             type="text"
                             value={nombre}
                             onChange={(e) => setNombre(e.target.value)}
-                            placeholder="Ej: Laptop Dell Latitude"
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                            placeholder="Ej: Laptop Dell"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold"
                         />
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                            <BarChart2 size={14} className="text-sri-blue" /> Código Principal *
+                            <BarChart2 size={14} className="text-sri-blue" /> Código *
                         </label>
                         <input
                             type="text"
                             value={codigo}
                             onChange={(e) => setCodigo(e.target.value)}
-                            placeholder="Ej: PROD-001"
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono"
                         />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700">Unidad SRI</label>
+                        <select
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold"
+                        >
+                            <option value="UND">UNIDADES</option>
+                            <option value="KG">KILOGRAMOS</option>
+                            <option value="LT">LITROS</option>
+                            <option value="MT">METROS</option>
+                            <option value="SER">SERVICIO</option>
+                        </select>
                     </div>
                 </div>
 

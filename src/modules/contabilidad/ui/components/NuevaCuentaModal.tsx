@@ -18,6 +18,7 @@ export const NuevaCuentaModal = ({ onClose, onSave, cuentaPadre }: NuevaCuentaMo
         nombre: '',
         tipo: cuentaPadre?.tipo || 'ACTIVO',
         saldo: 0,
+        aceptaMovimiento: false
     });
     const [error, setError] = useState('');
 
@@ -42,12 +43,13 @@ export const NuevaCuentaModal = ({ onClose, onSave, cuentaPadre }: NuevaCuentaMo
             return;
         }
 
-        const nuevaCuenta: CuentaContable = {
+        const nuevaCuenta: any = {
             codigo: formData.codigo,
             nombre: formData.nombre.toUpperCase(),
             nivel,
-            tipo: formData.tipo as 'ACTIVO' | 'PASIVO' | 'PATRIMONIO',
+            tipo: formData.tipo,
             saldo: formData.saldo,
+            aceptaMovimiento: formData.aceptaMovimiento
         };
 
         onSave(nuevaCuenta);
@@ -113,8 +115,23 @@ export const NuevaCuentaModal = ({ onClose, onSave, cuentaPadre }: NuevaCuentaMo
                             <option value="ACTIVO">Activo</option>
                             <option value="PASIVO">Pasivo</option>
                             <option value="PATRIMONIO">Patrimonio</option>
+                            <option value="INGRESO">Ingreso</option>
+                            <option value="GASTO">Gasto</option>
                         </select>
                     </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                    <input
+                        type="checkbox"
+                        id="aceptaMovimiento"
+                        checked={formData.aceptaMovimiento}
+                        onChange={(e) => setFormData({ ...formData, aceptaMovimiento: e.target.checked })}
+                        className="w-5 h-5 rounded border-slate-300 text-sri-blue focus:ring-sri-blue/20"
+                    />
+                    <label htmlFor="aceptaMovimiento" className="text-sm font-bold text-slate-700 cursor-pointer">
+                        Esta cuenta permite registrar asientos (Nivel de Movimiento)
+                    </label>
                 </div>
 
                 <div className="space-y-1.5">

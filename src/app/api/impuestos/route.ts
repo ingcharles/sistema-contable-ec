@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
+import { AtsGenerator } from '@/modules/impuestos/domain/services/AtsGenerator';
 
 export async function GET(req: NextRequest) {
     const context = validateContext(req);
@@ -42,12 +43,49 @@ export async function GET(req: NextRequest) {
     }
 }
 
+
+
 export async function POST(req: NextRequest) {
     const context = validateContext(req);
     if (!context.isValid) return NextResponse.json({ error: context.error }, { status: 401 });
 
     try {
         const body = await req.json();
+        const { action } = body;
+
+        // 1. GENERACIÓN (Lógica nueva)
+        if (action === 'generar') {
+            const { tipo, periodo } = body;
+
+            if (tipo === 'ATS' || tipo === 'ats') {
+                try {
+                    const xml = await AtsGenerator.generar(context.empresaId!, periodo);
+
+                    // Guardar automáticamente el ATS generado
+                    const newId = crypto.randomUUID();
+                    await db.query({
+                        text: `
+                            INSERT INTO impuestos.ats (id, empresa_id, periodo, xml_data, estado, created_at)
+                            VALUES ($1, $2, $3, $4, 'GENERADO', NOW())
+                            ON CONFLICT (empresa_id, periodo) DO UPDATE SET
+                                xml_data = EXCLUDED.xml_data,
+                                estado = 'REGENERADO',
+                                created_at = NOW()
+                        `,
+                        values: [newId, context.empresaId, periodo, xml]
+                    }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+
+                    return NextResponse.json({ success: true, id: newId, xml });
+                } catch (err: any) {
+                    console.error('Error generando ATS:', err);
+                    return NextResponse.json({ error: 'Error al generar ATS: ' + err.message }, { status: 500 });
+                }
+            } else {
+                return NextResponse.json({ error: 'Tipo de formulario no soportado para generación automática aún' }, { status: 400 });
+            }
+        }
+
+        // 2. GUARDADO MANUAL (Lógica existente refactorizada)
         const { type, periodo, tipoFormulario, totalVentas, totalCompras, valorAPagar, xmlData } = body;
 
         if (type === 'ats') {

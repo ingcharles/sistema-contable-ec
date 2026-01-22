@@ -13,9 +13,12 @@ export enum MotivoTraslado {
 export interface Transportista {
     id: string;
     razonSocial: string;
-    ruc: string;
+    identificacion: string; // Campo base
+    ruc?: string; // Por retrocompatibilidad
+    tipoIdentificacion: string; // '04', '05', etc
     placa: string;
-    correo?: string;
+    email?: string;
+    telefono?: string;
 }
 
 export interface DestinatarioGuia {

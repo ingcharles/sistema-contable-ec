@@ -105,6 +105,9 @@ export async function POST(req: NextRequest) {
             departamento,
             sueldoBase,
             tipoContrato = 'INDEFINIDO',
+            banco,
+            tipoCuenta,
+            numeroCuenta,
             activo = true
         } = body;
 
@@ -122,10 +125,10 @@ export async function POST(req: NextRequest) {
                 text: `
                     INSERT INTO nomina.empleados 
                         (empresa_id, usuario_id, cedula, nombres, apellidos, email, telefono,
-                         fecha_ingreso, cargo, departamento, sueldo_base, tipo_contrato, activo,
-                         created_at, updated_at)
+                         fecha_ingreso, cargo, departamento, sueldo_base, tipo_contrato, 
+                         banco, tipo_cuenta, numero_cuenta, activo, created_at, updated_at)
                     VALUES 
-                        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+                        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
                     ON CONFLICT (empresa_id, cedula) 
                     DO UPDATE SET
                         nombres = EXCLUDED.nombres,
@@ -137,6 +140,9 @@ export async function POST(req: NextRequest) {
                         departamento = EXCLUDED.departamento,
                         sueldo_base = EXCLUDED.sueldo_base,
                         tipo_contrato = EXCLUDED.tipo_contrato,
+                        banco = EXCLUDED.banco,
+                        tipo_cuenta = EXCLUDED.tipo_cuenta,
+                        numero_cuenta = EXCLUDED.numero_cuenta,
                         activo = EXCLUDED.activo,
                         updated_at = NOW()
                     RETURNING *
@@ -154,6 +160,9 @@ export async function POST(req: NextRequest) {
                     departamento,
                     sueldoBase,
                     tipoContrato,
+                    banco,
+                    tipoCuenta,
+                    numeroCuenta,
                     activo
                 ]
             },

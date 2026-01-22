@@ -1,27 +1,33 @@
+
 'use client';
-
-import { useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts';
-import {
-    ArrowUpRight, ArrowDownRight, FileCheck, Calendar,
-    TrendingUp, DollarSign, ShoppingBag, Wallet, Clock, Sparkles, AlertTriangle
-} from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ArrowUpRight, FileCheck, Calendar, TrendingUp, DollarSign, ShoppingBag, Wallet, Clock, Sparkles, AlertTriangle } from 'lucide-react';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-
-const dataLiquidez = [
-    { name: 'Ene', ingresos: 4500, egresos: 3200 },
-    { name: 'Feb', ingresos: 5200, egresos: 3800 },
-    { name: 'Mar', ingresos: 4800, egresos: 4100 },
-    { name: 'Abr', ingresos: 6100, egresos: 4500 },
-    { name: 'May', ingresos: 5900, egresos: 4200 },
-    { name: 'Jun', ingresos: 7200, egresos: 4800 },
-];
+import { DashboardUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 
 export default function DashboardPage() {
     const { currentEmpresa } = useEmpresa();
+    const [stats, setStats] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    const loadStats = async () => {
+        if (!currentEmpresa) return;
+        setLoading(true);
+        try {
+            const data = await DashboardUseCases.obtenerEstadisticas();
+            setStats(data);
+        } catch (error) {
+            console.error('Error cargando stats:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadStats();
+    }, [currentEmpresa?.id]);
 
     const obligaciones = useMemo(() => {
         if (!currentEmpresa) return [];
@@ -68,23 +74,31 @@ export default function DashboardPage() {
             {/* KPI Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: 'Ventas del Mes', value: 24500, change: '+12.5%', icon: DollarSign, color: 'blue', trend: 'up' },
-                    { label: 'Compras y Gastos', value: 18200, change: '+5.2%', icon: ShoppingBag, color: 'rose', trend: 'down' },
-                    { label: 'IVA por Pagar', value: 856.40, change: 'Estimado', icon: FileCheck, color: 'amber', trend: 'neutral' },
-                    { label: 'Saldo Bancos', value: 42100, change: 'Conciliado', icon: Wallet, color: 'emerald', trend: 'up' },
+                    { label: 'Ventas del Mes', value: stats?.ventasMes || 0, trend: 'up', icon: DollarSign, color: 'blue' },
+                    { label: 'Compras y Gastos', value: stats?.comprasMes || 0, trend: 'neutral', icon: ShoppingBag, color: 'rose' },
+                    { label: 'CxC Pendiente', value: stats?.carteraPendiente || 0, trend: 'neutral', icon: FileCheck, color: 'amber' },
+                    { label: 'Saldo Bancos', value: stats?.saldoBancos || 0, trend: 'up', icon: Wallet, color: 'emerald' },
                 ].map((kpi, i) => (
                     <div key={i} className="group bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                         <div className="flex justify-between items-start">
                             <div className={`p-3 rounded-2xl bg-${kpi.color}-50 text-${kpi.color}-600 group-hover:scale-110 transition-transform duration-300`}>
                                 <kpi.icon size={24} />
                             </div>
-                            {kpi.trend === 'up' && <span className="flex items-center text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg"><ArrowUpRight size={14} className="mr-1" /> {kpi.change}</span>}
-                            {kpi.trend === 'down' && <span className="flex items-center text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-lg"><ArrowDownRight size={14} className="mr-1" /> {kpi.change}</span>}
-                            {kpi.trend === 'neutral' && <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg uppercase">{kpi.change}</span>}
+                            {loading ? (
+                                <div className="h-4 w-12 bg-slate-100 animate-pulse rounded"></div>
+                            ) : kpi.trend === 'up' ? (
+                                <span className="flex items-center text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">Real</span>
+                            ) : (
+                                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg uppercase">Real</span>
+                            )}
                         </div>
                         <div className="mt-5">
                             <p className="text-sm text-slate-500 font-medium">{kpi.label}</p>
-                            <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">{formatMoney(kpi.value)}</h3>
+                            {loading ? (
+                                <div className="h-8 w-24 bg-slate-100 animate-pulse rounded mt-1"></div>
+                            ) : (
+                                <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">{formatMoney(kpi.value)}</h3>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -92,83 +106,91 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Chart Card */}
-                <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm min-h-[480px]">
                     <div className="flex justify-between items-center mb-8">
                         <div>
                             <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                <TrendingUp size={22} className="text-sri-blue" /> Flujo de Caja
+                                <TrendingUp size={22} className="text-sri-blue" /> Flujo de Caja Real
                             </h3>
-                            <p className="text-sm text-slate-400 mt-1">Comparativa de ingresos vs egresos (Últimos 6 meses)</p>
+                            <p className="text-sm text-slate-400 mt-1">Comparativa de ingresos vs egresos (Dinámico)</p>
                         </div>
                         <div className="flex gap-2">
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full">
                                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                                <span className="text-[10px] font-bold text-green-700 uppercase">Ingresos</span>
+                                <span className="text-[10px] font-bold text-green-700 uppercase">Ventas</span>
                             </div>
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 rounded-full">
                                 <div className="w-2 h-2 rounded-full bg-rose-500" />
-                                <span className="text-[10px] font-bold text-rose-700 uppercase">Egresos</span>
+                                <span className="text-[10px] font-bold text-rose-700 uppercase">Gastos</span>
                             </div>
                         </div>
                     </div>
-                    <div className="h-[350px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={dataLiquidez}>
-                                <defs>
-                                    <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.15} />
-                                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorEgresos" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15} />
-                                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis
-                                    dataKey="name"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
-                                    dy={10}
-                                />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
-                                    tickFormatter={(value) => `$${value}`}
-                                    dx={-10}
-                                />
-                                <Tooltip
-                                    contentStyle={{
-                                        borderRadius: '16px',
-                                        border: 'none',
-                                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                                        padding: '12px'
-                                    }}
-                                    cursor={{ stroke: '#e2e8f0', strokeWidth: 2 }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="ingresos"
-                                    stroke="#0ea5e9"
-                                    fillOpacity={1}
-                                    fill="url(#colorIngresos)"
-                                    strokeWidth={3}
-                                    animationDuration={1500}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="egresos"
-                                    stroke="#f43f5e"
-                                    fillOpacity={1}
-                                    fill="url(#colorEgresos)"
-                                    strokeWidth={3}
-                                    animationDuration={1500}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
+                    {loading ? (
+                        <div className="h-[350px] w-full bg-slate-50 animate-pulse rounded-2xl flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest">
+                            Procesando datos...
+                        </div>
+                    ) : (
+                        <div className="h-[350px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={stats?.graficoLiquidez || []}>
+                                    <defs>
+                                        <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.15} />
+                                            <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorEgresos" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15} />
+                                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
+                                        dy={10}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
+                                        tickFormatter={(value) => `$${value}`}
+                                        dx={-10}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: '16px',
+                                            border: 'none',
+                                            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                                            padding: '12px'
+                                        }}
+                                        formatter={(value: any, name: string | undefined) => [formatMoney(value), name === 'ingresos' ? 'Ingresos' : 'Egresos Totales']}
+                                        labelStyle={{ fontWeight: 'bold', marginBottom: '4px', color: '#64748b' }}
+                                        cursor={{ stroke: '#e2e8f0', strokeWidth: 2 }}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="ingresos"
+                                        stroke="#0ea5e9"
+                                        fillOpacity={1}
+                                        fill="url(#colorIngresos)"
+                                        strokeWidth={3}
+                                        animationDuration={1500}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="egresos"
+                                        stroke="#f43f5e"
+                                        fillOpacity={1}
+                                        fill="url(#colorEgresos)"
+                                        strokeWidth={3}
+                                        animationDuration={1500}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
                 </div>
 
                 {/* Tax Calendar Card */}

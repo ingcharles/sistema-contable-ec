@@ -51,6 +51,8 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                 departamento: '',
                 sueldoBase: formData.sueldoBase,
                 tipoContrato: formData.tipoContrato,
+                banco: formData.banco,
+                numeroCuenta: formData.cuentaBancaria,
                 activo: formData.estado === EstadoEmpleado.ACTIVO
             });
             onSave();

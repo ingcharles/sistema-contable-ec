@@ -108,41 +108,77 @@ export async function POST(req: NextRequest) {
 
             // Calcular valores base para cada empleado
             const rolesGenerados: any[] = [];
+            const sbu2024 = 460.00; // Salario Básico Unificado 2024
 
             for (const empleado of empleados) {
                 const sueldoBase = parseFloat(empleado.sueldo_base);
 
-                // Cálculos de nómina Ecuador (valores de ejemplo - personalizar según normativa)
-                const aporteSS = sueldoBase * 0.0945; // 9.45% aporte personal IESS
-                const impuestoRenta = 0; // Calcular según tabla del SRI
+                // 1. Cálculos de Egresos (Aporte Personal)
+                const aportePersonal = sueldoBase * 0.0945; // 9.45% IESS
+
+                // 2. Provisiones y Beneficios (Gastos para la empresa)
+                const aportePatronal = sueldoBase * 0.1215; // 12.15% IESS
+                const decimoTercero = sueldoBase / 12;
+                const decimoCuarto = sbu2024 / 12;
+                const fondosReserva = sueldoBase * 0.0833; // Simplificado: 8.33%
+                const vacaciones = sueldoBase / 24;
 
                 const totalIngresos = sueldoBase;
-                const totalEgresos = aporteSS + impuestoRenta;
+                const totalEgresos = aportePersonal; // Sin considerar préstamos/anticipos aquí
                 const netoPagar = totalIngresos - totalEgresos;
 
-                // Insertar rol
+                // 3. Generar Asiento Contable para este Rol
+                // En una app pro, se agruparían todos en un solo asiento, 
+                // pero aquí lo haremos por cada uno para simplificar la trazabilidad inicial.
+                const glosa = `Nómina ${periodo} - ${empleado.nombres} ${empleado.apellidos}`;
+                const asientoResult = await client.query(`
+                    INSERT INTO contabilidad.asientos (empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
+                    VALUES ($1, $2, $3, CURRENT_DATE, $4, 'DIARIO', 'MAYORIZADO')
+                    RETURNING id
+                `, [
+                    context.empresaId, context.usuarioId,
+                    `NOM-${periodo}-${empleado.cedula.slice(-4)}`,
+                    glosa
+                ]);
+                const asientoId = asientoResult.rows[0].id;
+
+                // Detalles del Asiento (Partida Doble)
+                // DEBE: Gastos
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '5.1.01.01', $2, 0, 'Sueldos y Salarios')`, [asientoId, sueldoBase]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '5.1.01.02', $2, 0, 'Aporte Patronal')`, [asientoId, aportePatronal]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '5.1.01.03', $2, 0, 'Décimo Tercero')`, [asientoId, decimoTercero]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '5.1.01.04', $2, 0, 'Décimo Cuarto')`, [asientoId, decimoCuarto]);
+
+                // HABER: Pasivos
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '2.1.03.01', 0, $2, 'IESS por Pagar (Per+Pat)')`, [asientoId, aportePersonal + aportePatronal]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '2.1.03.02', 0, $2, 'Sueldos por Pagar')`, [asientoId, netoPagar]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '2.1.03.03', 0, $2, 'Prov. Décimo Tercero')`, [asientoId, decimoTercero]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '2.1.03.04', 0, $2, 'Prov. Décimo Cuarto')`, [asientoId, decimoCuarto]);
+
+                // 4. Insertar Rol con todos los detalles
                 const rolResult = await client.query(`
                     INSERT INTO nomina.nomina_roles 
                         (empresa_id, usuario_id, empleado_id, periodo, 
-                         total_ingresos, total_egresos, neto_pagar, estado, 
-                         created_at, updated_at)
+                         total_ingresos, total_egresos, neto_pagar, 
+                         aporte_personal, aporte_patronal, decimo_tercero, 
+                         decimo_cuarto, fondos_reserva, vacaciones,
+                         asiento_id, estado, created_at, updated_at)
                     VALUES 
-                        ($1, $2, $3, $4, $5, $6, $7, 'BORRADOR', NOW(), NOW())
+                        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'PENDIENTE', NOW(), NOW())
                     RETURNING id
                 `, [
-                    context.empresaId,
-                    context.usuarioId,
-                    empleado.id,
-                    periodo,
-                    totalIngresos,
-                    totalEgresos,
-                    netoPagar
+                    context.empresaId, context.usuarioId, empleado.id, periodo,
+                    totalIngresos, totalEgresos, netoPagar,
+                    aportePersonal, aportePatronal, decimoTercero,
+                    decimoCuarto, fondosReserva, vacaciones,
+                    asientoId
                 ]);
 
                 rolesGenerados.push({
                     rolId: rolResult.rows[0].id,
                     empleado: `${empleado.nombres} ${empleado.apellidos}`,
-                    netoPagar
+                    netoPagar,
+                    asientoId
                 });
             }
 
@@ -160,5 +196,104 @@ export async function POST(req: NextRequest) {
             { error: error.message || 'Error al generar nómina', details: error.message },
             { status: 500 }
         );
+    }
+}
+/**
+ * PUT /api/nomina/roles
+ * Registra el pago de un rol de pago
+ */
+export async function PUT(req: NextRequest) {
+    const context = validateContext(req);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
+
+    try {
+        const body = await req.json();
+        const { rolId, cuentaBancoId, fechaPago, referencia } = body;
+
+        if (!rolId || !cuentaBancoId || !fechaPago) {
+            return NextResponse.json({ error: 'Campos requeridos: rolId, cuentaBancoId, fechaPago' }, { status: 400 });
+        }
+
+        const result = await db.transaction(async (client) => {
+            // 1. Obtener datos del rol y empleado
+            const rolResult = await client.query(`
+                SELECT r.*, e.nombres, e.apellidos, e.cedula
+                FROM nomina.nomina_roles r
+                JOIN nomina.empleados e ON e.id = r.empleado_id
+                WHERE r.id = $1 AND r.empresa_id = $2
+            `, [rolId, context.empresaId]);
+
+            if (rolResult.rows.length === 0) throw new Error('Rol de pago no encontrado');
+            const rol = rolResult.rows[0];
+
+            if (rol.estado === 'PAGADO') throw new Error('Este rol ya ha sido pagado');
+
+            // 2. Obtener datos de la cuenta bancaria
+            const bancoResult = await client.query(`
+                SELECT id, nombre, banco, cuenta_contable_codigo
+                FROM bancos.bancos_cuentas
+                WHERE id = $1 AND empresa_id = $2
+            `, [cuentaBancoId, context.empresaId]);
+
+            if (bancoResult.rows.length === 0) throw new Error('Cuenta bancaria no encontrada');
+            const banco = bancoResult.rows[0];
+
+            const monto = parseFloat(rol.neto_pagar);
+
+            // 3. Registrar Movimiento Bancario (Egreso)
+            await client.query(`
+                INSERT INTO bancos.bancos_movimientos
+                    (empresa_id, usuario_id, cuenta_id, fecha, tipo, referencia, beneficiario, concepto, monto, es_egreso)
+                VALUES ($1, $2, $3, $4, 'TRANSFERENCIA_ENVIADA', $5, $6, $7, $8, true)
+            `, [
+                context.empresaId, context.usuarioId, cuentaBancoId,
+                fechaPago, referencia || 'PAGO NOMINA',
+                `${rol.nombres} ${rol.apellidos}`,
+                `Pago de Nómina Periodo ${rol.periodo}`,
+                monto
+            ]);
+
+            // 4. Actualizar Saldo Bancario
+            await client.query(`
+                UPDATE bancos.bancos_cuentas
+                SET saldo_actual = saldo_actual - $1, updated_at = NOW()
+                WHERE id = $2
+            `, [monto, cuentaBancoId]);
+
+            // 5. Generar Asiento Contable de Pago
+            const ctaBanco = banco.cuenta_contable_codigo || '1.1.01.01';
+            const ctaPasivoSueldos = '2.1.03.02'; // Sueldos por Pagar
+
+            const asientoResult = await client.query(`
+                INSERT INTO contabilidad.asientos (empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
+                VALUES ($1, $2, $3, $4, $5, 'EGRESO', 'MAYORIZADO')
+                RETURNING id
+            `, [
+                context.empresaId, context.usuarioId,
+                `PAG-NOM-${Date.now().toString().slice(-6)}`,
+                fechaPago, `Pago Nómina ${rol.periodo} - ${rol.nombres} ${rol.apellidos}`
+            ]);
+            const asientoId = asientoResult.rows[0].id;
+
+            // Detalles: DEBE Sueldos por Pagar, HABER Banco
+            await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'LIQUIDACION DE SUELDO')`, [asientoId, ctaPasivoSueldos, monto]);
+            await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'PAGO CON BANCO')`, [asientoId, ctaBanco, monto]);
+
+            // 6. Actualizar Estado del Rol
+            await client.query(`
+                UPDATE nomina.nomina_roles 
+                SET estado = 'PAGADO', updated_at = NOW()
+                WHERE id = $1
+            `, [rolId]);
+
+            return { success: true };
+        }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+
+        return NextResponse.json(result);
+    } catch (error: any) {
+        console.error('Error al pagar rol:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

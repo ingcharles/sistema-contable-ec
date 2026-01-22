@@ -34,18 +34,26 @@ export interface RolPago extends Auditable {
     id: string;
     empleadoId: string;
     periodo: string; // YYYY-MM
-    diasTrabajados: number;
-    sueldoGanado: number;
-    horasExtras: number;
-    comisiones: number;
-    otrosIngresos: number;
+    diasTrabajados?: number;
+    sueldoGanado?: number;
+    horasExtras?: number;
+    comisiones?: number;
+    otrosIngresos?: number;
     totalIngresos: number;
-    aporteIESS: number;
-    prestamosIESS: number;
-    anticipos: number;
-    otrosDescuentos: number;
+    aporteIESS?: number;
+    aportePersonal: number;
+    prestamosIESS?: number;
+    anticipos?: number;
+    otrosDescuentos?: number;
     totalEgresos: number;
     netoAPagar: number;
+    // Provisiones y aportes patronales
+    aportePatronal: number;
+    decimoTercero: number;
+    decimoCuarto: number;
+    fondosReserva: number;
+    vacaciones: number;
+    asientoId?: string;
     estado: 'BORRADOR' | 'CERRADO' | 'PAGADO';
 }
 

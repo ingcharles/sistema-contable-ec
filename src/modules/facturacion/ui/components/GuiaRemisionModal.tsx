@@ -55,7 +55,6 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
 
         setGuardando(true);
         try {
-            const secuencial = Math.floor(Math.random() * 999999999).toString().padStart(9, '0');
 
             const dataGuia = {
                 ambiente: AMBIENTE.PRUEBAS,
@@ -65,12 +64,12 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                 ruc: currentEmpresa.ruc,
                 estab: '001',
                 ptoEmi: '001',
-                secuencial,
+                secuencial: '000000001', // TODO: Obtener de Punto de Emisión
                 dirMatriz: currentEmpresa.direccionMatriz || 'Quito',
                 dirPartida: puntoPartida,
                 razonSocialTransportista: transportista.razonSocial,
-                tipoIdentificacionTransportista: '04',
-                rucTransportista: transportista.ruc,
+                tipoIdentificacionTransportista: transportista.tipoIdentificacion || '04',
+                rucTransportista: transportista.ruc || transportista.identificacion,
                 obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
                 contribuyenteEspecial: currentEmpresa.contribuyenteEspecial,
                 fechaIniTraslado: fechaInicio,
@@ -89,7 +88,8 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                         detalles: facturaReferencia?.items?.map((i: any) => ({
                             codigoInterno: i.codigo || 'S/N',
                             descripcion: i.nombre || i.descripcion,
-                            cantidad: i.cantidad || 1
+                            cantidad: i.cantidad || 1,
+                            unidadMedida: i.unidadMedida || 'UND'
                         })) || []
                     }
                 ]
@@ -113,7 +113,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                 subtotal: 0,
                 iva: 0,
                 total: 0,
-                secuencial: secuencial,
+                secuencial: dataGuia.secuencial,
                 claveAcceso: resSri?.claveAcceso,
                 numeroAutorizacion: resSri?.numeroAutorizacion,
                 estado: resSri?.estado || 'ERROR',
@@ -125,6 +125,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                     codigoPrincipal: d.codigoInterno,
                     descripcion: d.descripcion,
                     cantidad: d.cantidad,
+                    unidadMedida: d.unidadMedida,
                     precioUnitario: 0,
                     total: 0
                 }))
@@ -275,6 +276,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                             <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-200 bg-slate-50">
                                 <tr>
                                     <th className="py-3 px-4">Descripción del Ítem</th>
+                                    <th className="py-3 px-4">Unidad</th>
                                     <th className="py-3 px-4 text-right">Cantidad</th>
                                 </tr>
                             </thead>
@@ -282,10 +284,11 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                                 {facturaReferencia?.items?.map((item: any, idx: number) => (
                                     <tr key={idx} className="hover:bg-sri-blue/5 transition-colors">
                                         <td className="py-3 px-4 font-medium text-slate-700">{item.nombre || item.descripcion}</td>
+                                        <td className="py-3 px-4 font-bold text-slate-400">{item.unidadMedida || 'UND'}</td>
                                         <td className="py-3 px-4 text-right font-black text-sri-blue">{item.cantidad || 1}</td>
                                     </tr>
                                 )) || (
-                                        <tr><td colSpan={2} className="py-8 text-center text-slate-400 italic">No se han cargado productos asociados.</td></tr>
+                                        <tr><td colSpan={3} className="py-8 text-center text-slate-400 italic">No se han cargado productos asociados.</td></tr>
                                     )}
                             </tbody>
                         </table>

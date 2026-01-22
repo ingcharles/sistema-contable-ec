@@ -7,7 +7,7 @@
 -- ============================================================================
 
 -- 1. EMPRESA DEMO
-INSERT INTO seguridad.empresas (id, ruc, razon_social, nombre_comercial, direccion, email, obligado_contabilidad)
+INSERT INTO seguridad.empresas (id, ruc, razon_social, nombre_comercial, direccion, email, es_obligado_contabilidad)
 VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     '1790011222001',

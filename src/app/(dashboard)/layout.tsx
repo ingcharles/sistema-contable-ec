@@ -227,7 +227,7 @@ export default function DashboardLayout({
                 {isEmpresaModalOpen && (
                     <EmpresaModal
                         onClose={() => setEmpresaModalOpen(false)}
-                        onSave={async (nuevaEmpresa) => {
+                        onSave={async () => {
                             await refreshEmpresas();
                             setEmpresaModalOpen(false);
                         }}
