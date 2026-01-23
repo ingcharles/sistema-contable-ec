@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Calculator, FileText, Save, AlertCircle, TrendingUp, TrendingDown, ReceiptText } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 
 interface DeclaracionModalProps {
@@ -48,19 +49,15 @@ export const DeclaracionModal = ({ onClose, onSave, empresaId }: DeclaracionModa
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleGuardar}
-                disabled={!valores}
-                className="flex items-center gap-2 min-w-[180px] justify-center"
-            >
-                <Save size={18} /> Guardar Declaración
-            </Button>
-        </div>
-    );
+    const footer = (
+            <ModalFooter
+                onCancel={onClose}
+                onSubmit={handleGuardar}
+                isDisabled={!valores}
+                submitLabel="Guardar Declaración"
+                submitIcon={<Save size={18} />}
+            />
+        );
 
     return (
         <Modal

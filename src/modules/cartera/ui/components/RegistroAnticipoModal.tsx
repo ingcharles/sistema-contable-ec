@@ -7,7 +7,7 @@ import { TipoCartera } from '../../domain/types';
 import { TipoTercero, Tercero } from '@/modules/directorio/domain/types';
 import { CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface Props {
     tipo: TipoCartera;
@@ -95,24 +95,14 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleGuardar}
-                disabled={monto <= 0 || !terceroId || guardando}
-                className="flex items-center gap-2 min-w-[180px] justify-center"
-            >
-                {guardando ? (
-                    'Procesando...'
-                ) : (
-                    <>
-                        <Save size={18} /> Guardar Anticipo
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            isDisabled={monto <= 0 || !terceroId}
+            submitLabel="Guardar Anticipo"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

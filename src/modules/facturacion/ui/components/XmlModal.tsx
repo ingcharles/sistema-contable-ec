@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Copy, Check, FileCode, Download } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { Modal } from '@/shared/ui/Modal';
 
 interface XmlModalProps {
@@ -33,38 +34,24 @@ export const XmlModal = ({ xml, onClose, title = 'XML Comprobante Electrónico' 
     };
 
     const footer = (
-        <div className="flex justify-between items-center w-full">
-            <Button
-                variant="secondary"
-                onClick={handleDownload}
-                className="flex items-center gap-2"
+    const footer = (
+            <ModalFooter
+                onCancel={onClose}
+                cancelLabel="Cerrar"
+                onSubmit={handleCopy}
+                submitLabel={copied ? 'Copiado' : 'Copiar XML'}
+                submitIcon={copied ? <Check size={18} className="text-white" /> : <Copy size={18} />}
+                className="w-full justify-between"
             >
-                <Download size={18} /> Descargar XML
-            </Button>
-            <div className="flex gap-3">
                 <Button
                     variant="secondary"
-                    onClick={onClose}
+                    onClick={handleDownload}
+                    className="flex items-center gap-2"
                 >
-                    Cerrar
+                    <Download size={18} /> Descargar XML
                 </Button>
-                <Button
-                    onClick={handleCopy}
-                    className="flex items-center gap-2 min-w-[120px] justify-center"
-                >
-                    {copied ? (
-                        <>
-                            <Check size={18} className="text-white" /> Copiado
-                        </>
-                    ) : (
-                        <>
-                            <Copy size={18} /> Copiar XML
-                        </>
-                    )}
-                </Button>
-            </div>
-        </div>
-    );
+            </ModalFooter>
+        );
 
     return (
         <Modal

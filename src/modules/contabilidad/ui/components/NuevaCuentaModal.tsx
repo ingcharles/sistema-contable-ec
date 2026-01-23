@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Save, BookOpen, Hash, Info, Type } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { CuentaContable } from '@/shared/types';
 
 interface NuevaCuentaModalProps {
@@ -57,17 +57,12 @@ export const NuevaCuentaModal = ({ onClose, onSave, cuentaPadre }: NuevaCuentaMo
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleSubmit}
-                className="flex items-center gap-2 min-w-[160px] justify-center"
-            >
-                <Save size={18} /> Guardar Cuenta
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSubmit}
+            submitLabel="Guardar Cuenta"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

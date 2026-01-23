@@ -1,7 +1,7 @@
 import { ShieldAlert, Monitor, Globe, Server } from 'lucide-react';
 import { LogAuditoria, NivelSeveridad } from '../../domain/types';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface LogDetailsModalProps {
     isOpen: boolean;
@@ -39,9 +39,11 @@ export const LogDetailsModal = ({ isOpen, onClose, log }: LogDetailsModalProps) 
             icon={<ShieldAlert />}
             size="xl"
             footer={
-                <Button variant="secondary" onClick={onClose}>
-                    Cerrar
-                </Button>
+                <ModalFooter
+                    onCancel={onClose}
+                    cancelLabel="Cerrar"
+                // No submit action
+                />
             }
         >
             <div className="space-y-6">

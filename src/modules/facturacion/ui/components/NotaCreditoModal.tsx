@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { RotateCcw, AlertCircle } from 'lucide-react';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
 import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -175,12 +175,13 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
     };
 
     const footer = (
-        <>
-            <Button onClick={onClose} variant="secondary" disabled={guardando}>Cancelar</Button>
-            <Button onClick={handleEmitirNC} className="flex items-center gap-2" disabled={guardando}>
-                {guardando ? 'Procesando...' : <><RotateCcw size={18} /> Emitir y Autorizar SRI</>}
-            </Button>
-        </>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleEmitirNC}
+            isLoading={guardando}
+            submitLabel="Emitir y Autorizar SRI"
+            submitIcon={<RotateCcw size={18} />}
+        />
     );
 
     return (

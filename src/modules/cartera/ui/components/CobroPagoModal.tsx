@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Calendar, CreditCard, Save, Landmark } from 'lucide-react';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { Modal } from '@/shared/ui/Modal';
 import { DocumentoPendiente, TipoCartera } from '../../domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
@@ -97,12 +97,13 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
                 title="Transacción Exitosa"
                 icon={<CheckCircle2 size={24} className="text-white" />}
                 footer={
-                    <div className="flex gap-3 w-full justify-end">
-                        <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-                        <Button onClick={handleDownloadPDF} className="flex items-center gap-2">
-                            <Download size={18} /> Descargar Comprobante
-                        </Button>
-                    </div>
+                    <ModalFooter
+                        onCancel={onClose}
+                        onSubmit={handleDownloadPDF}
+                        cancelLabel="Cerrar"
+                        submitLabel="Descargar Comprobante"
+                        submitIcon={<Download size={18} />}
+                    />
                 }
             >
                 <div className="text-center space-y-4 py-8">
@@ -119,24 +120,14 @@ export const CobroPagoModal = ({ documento, tipo, onClose, onSave }: CobroPagoMo
     }
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleGuardar}
-                disabled={guardando || monto <= 0 || !cuentaBancoId}
-                className="flex items-center gap-2 min-w-[180px] justify-center"
-            >
-                {guardando ? (
-                    'Procesando...'
-                ) : (
-                    <>
-                        <Save size={18} /> Confirmar {esCobro ? 'Cobro' : 'Pago'}
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            isDisabled={monto <= 0 || !cuentaBancoId}
+            submitLabel={`Confirmar ${esCobro ? 'Cobro' : 'Pago'}`}
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

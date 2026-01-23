@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowUpCircle, Plus, Trash2, FileText, Calendar, Hash, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { Button } from '@/shared/ui/Button';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
@@ -153,24 +154,14 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button onClick={onClose} variant="secondary" disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleEmitirND}
-                disabled={guardando}
-                className="flex items-center gap-2 min-w-[200px] justify-center bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/20"
-            >
-                {guardando ? (
-                    'Procesando...'
-                ) : (
-                    <>
-                        <ArrowUpCircle size={18} /> Emitir y Autorizar SRI
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleEmitirND}
+            isLoading={guardando}
+            submitLabel="Emitir y Autorizar SRI"
+            submitIcon={<ArrowUpCircle size={18} />}
+            submitVariant="primary"
+        />
     );
 
     return (

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Save, FileText, UserPlus, Calculator, Plus, Trash2, CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
-import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { TARIFA_IVA, FORMA_PAGO, TIPO_IDENTIFICACION } from '@/modules/facturacion/domain/catalogos';
@@ -12,6 +11,7 @@ import { ComprasUseCases, ContabilidadUseCases, ConfiguracionUseCases, Facturaci
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { Producto } from '@/modules/inventario/domain/types';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface Props {
     onClose: () => void;
@@ -276,17 +276,14 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     };
 
     const footer = (
-        <div className="w-full flex justify-between items-center">
-            <div className="flex gap-4">
-                <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-                <Button
-                    onClick={handleGuardar}
-                    disabled={guardando}
-                    className="flex items-center gap-2 min-w-[180px] justify-center"
-                >
-                    {guardando ? 'Guardando...' : <><Save size={18} /> Guardar Liquidación</>}
-                </Button>
-            </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            submitLabel="Guardar Liquidación"
+            submitIcon={<Save size={18} />}
+            className="w-full bg-sri-blue -m-6 p-6 text-white rounded-b-2xl border-none flex-row-reverse"
+        >
             <div className="flex items-center gap-6">
                 <div className="text-right">
                     <p className="text-[10px] text-blue-100 uppercase font-black opacity-60">Subtotal</p>
@@ -301,7 +298,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                     <p className="text-3xl font-black text-emerald-400">{formatMoney(totales.importeTotal)}</p>
                 </div>
             </div>
-        </div>
+        </ModalFooter>
     );
 
     return (

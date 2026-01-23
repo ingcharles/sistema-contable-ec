@@ -6,7 +6,7 @@ import { Modal } from '@/shared/ui/Modal';
 import { Producto } from '../../domain/types';
 import { useKardex } from '../../hooks/useKardex';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface Props {
     producto: Producto;
@@ -22,9 +22,11 @@ export const KardexModal: React.FC<Props> = ({ producto, onClose, empresaId: _em
     }, [producto.id, listarMovimientos]);
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            showSubmit={false}
+            cancelLabel="Cerrar"
+        />
     );
 
     return (

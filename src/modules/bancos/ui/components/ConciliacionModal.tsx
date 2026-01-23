@@ -5,7 +5,7 @@ import { Calculator, UploadCloud, CheckCircle2, AlertTriangle, Save, FileText, H
 import { Modal } from '@/shared/ui/Modal';
 import { CuentaBancaria, MovimientoBancario, EstadoConciliacion } from '../../domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useConciliaciones } from '../hooks/useConciliaciones';
 import { parseExtractoBancario, emparejarMovimientos, MovimientoExtracto } from '../../utils/extractoParser';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
@@ -161,7 +161,15 @@ export const ConciliacionModal: React.FC<Props> = ({ cuenta, movimientos, onClos
     };
 
     const footer = (
-        <div className="flex justify-between items-center w-full">
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={saving}
+            isDisabled={marcados.size === 0}
+            submitLabel="Guardar Conciliación"
+            submitIcon={<Save size={18} />}
+            className="w-full"
+        >
             <div className="flex items-center gap-4">
                 <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 border ${cuadrado ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
                     {cuadrado ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
@@ -175,18 +183,7 @@ export const ConciliacionModal: React.FC<Props> = ({ cuenta, movimientos, onClos
                     <span className="font-medium">Ver historial</span>
                 </button>
             </div>
-            <div className="flex gap-3">
-                <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                <Button
-                    onClick={handleGuardar}
-                    disabled={saving || marcados.size === 0}
-                    className="flex items-center gap-2 px-8"
-                >
-                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                    {saving ? 'Guardando...' : 'Guardar Conciliación'}
-                </Button>
-            </div>
-        </div>
+        </ModalFooter>
     );
 
     return (
@@ -239,8 +236,8 @@ export const ConciliacionModal: React.FC<Props> = ({ cuenta, movimientos, onClos
                                             </td>
                                             <td className="px-4 py-2 text-center">
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${c.estado === EstadoConciliacion.CUADRADO
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : 'bg-amber-100 text-amber-700'
+                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    : 'bg-amber-100 text-amber-700'
                                                     }`}>
                                                     {c.estado}
                                                 </span>

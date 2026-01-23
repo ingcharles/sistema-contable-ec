@@ -5,7 +5,7 @@ import { ArrowRightLeft, Save, Calendar, Hash, DollarSign } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { CuentaBancaria, TipoMovimientoBancario } from '../../domain/types';
 import { useBancosMutations } from '../../hooks/useBancos';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface Props {
     cuentas: CuentaBancaria[];
@@ -44,24 +44,14 @@ export const DepositoModal: React.FC<Props> = ({ cuentas, onClose, onSave }) => 
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleGuardar}
-                disabled={monto <= 0 || guardando}
-                className="flex items-center gap-2 min-w-[160px] justify-center"
-            >
-                {guardando ? (
-                    'Registrando...'
-                ) : (
-                    <>
-                        <Save size={18} /> Registrar Depósito
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            isDisabled={monto <= 0}
+            submitLabel="Registrar Depósito"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

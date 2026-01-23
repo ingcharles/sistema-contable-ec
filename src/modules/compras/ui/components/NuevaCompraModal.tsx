@@ -7,7 +7,7 @@ import { useCentrosCostos } from '@/modules/contabilidad/hooks/useContabilidad';
 import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
 import { AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
@@ -244,24 +244,32 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     };
 
     const footer = (
-        <div className="w-full bg-slate-900 -m-6 p-6 text-white flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="text-sm opacity-80">
-                {aplicaRetencion ? <span>Se emitirá la retención electrónica automáticamente.</span> : <span>Solo se registrará la compra en el sistema.</span>}
-            </div>
-            <div className="flex items-center gap-6">
-                <div className="text-right">
-                    <p className="text-xs text-slate-400 uppercase font-bold">Total Retención</p>
-                    <p className="text-xl font-mono text-red-400 font-bold">-{formatMoney(aplicaRetencion ? totalRetenido : 0)}</p>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            isDisabled={!proveedorRuc || !secuencial || totalFactura === 0}
+            submitLabel="Guardar Compra"
+            submitIcon={<Save size={20} />}
+            submitVariant="outline"
+            className="w-full bg-slate-900 -m-6 p-6 text-white rounded-b-2xl border-none"
+        >
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 w-full pr-6">
+                <div className="text-sm opacity-80">
+                    {aplicaRetencion ? <span>Se emitirá la retención electrónica automáticamente.</span> : <span>Solo se registrará la compra en el sistema.</span>}
                 </div>
-                <div className="text-right">
-                    <p className="text-xs text-slate-400 uppercase font-bold">Neto a Pagar</p>
-                    <p className="text-3xl font-mono text-emerald-400 font-bold">{formatMoney(aplicaRetencion ? totalPagar : totalFactura)}</p>
+                <div className="flex items-center gap-6">
+                    <div className="text-right">
+                        <p className="text-xs text-slate-400 uppercase font-bold">Total Retención</p>
+                        <p className="text-xl font-mono text-red-400 font-bold">-{formatMoney(aplicaRetencion ? totalRetenido : 0)}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs text-slate-400 uppercase font-bold">Neto a Pagar</p>
+                        <p className="text-3xl font-mono text-emerald-400 font-bold">{formatMoney(aplicaRetencion ? totalPagar : totalFactura)}</p>
+                    </div>
                 </div>
-                <Button onClick={handleGuardar} disabled={!proveedorRuc || !secuencial || totalFactura === 0 || guardando} className="ml-4 px-6 py-3 bg-sri-light text-white font-bold rounded-xl hover:bg-white hover:text-sri-blue transition-all disabled:opacity-50 flex items-center gap-2">
-                    <Save size={20} /> {guardando ? 'Guardando...' : 'Guardar Compra'}
-                </Button>
             </div>
-        </div>
+        </ModalFooter>
     );
 
     return (

@@ -5,7 +5,7 @@ import { Save, Building, Hash, MapPin, Stars, ToggleLeft, ToggleRight, AlertCirc
 import { Modal } from '@/shared/ui/Modal';
 import { Sucursal } from '../../domain/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface SucursalModalProps {
     onClose: () => void;
@@ -54,24 +54,13 @@ export const SucursalModal = ({ onClose, onSave, sucursalEditar }: SucursalModal
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleSubmit}
-                disabled={guardando}
-                className="flex items-center gap-2 min-w-[140px] justify-center"
-            >
-                {guardando ? (
-                    'Guardando...'
-                ) : (
-                    <>
-                        <Save size={18} /> Guardar Sucursal
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSubmit}
+            isLoading={guardando}
+            submitLabel="Guardar Sucursal"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Save, Target, Hash, Type, Layers } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface Props {
     onClose: () => void;
@@ -23,18 +23,13 @@ export const CentroCostoModal: React.FC<Props> = ({ onClose, onSave, empresaId: 
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleSave}
-                disabled={!nombre || !codigo}
-                className="flex items-center gap-2 min-w-[140px] justify-center"
-            >
-                <Save size={18} /> Guardar Centro
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSave}
+            isDisabled={!nombre || !codigo}
+            submitLabel="Guardar Centro"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

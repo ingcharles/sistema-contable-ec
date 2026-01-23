@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Save, UserPlus, User, Mail, Briefcase, DollarSign, Calendar, CreditCard, Landmark, Hash, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { Empleado, EstadoEmpleado, TipoContrato } from '../../domain/types';
 import { useNominaMutations } from '../../hooks/useNomina';
 
@@ -70,24 +70,13 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleSave}
-                disabled={guardando}
-                className="flex items-center gap-2 min-w-[160px] justify-center"
-            >
-                {guardando ? (
-                    'Guardando...'
-                ) : (
-                    <>
-                        <Save size={18} /> Guardar Empleado
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSave}
+            isLoading={guardando}
+            submitLabel="Guardar Empleado"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

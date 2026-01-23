@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Save, Truck, User, Fingerprint, Mail, Phone, Hash, AlertCircle } from 'lucide-react';
-import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useTransportistas } from '../../hooks/useTransportistas';
 
 interface TransportistaModalProps {
@@ -27,8 +27,8 @@ export const TransportistaModal = ({ onClose, onSave }: TransportistaModalProps)
         if (errorValidacion) setErrorValidacion(null);
     };
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSave = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (!formData.identificacion || !formData.razonSocial || !formData.placa) {
             setErrorValidacion('Por favor complete los campos obligatorios (*)');
             return;
@@ -44,19 +44,13 @@ export const TransportistaModal = ({ onClose, onSave }: TransportistaModalProps)
     };
 
     const footer = (
-        <div className="flex gap-3 w-full">
-            <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
-                Cancelar
-            </Button>
-            <Button
-                type="submit"
-                form="transportista-form"
-                disabled={loading}
-                className="flex-1"
-            >
-                {loading ? 'Guardando...' : <span className="flex items-center gap-2 justify-center"><Save size={18} /> Guardar Transportista</span>}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSave}
+            isLoading={loading}
+            submitLabel="Guardar Transportista"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

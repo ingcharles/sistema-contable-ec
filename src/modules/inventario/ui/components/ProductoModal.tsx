@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { Save, Package, Tag, DollarSign, BarChart2, AlertCircle } from 'lucide-react';
-import { Button } from '@/shared/ui/Button';
-import { useCategorias, useInventarioMutations } from '../../hooks/useInventario';
-import { useCatalogos } from '@/shared/hooks/useCatalogos';
 import { Modal } from '@/shared/ui/Modal';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
+import { useCategorias, useInventarioMutations } from '../../hooks/useInventario';
+import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 interface ProductoModalProps {
     onClose: () => void;
@@ -88,27 +88,13 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
     };
 
     const footer = (
-        <>
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleGuardar}
-                disabled={guardando}
-                className="flex items-center gap-2 min-w-[140px] justify-center"
-            >
-                {guardando ? (
-                    <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Guardando...
-                    </>
-                ) : (
-                    <>
-                        <Save size={18} /> Guardar Producto
-                    </>
-                )}
-            </Button>
-        </>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            submitLabel="Guardar Producto"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

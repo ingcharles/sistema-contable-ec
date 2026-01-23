@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, FolderTree, Type, Package, TrendingDown, TrendingUp } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { CategoriaProducto } from '../../domain/types';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useCuentasContables } from '@/modules/contabilidad/hooks/useContabilidad';
 
@@ -76,24 +76,14 @@ export const CategoriaModal: React.FC<Props> = ({ onClose, onSave, empresaId, ca
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleSave}
-                disabled={guardando || !formData.nombre}
-                className="flex items-center gap-2 min-w-[160px] justify-center"
-            >
-                {guardando ? (
-                    'Guardando...'
-                ) : (
-                    <>
-                        <Save size={18} /> {categoriaEditar ? 'Actualizar' : 'Guardar Categoría'}
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSave}
+            isLoading={guardando}
+            isDisabled={!formData.nombre}
+            submitLabel={categoriaEditar ? 'Actualizar' : 'Guardar Categoría'}
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Save, Truck, MapPin, Package, User, Plus, AlertCircle } from 'lucide-react';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { Modal } from '@/shared/ui/Modal';
+import { Button } from '@/shared/ui/Button';
 import { MotivoTraslado } from '../../domain/guias';
 import { useTransportistas } from '../../hooks/useTransportistas';
 import { TransportistaModal } from './TransportistaModal';
@@ -182,18 +183,13 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleGuardar}
-                disabled={guardando}
-                className="flex items-center gap-2 min-w-[180px] justify-center"
-            >
-                {guardando ? 'Generando...' : <><Save size={18} /> Guardar y Emitir</>}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            submitLabel="Guardar y Emitir"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

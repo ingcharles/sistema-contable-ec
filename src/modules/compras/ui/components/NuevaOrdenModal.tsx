@@ -8,7 +8,7 @@ import { ComprasUseCases } from '@/modules/shared/application/useCases/systemUse
 import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface Props {
     onClose: () => void;
@@ -112,7 +112,15 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
     };
 
     const footer = (
-        <div className="flex justify-between items-center w-full bg-slate-50 -m-6 p-6 border-t border-slate-100 rounded-b-2xl">
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            isDisabled={!proveedorRuc || detalles.length === 0}
+            submitLabel="Guardar Orden de Compra"
+            submitIcon={<Save size={20} />}
+            className="bg-slate-50 -m-6 p-6 rounded-b-2xl"
+        >
             <div className="flex gap-10 items-center">
                 <div className="space-y-0.5">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subtotal</p>
@@ -128,25 +136,7 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
                     <p className="text-3xl font-black text-sri-blue leading-none">{formatMoney(total)}</p>
                 </div>
             </div>
-            <div className="flex gap-3">
-                <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                    Cancelar
-                </Button>
-                <Button
-                    onClick={handleGuardar}
-                    disabled={!proveedorRuc || detalles.length === 0 || guardando}
-                    className="flex items-center gap-2 min-w-[200px] justify-center"
-                >
-                    {guardando ? (
-                        'Procesando...'
-                    ) : (
-                        <>
-                            <Save size={20} /> Guardar Orden de Compra
-                        </>
-                    )}
-                </Button>
-            </div>
-        </div>
+        </ModalFooter>
     );
 
     return (

@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Save, ShieldCheck, AlertCircle } from 'lucide-react';
 import { CodigoRetencion } from '../../domain/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface RetencionModalProps {
     onClose: () => void;
@@ -56,18 +56,13 @@ export const RetencionModal = ({ onClose, onSave, empresaId, retencionEditar }: 
     };
 
     const footer = (
-        <>
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-            <Button onClick={handleSubmit} className="flex items-center gap-2" disabled={guardando}>
-                {guardando ? (
-                    <>Guardando...</>
-                ) : (
-                    <>
-                        <Save size={18} /> {retencionEditar ? 'Actualizar Retención' : 'Guardar Retención'}
-                    </>
-                )}
-            </Button>
-        </>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSubmit}
+            isLoading={guardando}
+            submitLabel={retencionEditar ? 'Actualizar Retención' : 'Guardar Retención'}
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Calendar, DollarSign, Save, Hash, Clock, Package } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface ActivoFijoModalProps {
     onClose: () => void;
@@ -27,24 +27,14 @@ export const ActivoFijoModal = ({ onClose, onSave, empresaId }: ActivoFijoModalP
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleGuardar}
-                disabled={guardando || !nombre || valorOriginal <= 0}
-                className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2 min-w-[160px] justify-center"
-            >
-                {guardando ? (
-                    'Guardando...'
-                ) : (
-                    <>
-                        <Save size={18} /> Guardar Activo
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            isDisabled={!nombre || valorOriginal <= 0}
+            submitLabel="Guardar Activo"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Landmark, Save, Hash, Building2, Coins, FileText } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { CuentaBancaria, TipoCuenta } from '../../domain/types';
 import { BancosUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 
@@ -51,8 +51,8 @@ export const CuentaBancariaModal = ({ cuenta, onClose, onSave }: CuentaBancariaM
         c.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         setLoading(true);
         try {
             await BancosUseCases.guardarCuenta({
@@ -77,15 +77,13 @@ export const CuentaBancariaModal = ({ cuenta, onClose, onSave }: CuentaBancariaM
             description="Configure los detalles de la cuenta y su vinculación contable."
             icon={<Landmark size={24} />}
             footer={
-                <>
-                    <Button variant="secondary" onClick={onClose} disabled={loading}>
-                        Cancelar
-                    </Button>
-                    <Button onClick={handleSubmit} disabled={loading} className="flex items-center gap-2">
-                        <Save size={18} />
-                        {loading ? 'Guardando...' : 'Guardar Cuenta'}
-                    </Button>
-                </>
+                <ModalFooter
+                    onCancel={onClose}
+                    onSubmit={handleSubmit}
+                    isLoading={loading}
+                    submitLabel="Guardar Cuenta"
+                    submitIcon={<Save size={18} />}
+                />
             }
         >
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">

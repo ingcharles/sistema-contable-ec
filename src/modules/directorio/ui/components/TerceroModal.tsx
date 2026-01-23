@@ -5,9 +5,9 @@ import { Save, AlertCircle, UserPlus, Contact } from 'lucide-react';
 import { Tercero, TipoTercero } from '../../domain/types';
 import { TipoIdentificacion } from '@/shared/types';
 import { useDirectorioMutations } from '../../hooks/useDirectorio';
-import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 const validarRuc = (ruc: string) => {
     return ruc.length === 13 && !isNaN(Number(ruc));
@@ -88,18 +88,13 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
     };
 
     const footer = (
-        <>
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-            <Button onClick={handleSubmit} className="flex items-center gap-2" disabled={guardando}>
-                {guardando ? (
-                    <>Guardando...</>
-                ) : (
-                    <>
-                        <Save size={18} /> {terceroEditar ? 'Actualizar Contacto' : 'Guardar Contacto'}
-                    </>
-                )}
-            </Button>
-        </>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSubmit}
+            isLoading={guardando}
+            submitLabel={terceroEditar ? 'Actualizar Contacto' : 'Guardar Contacto'}
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

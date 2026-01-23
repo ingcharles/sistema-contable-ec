@@ -5,7 +5,7 @@ import { Save, Monitor, Building2, Hash, Layers, ToggleLeft, ToggleRight, AlertC
 import { Modal } from '@/shared/ui/Modal';
 import { PuntoEmision, Sucursal } from '../../domain/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { TipoComprobante } from '@/shared/types';
 
 interface PuntoEmisionModalProps {
@@ -65,24 +65,13 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleSubmit}
-                disabled={guardando}
-                className="flex items-center gap-2 min-w-[140px] justify-center"
-            >
-                {guardando ? (
-                    'Guardando...'
-                ) : (
-                    <>
-                        <Save size={18} /> Guardar Punto
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSubmit}
+            isLoading={guardando}
+            submitLabel="Guardar Punto"
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

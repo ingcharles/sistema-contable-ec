@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Landmark, Save, Calendar, CreditCard } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { BancosUseCases, NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 
@@ -64,15 +64,13 @@ export const PagarRolModal = ({ rol, onClose, onSave }: PagarRolModalProps) => {
             description={`Pago de sueldo para ${rol.nombres} ${rol.apellidos} - Periodo ${rol.periodo}`}
             icon={<CreditCard size={24} />}
             footer={
-                <>
-                    <Button variant="secondary" onClick={onClose} disabled={loading}>
-                        Cancelar
-                    </Button>
-                    <Button onClick={handlePagar} disabled={loading} className="flex items-center gap-2">
-                        <Save size={18} />
-                        {loading ? 'Procesando...' : 'Confirmar Pago'}
-                    </Button>
-                </>
+                <ModalFooter
+                    onCancel={onClose}
+                    onSubmit={handlePagar}
+                    isLoading={loading}
+                    submitLabel="Confirmar Pago"
+                    submitIcon={<Save size={18} />}
+                />
             }
         >
             <div className="space-y-6">

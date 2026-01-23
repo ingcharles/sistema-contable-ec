@@ -6,7 +6,7 @@ import { Modal } from '@/shared/ui/Modal';
 import { DocumentoPendiente, Anticipo, TipoCartera } from '../../domain/types';
 import { ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface Props {
     documento: DocumentoPendiente;
@@ -74,24 +74,14 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose} disabled={guardando}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleCruce}
-                disabled={!selectedAnticipoId || valorCruce <= 0 || guardando}
-                className="flex items-center gap-2 min-w-[160px] justify-center"
-            >
-                {guardando ? (
-                    'Procesando...'
-                ) : (
-                    <>
-                        <ArrowRightLeft size={18} /> Procesar Cruce
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleCruce}
+            isLoading={guardando}
+            isDisabled={!selectedAnticipoId || valorCruce <= 0}
+            submitLabel="Procesar Cruce"
+            submitIcon={<ArrowRightLeft size={18} />}
+        />
     );
 
     return (

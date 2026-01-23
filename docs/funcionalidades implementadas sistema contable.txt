@@ -374,3 +374,49 @@ Impresión de actas de entrega-recepción de activos a empleados.
 Gestión de Cobranzas (Cartera):
 Estado de Cuenta por Cliente: Un reporte PDF que se envía al cliente con todas sus facturas pendientes y abonos.
 Antigüedad de Saldos: Reporte "Aging" (Vencido 30, 60, 90 días) para provisión de cuentas incobrables.
+
+
+ || '001-001-000000001'
+  || '1.1.02.01'
+   || '1.1.01.01'
+               const ctaAnticipoCliente = '2.1.04.01'; // Pasivo
+            const ctaAnticipoProveedor = '1.1.04.01'; // Activo
+			
+    const footer = (
+        <div className="flex justify-end gap-3 w-full">
+            <Button variant="secondary" onClick={onClose} disabled={guardando}>
+                Cancelar
+            </Button>
+            <Button
+                onClick={handleGuardar}
+                disabled={monto <= 0 || !terceroId || guardando}
+                className="flex items-center gap-2 min-w-[180px] justify-center"
+            >
+                {guardando ? (
+                    'Procesando...'
+                ) : (
+                    <>
+                        <Save size={18} /> Guardar Anticipo
+                    </>
+                )}
+            </Button>
+        </div>
+    );
+	
+	formatearDinero
+	
+	 await ContabilidadUseCases.registrarAsiento({
+                numero: `AS-ND-${secuencial}`,
+                fecha: fechaEmision,
+                glosa: `P/R Nota de Débito ${secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialAdquirente}`,
+                tipo: 'INGRESO',
+                detalles: [
+                    { cuentaCodigo: '1.1.02.01', debe: total, haber: 0 },
+                    { cuentaCodigo: '4.1.01.01', debe: 0, haber: subtotal },
+                    { cuentaCodigo: '2.1.05.01', debe: 0, haber: iva }
+                ]
+            });
+ const iva = Number((subtotalIva * 0.15).toFixed(2));
+ params?.cuenta_anticipo_clientes || '2.1.04.01'
+ {parametros?.iva || 15}
+ const ctaBanco = params.cuentaCaja || '1.1.01.01';

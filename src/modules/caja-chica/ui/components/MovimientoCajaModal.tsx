@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DollarSign, Calendar, FileText, Save, ArrowUpCircle, ArrowDownCircle, User, Wallet, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { TipoMovimientoCaja } from '../../domain/types';
 import { useCajaChicaMutations } from '../../hooks/useCajaChica';
 
@@ -45,24 +45,15 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
     };
 
     const footer = (
-        <div className="flex justify-end gap-3 w-full">
-            <Button variant="secondary" onClick={onClose}>
-                Cancelar
-            </Button>
-            <Button
-                onClick={handleGuardar}
-                disabled={procesando || monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)}
-                className={`flex items-center gap-2 min-w-[180px] justify-center ${tipo === 'INGRESO' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
-            >
-                {procesando ? (
-                    'Guardando...'
-                ) : (
-                    <>
-                        <Save size={18} /> Guardar Movimiento
-                    </>
-                )}
-            </Button>
-        </div>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={procesando}
+            isDisabled={monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)}
+            submitLabel="Guardar Movimiento"
+            submitIcon={<Save size={18} />}
+            submitVariant={tipo === 'INGRESO' ? 'success' : 'danger'}
+        />
     );
 
     return (

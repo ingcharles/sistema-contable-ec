@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { Button } from '@/shared/ui/Button'; // Keep Button for Export
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { CarteraUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 
@@ -115,7 +116,10 @@ export const AgingReportModal = ({ tipo, isOpen, onClose }: AgingReportModalProp
                 </div>
             </div>
             <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-                <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+                <ModalFooter
+                    onCancel={onClose}
+                    cancelLabel="Cerrar"
+                />
             </div>
         </Modal>
     );

@@ -5,8 +5,8 @@ import { Save, Warehouse, AlertCircle } from 'lucide-react';
 import { Bodega } from '../../domain/types';
 import { Sucursal } from '@/modules/configuracion/domain/types';
 import { ConfiguracionUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface Props {
     bodega?: Bodega; // Opcional para edición
@@ -56,12 +56,12 @@ export const BodegaModal: React.FC<Props> = ({ bodega, onClose, onSave, empresaI
     };
 
     const footer = (
-        <>
-            <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleSave} className="flex items-center gap-2">
-                <Save size={18} /> {bodega ? 'Actualizar Bodega' : 'Guardar Bodega'}
-            </Button>
-        </>
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleSave}
+            submitLabel={bodega ? 'Actualizar Bodega' : 'Guardar Bodega'}
+            submitIcon={<Save size={18} />}
+        />
     );
 
     return (

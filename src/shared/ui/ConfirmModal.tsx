@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Modal } from './Modal';
-import { Button } from './Button';
+import { ModalFooter } from './ModalFooter';
 import { AlertTriangle, Info, CheckCircle } from 'lucide-react';
 
 export type ConfirmType = 'danger' | 'warning' | 'info' | 'success';
@@ -50,8 +50,8 @@ export const ConfirmModal = ({
             <div className="flex flex-col gap-4">
                 <div className="flex items-start gap-4">
                     <div className={`p-2 rounded-full hidden sm:block ${type === 'danger' ? 'bg-red-50' :
-                            type === 'warning' ? 'bg-amber-50' :
-                                type === 'info' ? 'bg-blue-50' : 'bg-green-50'
+                        type === 'warning' ? 'bg-amber-50' :
+                            type === 'info' ? 'bg-blue-50' : 'bg-green-50'
                         }`}>
                         {icons[type]}
                     </div>
@@ -62,21 +62,16 @@ export const ConfirmModal = ({
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
-                    <Button
-                        variant="ghost"
-                        onClick={onClose}
-                        disabled={loading}
-                    >
-                        {cancelText}
-                    </Button>
-                    <Button
-                        variant={variantMap[type]}
-                        onClick={onConfirm}
+                <div className="pt-2">
+                    <ModalFooter
+                        onCancel={onClose}
+                        onSubmit={onConfirm}
                         isLoading={loading}
-                    >
-                        {confirmText}
-                    </Button>
+                        cancelLabel={cancelText}
+                        submitLabel={confirmText}
+                        submitVariant={type}
+                        cancelVariant="ghost"
+                    />
                 </div>
             </div>
         </Modal>
