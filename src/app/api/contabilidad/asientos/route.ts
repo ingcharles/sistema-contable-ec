@@ -148,7 +148,7 @@ export async function GET(req: NextRequest) {
                                 'concepto', d.concepto
                             ))
                             FROM contabilidad.asientos_detalles d
-                            LEFT JOIN contabilidad.cuentas c ON c.codigo = d.cuenta_codigo AND c.empresa_id = a.empresa_id
+                            LEFT JOIN contabilidad.plan_cuentas c ON c.codigo = d.cuenta_codigo AND c.empresa_id = a.empresa_id
                             WHERE d.asiento_id = a.id
                         ) as detalles
                     FROM contabilidad.asientos a

@@ -21,7 +21,8 @@ export const LibroDiarioTable = ({ asientos, loading, empresa, fechaInicio, fech
         setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
-    const filteredAsientos = asientos.filter(a =>
+    const safeAsientos = Array.isArray(asientos) ? asientos : [];
+    const filteredAsientos = safeAsientos.filter(a =>
         a.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.glosa.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.detalles.some(d => d.cuentaNombre.toLowerCase().includes(searchTerm.toLowerCase()))

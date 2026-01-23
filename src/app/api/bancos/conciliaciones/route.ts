@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
                         created_at as "createdAt",
                         updated_at as "updatedAt",
                         created_by as "createdBy"
-                    FROM bancos_conciliaciones 
+                    FROM bancos.bancos_conciliaciones 
                     WHERE id = $1
                 `,
                 values: [id]
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
                         conciliado,
                         conciliacion_id as "conciliacionId",
                         created_at as "createdAt"
-                    FROM bancos_movimientos
+                    FROM bancos.bancos_movimientos
                     WHERE conciliacion_id = $1
                 `,
                 values: [id]
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
                         created_at as "createdAt",
                         updated_at as "updatedAt",
                         created_by as "createdBy"
-                    FROM bancos_conciliaciones 
+                    FROM bancos.bancos_conciliaciones 
                     WHERE cuenta_id = $1
                     ORDER BY fecha_corte DESC
                 `,
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
         await db.transaction(async (client) => {
             // 1. Insertar Conciliación
             await client.query(`
-                INSERT INTO bancos_conciliaciones (
+                INSERT INTO bancos.bancos_conciliaciones (
                     id, empresa_id, cuenta_id, fecha_corte, 
                     saldo_libro, saldo_extracto, cheques_no_cobrados, depositos_en_transito, 
                     diferencia, estado, observaciones, created_at, updated_at, created_by
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
                 // Generar placeholders para IN clause: $15, $16, ...
                 // O mejor, ejecutar un update con ANY($1) pasando el array directamente que pg soporta
                 await client.query(`
-                    UPDATE bancos_movimientos 
+                    UPDATE bancos.bancos_movimientos 
                     SET conciliado = true, conciliacion_id = $1
                     WHERE id = ANY($2::text[])
                 `, [id, movimientosIds]);
@@ -237,7 +237,7 @@ export async function PUT(request: NextRequest) {
             // 1. Actualizar conciliación
             // Usamos COALESCE para solo actualizar si se pasa valor
             await client.query(`
-                UPDATE bancos_conciliaciones
+                UPDATE bancos.bancos_conciliaciones
                 SET 
                     fecha_corte = COALESCE($2, fecha_corte),
                     saldo_libro = COALESCE($3, saldo_libro),
@@ -259,7 +259,7 @@ export async function PUT(request: NextRequest) {
             if (movimientosIds) {
                 // A. Desvincular anteriores
                 await client.query(`
-                    UPDATE bancos_movimientos
+                    UPDATE bancos.bancos_movimientos
                     SET conciliado = false, conciliacion_id = NULL
                     WHERE conciliacion_id = $1
                 `, [id]);
@@ -267,7 +267,7 @@ export async function PUT(request: NextRequest) {
                 // B. Vincular nuevos
                 if (movimientosIds.length > 0) {
                     await client.query(`
-                        UPDATE bancos_movimientos 
+                        UPDATE bancos.bancos_movimientos 
                         SET conciliado = true, conciliacion_id = $1
                         WHERE id = ANY($2::text[])
                     `, [id, movimientosIds]);
@@ -292,7 +292,7 @@ export async function PUT(request: NextRequest) {
                 created_at as "createdAt",
                 updated_at as "updatedAt",
                 created_by as "createdBy"
-            FROM bancos_conciliaciones 
+            FROM bancos.bancos_conciliaciones 
             WHERE id = $1`,
             values: [id]
         });
@@ -324,7 +324,7 @@ export async function DELETE(request: NextRequest) {
         // Idealmente necesitamos empresaId para el contexto de auditoria
         // Podríamos consultarlo antes
         const infoResult = await db.querySimple<any>({
-            text: 'SELECT empresa_id FROM bancos_conciliaciones WHERE id = $1',
+            text: 'SELECT empresa_id FROM bancos.bancos_conciliaciones WHERE id = $1',
             values: [id]
         });
 
@@ -334,13 +334,13 @@ export async function DELETE(request: NextRequest) {
         await db.transaction(async (client) => {
             // 1. Desmarcar movimientos
             await client.query(`
-                UPDATE bancos_movimientos
+                UPDATE bancos.bancos_movimientos
                 SET conciliado = false, conciliacion_id = NULL
                 WHERE conciliacion_id = $1
             `, [id]);
 
             // 2. Eliminar
-            await client.query('DELETE FROM bancos_conciliaciones WHERE id = $1', [id]);
+            await client.query('DELETE FROM bancos.bancos_conciliaciones WHERE id = $1', [id]);
         }, { empresaId, usuarioId });
 
         return NextResponse.json({ success: true });

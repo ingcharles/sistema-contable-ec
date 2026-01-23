@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, Truck, User, Fingerprint, Mail, Phone, Hash } from 'lucide-react';
+import { Save, Truck, User, Fingerprint, Mail, Phone, Hash, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { useTransportistas } from '../../hooks/useTransportistas';
@@ -13,6 +13,7 @@ interface TransportistaModalProps {
 
 export const TransportistaModal = ({ onClose, onSave }: TransportistaModalProps) => {
     const { guardarTransportista, guardando: loading } = useTransportistas();
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         identificacion: '',
         razonSocial: '',
@@ -23,12 +24,13 @@ export const TransportistaModal = ({ onClose, onSave }: TransportistaModalProps)
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        if (errorValidacion) setErrorValidacion(null);
     };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.identificacion || !formData.razonSocial || !formData.placa) {
-            alert('Por favor complete los campos obligatorios (*)');
+            setErrorValidacion('Por favor complete los campos obligatorios (*)');
             return;
         }
 
@@ -37,7 +39,7 @@ export const TransportistaModal = ({ onClose, onSave }: TransportistaModalProps)
             onSave(result);
             onClose();
         } catch (error: any) {
-            alert(error.message || 'Error al guardar transportista');
+            setErrorValidacion(error.message || 'Error al guardar transportista');
         }
     };
 
@@ -68,6 +70,12 @@ export const TransportistaModal = ({ onClose, onSave }: TransportistaModalProps)
             size="md"
         >
             <form id="transportista-form" onSubmit={handleSave} className="space-y-6">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2 border border-red-100">
+                        <AlertCircle size={18} />
+                        {errorValidacion}
+                    </div>
+                )}
                 <div className="space-y-5">
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">

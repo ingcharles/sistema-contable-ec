@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, ShoppingCart, Calendar, User, Tag } from 'lucide-react';
+import { Plus, Trash2, Save, ShoppingCart, Calendar, User, Tag, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { DetalleOrden } from '../../domain/types';
 import { ComprasUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -21,6 +21,7 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
     const [observacion, setObservacion] = useState('');
     const [detalles, setDetalles] = useState<DetalleOrden[]>([]);
     const [guardando, setGuardando] = useState(false);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const [nuevoProducto, setNuevoProducto] = useState('');
     const [nuevaCantidad, setNuevaCantidad] = useState(1);
@@ -48,6 +49,7 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
         setNuevoProducto('');
         setNuevaCantidad(1);
         setNuevoPrecio(0);
+        if (errorValidacion) setErrorValidacion(null);
     };
 
     const eliminarDetalle = (index: number) => {
@@ -55,9 +57,13 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
     };
 
     const handleGuardar = async () => {
-        if (!proveedorRuc || !proveedorNombre || detalles.length === 0) return;
+        if (!proveedorRuc || !proveedorNombre || detalles.length === 0) {
+            setErrorValidacion('Por favor complete los datos del proveedor y agregue al menos un detalle.');
+            return;
+        }
 
         setGuardando(true);
+        setErrorValidacion(null);
         try {
             await ComprasUseCases.registrarOrden({
                 proveedorId: proveedorRuc,
@@ -72,9 +78,9 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
             });
             onSave();
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert('Error al registrar la orden');
+            setErrorValidacion(error.message || 'Error al registrar la orden');
         } finally {
             setGuardando(false);
         }
@@ -129,6 +135,12 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
             size="xl"
         >
             <div className="space-y-8 pb-4">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={20} className="shrink-0" />
+                        <p className="text-sm font-medium">{errorValidacion}</p>
+                    </div>
+                )}
                 <div className="grid grid-cols-2 gap-8">
                     {/* Panel Izquierdo: Proveedor */}
                     <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl space-y-4">

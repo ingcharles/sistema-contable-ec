@@ -45,9 +45,11 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
     });
 
     const [errorId, setErrorId] = useState('');
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const handleChange = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+        if (errorValidacion) setErrorValidacion(null); // Limpiar error al escribir
 
         if (field === 'identificacion') {
             if (formData.tipoIdentificacion === TipoIdentificacion.RUC && !validarRuc(value)) {
@@ -60,7 +62,7 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
 
     const handleSubmit = async () => {
         if (!formData.identificacion || !formData.razonSocial || !formData.email) {
-            alert('Por favor complete los campos obligatorios.');
+            setErrorValidacion('Por favor complete los campos obligatorios marcados con *');
             return;
         }
 
@@ -111,10 +113,10 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
             size="xl"
         >
             <div className="space-y-6">
-                {errorSaving && (
+                {(errorSaving || errorValidacion) && (
                     <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2 border border-red-100">
                         <AlertCircle size={18} />
-                        {errorSaving}
+                        {errorSaving || errorValidacion}
                     </div>
                 )}
 

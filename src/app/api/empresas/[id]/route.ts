@@ -23,8 +23,8 @@ export async function PUT(
         } = body;
 
         // Obtener usuario y empresa desde headers
-        const usuarioId = request.headers.get('x-usuario-id') || 'sistema';
-        const currentEmpresaId = request.headers.get('x-empresa-id') || empresaId;
+        const usuarioId = request.headers.get('x-usuario-id');
+        const currentEmpresaId = request.headers.get('x-empresa-id');
 
         // Actualizar empresa
         const query = `

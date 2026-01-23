@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Save, Warehouse } from 'lucide-react';
+import { Save, Warehouse, AlertCircle } from 'lucide-react';
 import { Bodega } from '../../domain/types';
 import { Sucursal } from '@/modules/configuracion/domain/types';
 import { ConfiguracionUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -17,6 +17,7 @@ interface Props {
 
 export const BodegaModal: React.FC<Props> = ({ bodega, onClose, onSave, empresaId }) => {
     const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [formData, setFormData] = useState<Partial<Bodega>>({
         nombre: '', codigo: '', responsable: '', ubicacion: '', sucursalId: ''
     });
@@ -31,22 +32,27 @@ export const BodegaModal: React.FC<Props> = ({ bodega, onClose, onSave, empresaI
 
     const handleSave = async () => {
         if (!formData.nombre || !formData.sucursalId) {
-            alert('Por favor complete los campos obligatorios (Nombre y Sucursal)');
+            setErrorValidacion('Por favor complete los campos obligatorios (Nombre y Sucursal)');
             return;
         }
 
-        await InventarioUseCases.guardarBodega({
-            id: bodega?.id,
-            empresaId,
-            sucursalId: formData.sucursalId,
-            codigo: formData.codigo || '',
-            nombre: formData.nombre,
-            responsable: formData.responsable || '',
-            ubicacion: formData.ubicacion || '',
-            activo: true
-        });
-        onSave();
-        onClose();
+        try {
+            await InventarioUseCases.guardarBodega({
+                id: bodega?.id,
+                empresaId,
+                sucursalId: formData.sucursalId,
+                codigo: formData.codigo || '',
+                nombre: formData.nombre,
+                responsable: formData.responsable || '',
+                ubicacion: formData.ubicacion || '',
+                activo: true
+            });
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            setErrorValidacion('Error al guardar la bodega');
+        }
     };
 
     const footer = (
@@ -69,6 +75,12 @@ export const BodegaModal: React.FC<Props> = ({ bodega, onClose, onSave, empresaI
             size="md"
         >
             <div className="space-y-4">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2 border border-red-100">
+                        <AlertCircle size={18} />
+                        {errorValidacion}
+                    </div>
+                )}
                 <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Sucursal Asociada *</label>
                     <select

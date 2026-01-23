@@ -49,11 +49,11 @@ export default function ContabilidadPage() {
                 ContabilidadUseCases.obtenerEstadoResultados(fechaInicio, fechaFin),
                 ContabilidadUseCases.listarCuentas()
             ]);
-            setAsientos(dataAsientos);
+            setAsientos(Array.isArray(dataAsientos) ? dataAsientos : []);
             setCentros(dataCentros);
             setBalance(balanceData);
             setEstadoResultados(resultadosData);
-            setPlanCuentas(dataPC);
+            setPlanCuentas(Array.isArray(dataPC) ? dataPC : []);
         } catch (error) {
             console.error('Error al cargar datos contables:', error);
         } finally {
@@ -68,13 +68,15 @@ export default function ContabilidadPage() {
     }, [currentEmpresa?.id, mounted]);
 
     const datosMayor = useMemo(() => {
+        if (!Array.isArray(planCuentas)) return { movimientos: [], saldoInicial: 0, saldoFinal: 0, naturaleza: '' };
         const cuenta = planCuentas.find(c => c.codigo === cuentaMayorSeleccionada);
         if (!cuenta) return { movimientos: [], saldoInicial: 0, saldoFinal: 0, naturaleza: '' };
 
         let saldoInicial = (cuenta as any).saldo || 0;
         const naturaleza = ['1', '5', '6'].some(prefix => cuenta.codigo.startsWith(prefix)) ? 'DEUDORA' : 'ACREEDORA';
 
-        const movimientosPeriodo = asientos
+        const safeAsientos = Array.isArray(asientos) ? asientos : [];
+        const movimientosPeriodo = safeAsientos
             .filter(a => a.estado === 'MAYORIZADO' && a.fecha >= fechaInicio && a.fecha <= fechaFin)
             .flatMap(a => a.detalles.map(d => ({ ...d, asiento: a })))
             .filter(d => d.cuentaCodigo === cuentaMayorSeleccionada)

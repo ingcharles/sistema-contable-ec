@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Mock User para simulación
 const MOCK_USER: Usuario = {
-    id: 'u1',
+    id: 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     nombre: 'Carlos Contador',
     email: 'admin@ecucontable.com',
     rol: 'CONTADOR'

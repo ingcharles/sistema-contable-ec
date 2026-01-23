@@ -25,9 +25,20 @@ export function useCatalogos(codigosArray: string[]) {
 
             try {
                 setLoading(true);
+
+                // Obtener headers de autenticación
+                const empresaId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : null;
+                const usuarioId = typeof window !== 'undefined' ? localStorage.getItem('current_usuario_id') : null;
+
                 // Construir query string: ?codigos=SRI_A,SRI_B
                 const codigosParam = codigosArray.join(',');
-                const response = await fetch(`/api/catalogos?codigos=${codigosParam}`);
+                const response = await fetch(`/api/catalogos?codigos=${codigosParam}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-empresa-id': empresaId || '',
+                        'x-usuario-id': usuarioId || ''
+                    }
+                });
 
                 if (!response.ok) {
                     throw new Error('Error al cargar catálogos');

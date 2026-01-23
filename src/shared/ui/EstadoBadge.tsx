@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { EstadoSRI } from '@/shared/types';
-import { CheckCircle2, Clock, XCircle, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, RotateCcw, User, Truck, Users, Briefcase, HelpCircle } from 'lucide-react';
 
 interface EstadoBadgeProps {
     estado: EstadoSRI | string;
@@ -18,6 +18,11 @@ export const EstadoBadge = ({ estado }: EstadoBadgeProps) => {
         'ANULADA': 'bg-red-100 text-red-800',
         [EstadoSRI.DEVUELTO]: 'bg-orange-100 text-orange-800',
         [EstadoSRI.RECHAZADO]: 'bg-red-100 text-red-800',
+        'CLIENTE': 'bg-emerald-100 text-emerald-800',
+        'PROVEEDOR': 'bg-blue-100 text-blue-800',
+        'AMBOS': 'bg-purple-100 text-purple-800',
+        'EMPLEADO': 'bg-cyan-100 text-cyan-800',
+        'OTRO': 'bg-slate-100 text-slate-800',
     };
 
     const icons: Record<string, React.ReactNode> = {
@@ -29,6 +34,11 @@ export const EstadoBadge = ({ estado }: EstadoBadgeProps) => {
         'ANULADA': <XCircle size={14} />,
         [EstadoSRI.DEVUELTO]: <RotateCcw size={14} />,
         [EstadoSRI.RECHAZADO]: <XCircle size={14} />,
+        'CLIENTE': <User size={14} />,
+        'PROVEEDOR': <Truck size={14} />,
+        'AMBOS': <Users size={14} />,
+        'EMPLEADO': <Briefcase size={14} />,
+        'OTRO': <HelpCircle size={14} />,
     };
 
     return (

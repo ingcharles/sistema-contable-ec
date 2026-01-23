@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, UserPlus, User, Mail, Briefcase, DollarSign, Calendar, CreditCard, Landmark, Hash } from 'lucide-react';
+import { Save, UserPlus, User, Mail, Briefcase, DollarSign, Calendar, CreditCard, Landmark, Hash, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Empleado, EstadoEmpleado, TipoContrato } from '../../domain/types';
@@ -13,6 +13,7 @@ interface EmpleadoModalProps {
 
 export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps) => {
     const { guardarEmpleado, procesando: guardando } = useNominaMutations();
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [formData, setFormData] = useState<Partial<Empleado>>({
         identificacion: '',
         nombres: '',
@@ -33,9 +34,14 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
         }
     }, [empleado]);
 
+    const handleChange = (field: keyof Empleado, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        if (errorValidacion) setErrorValidacion(null);
+    };
+
     const handleSave = async () => {
         if (!formData.identificacion || !formData.nombres || !formData.apellidos || !formData.sueldoBase) {
-            alert('Por favor complete los campos obligatorios');
+            setErrorValidacion('Por favor complete los campos obligatorios marcados con *');
             return;
         }
 
@@ -59,7 +65,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
             onClose();
         } catch (error) {
             console.error('Error al guardar empleado:', error);
-            alert('Error al guardar el empleado');
+            setErrorValidacion('Error al guardar el empleado');
         }
     };
 
@@ -95,6 +101,13 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
             size="lg"
         >
             <div className="space-y-6">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2 border border-red-100">
+                        <AlertCircle size={18} />
+                        {errorValidacion}
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
@@ -103,7 +116,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                         <input
                             type="text"
                             value={formData.identificacion}
-                            onChange={(e) => setFormData({ ...formData, identificacion: e.target.value })}
+                            onChange={(e) => handleChange('identificacion', e.target.value)}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                             placeholder="RUC / Cédula"
                         />
@@ -116,7 +129,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                         <input
                             type="email"
                             value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            onChange={(e) => handleChange('email', e.target.value)}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                             placeholder="correo@empresa.com"
                         />
@@ -129,7 +142,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                         <input
                             type="text"
                             value={formData.nombres}
-                            onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
+                            onChange={(e) => handleChange('nombres', e.target.value)}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 uppercase outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                             placeholder="NOMBRES COMPLETOS"
                         />
@@ -142,7 +155,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                         <input
                             type="text"
                             value={formData.apellidos}
-                            onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
+                            onChange={(e) => handleChange('apellidos', e.target.value)}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 uppercase outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                             placeholder="APELLIDOS COMPLETOS"
                         />
@@ -155,7 +168,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                         <input
                             type="text"
                             value={formData.cargo}
-                            onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
+                            onChange={(e) => handleChange('cargo', e.target.value)}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                             placeholder="Ej: Contador General"
                         />
@@ -168,7 +181,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                         <input
                             type="number"
                             value={formData.sueldoBase}
-                            onChange={(e) => setFormData({ ...formData, sueldoBase: Number(e.target.value) })}
+                            onChange={(e) => handleChange('sueldoBase', Number(e.target.value))}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-right text-sri-blue outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-mono"
                             min="0"
                             step="0.01"
@@ -182,7 +195,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                         <input
                             type="date"
                             value={formData.fechaIngreso}
-                            onChange={(e) => setFormData({ ...formData, fechaIngreso: e.target.value })}
+                            onChange={(e) => handleChange('fechaIngreso', e.target.value)}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                         />
                     </div>
@@ -191,7 +204,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tipo de Contrato</label>
                         <select
                             value={formData.tipoContrato}
-                            onChange={(e) => setFormData({ ...formData, tipoContrato: e.target.value as TipoContrato })}
+                            onChange={(e) => handleChange('tipoContrato', e.target.value as TipoContrato)}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                         >
                             {Object.values(TipoContrato).map(t => (
@@ -211,7 +224,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                             <input
                                 type="text"
                                 value={formData.banco}
-                                onChange={(e) => setFormData({ ...formData, banco: e.target.value })}
+                                onChange={(e) => handleChange('banco', e.target.value)}
                                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
                                 placeholder="Nombre del banco"
                             />
@@ -223,7 +236,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                             <input
                                 type="text"
                                 value={formData.cuentaBancaria}
-                                onChange={(e) => setFormData({ ...formData, cuentaBancaria: e.target.value })}
+                                onChange={(e) => handleChange('cuentaBancaria', e.target.value)}
                                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-600 outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
                                 placeholder="Nro. de cuenta"
                             />
@@ -235,7 +248,7 @@ export const EmpleadoModal = ({ empleado, onClose, onSave }: EmpleadoModalProps)
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Estado del Empleado</label>
                     <select
                         value={formData.estado}
-                        onChange={(e) => setFormData({ ...formData, estado: e.target.value as EstadoEmpleado })}
+                        onChange={(e) => handleChange('estado', e.target.value as EstadoEmpleado)}
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
                     >
                         {Object.values(EstadoEmpleado).map(e => (

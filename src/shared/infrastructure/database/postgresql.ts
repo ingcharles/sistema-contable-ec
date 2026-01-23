@@ -38,7 +38,7 @@ class PostgreSQLClient {
      */
     public async query<T extends QueryResultRow = any>(
         config: any,
-        context: { empresaId: string; usuarioId: string }
+        context: { empresaId: string | null; usuarioId: string | null }
     ): Promise<QueryResult<T>> {
         const client = await this.pool.connect();
         try {

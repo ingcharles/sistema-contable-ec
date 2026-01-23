@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Truck, MapPin, Package, User, Plus } from 'lucide-react';
+import { Save, Truck, MapPin, Package, User, Plus, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { MotivoTraslado } from '../../domain/guias';
@@ -30,6 +30,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     const [motivo, setMotivo] = useState(MotivoTraslado.VENTA);
     const [showNuevoTransportista, setShowNuevoTransportista] = useState(false);
     const [guardando, setGuardando] = useState(false);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     useEffect(() => {
         cargarTransportistas();
@@ -43,13 +44,13 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
 
     const handleGuardar = async () => {
         if (!transportistaId || !puntoPartida || !puntoDestino) {
-            alert('Por favor complete los campos obligatorios.');
+            setErrorValidacion('Por favor complete los campos obligatorios.');
             return;
         }
 
         const transportista = transportistas.find(t => t.id === transportistaId);
         if (!transportista) {
-            alert('Seleccione un transportista válido');
+            setErrorValidacion('Seleccione un transportista válido');
             return;
         }
 
@@ -135,7 +136,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
             onClose();
         } catch (error) {
             console.error('Error al procesar guía:', error);
-            alert('Error al procesar la guía de remisión');
+            setErrorValidacion('Error al procesar la guía de remisión');
         } finally {
             setGuardando(false);
         }
@@ -167,6 +168,12 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
             size="2xl"
         >
             <div className="space-y-8">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2 border border-red-100">
+                        <AlertCircle size={18} />
+                        {errorValidacion}
+                    </div>
+                )}
                 {/* Sección Transportista */}
                 <div>
                     <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">

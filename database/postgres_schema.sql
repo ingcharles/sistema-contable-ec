@@ -42,7 +42,8 @@ CREATE TYPE tipo_movimiento_kardex AS ENUM ('ENTRADA', 'SALIDA', 'AJUSTE_POSITIV
 CREATE TYPE tipo_contrato AS ENUM ('INDEFINIDO', 'PLAZO_FIJO', 'TEMPORAL', 'PROYECTO');
 CREATE TYPE estado_rol_pago AS ENUM ('BORRADOR', 'PENDIENTE', 'PAGADO', 'ANULADO');
 CREATE TYPE tipo_cartera AS ENUM ('CXC', 'CXP');
-CREATE TYPE tipo_comprobante_sri AS ENUM ('FACTURA', 'NOTA_CREDITO', 'NOTA_DEBITO', 'GUIA_REMISION', 'COMPROBANTE_RETENCION');
+-- Códigos SRI estándar para tipos de comprobantes electrónicos
+CREATE TYPE tipo_comprobante_sri AS ENUM ('01', '03', '04', '05', '06', '07');
 CREATE TYPE estado_comprobante AS ENUM ('BORRADOR', 'PENDIENTE', 'AUTORIZADO', 'RECHAZADO', 'ANULADO');
 CREATE TYPE severidad_log AS ENUM ('INFO', 'WARNING', 'ERROR', 'CRITICAL');
 
@@ -270,7 +271,7 @@ CREATE TABLE directorio.terceros (
     updated_by UUID REFERENCES seguridad.usuarios(id),
     
     -- Constraints
-    UNIQUE(empresa_id, identificacion),
+    UNIQUE(empresa_id, identificacion,tipo_tercero),
     CONSTRAINT check_tipo_identificacion CHECK (tipo_identificacion IN ('04', '05', '06', '07', '08')),
     CONSTRAINT check_tipo_tercero CHECK (tipo_tercero IN ('CLIENTE', 'PROVEEDOR', 'AMBOS', 'EMPLEADO', 'OTRO'))
 );
@@ -552,6 +553,7 @@ CREATE TABLE bancos.bancos_movimientos (
     monto NUMERIC(18,2) NOT NULL,
     es_egreso BOOLEAN NOT NULL,
     conciliado BOOLEAN DEFAULT false,
+    conciliacion_id UUID,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -563,6 +565,45 @@ COMMENT ON COLUMN bancos.bancos_movimientos.referencia IS 'Número de cheque o c
 COMMENT ON COLUMN bancos.bancos_movimientos.monto IS 'Valor de la transacción';
 COMMENT ON COLUMN bancos.bancos_movimientos.es_egreso IS 'TRUE si disminuye el saldo, FALSE si aumenta';
 COMMENT ON COLUMN bancos.bancos_movimientos.conciliado IS 'Indica si el movimiento ya fue conciliado contra el extracto bancario';
+COMMENT ON COLUMN bancos.bancos_movimientos.conciliacion_id IS 'Referencia a la conciliación bancaria a la que pertenece este movimiento';
+
+-- Tabla: bancos.bancos_conciliaciones
+CREATE TABLE bancos.bancos_conciliaciones (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
+    cuenta_id UUID NOT NULL REFERENCES bancos.bancos_cuentas(id) ON DELETE CASCADE,
+    fecha_corte DATE NOT NULL,
+    saldo_libro NUMERIC(18,2) NOT NULL,
+    saldo_extracto NUMERIC(18,2) NOT NULL,
+    cheques_no_cobrados NUMERIC(18,2) DEFAULT 0,
+    depositos_en_transito NUMERIC(18,2) DEFAULT 0,
+    diferencia NUMERIC(18,2) DEFAULT 0,
+    estado VARCHAR(20) DEFAULT 'BORRADOR',
+    observaciones TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    created_by UUID REFERENCES seguridad.usuarios(id)
+);
+
+COMMENT ON TABLE bancos.bancos_conciliaciones IS 'Conciliaciones bancarias para cuadrar saldos contables vs extractos bancarios.';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.id IS 'Identificador único de la conciliación';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.empresa_id IS 'Empresa a la que pertenece la conciliación';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.cuenta_id IS 'Cuenta bancaria que se está conciliando';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.fecha_corte IS 'Fecha de corte de la conciliación';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.saldo_libro IS 'Saldo según libros contables';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.saldo_extracto IS 'Saldo según extracto bancario';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.cheques_no_cobrados IS 'Total de cheques emitidos pero no cobrados aún';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.depositos_en_transito IS 'Total de depósitos registrados pero no reflejados en extracto';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.diferencia IS 'Diferencia entre saldo libro y extracto (después de ajustes)';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.estado IS 'Estado: BORRADOR, CONCILIADO, APROBADO';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.observaciones IS 'Notas y comentarios sobre la conciliación';
+COMMENT ON COLUMN bancos.bancos_conciliaciones.created_by IS 'Usuario que creó la conciliación';
+
+-- Agregar foreign key constraint después de crear la tabla
+ALTER TABLE bancos.bancos_movimientos 
+ADD CONSTRAINT fk_movimientos_conciliacion 
+FOREIGN KEY (conciliacion_id) REFERENCES bancos.bancos_conciliaciones(id) ON DELETE SET NULL;
+
 
 -- ============================================================================
 -- 6. MÓDULO: CARTERA (CxC / CxP)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
@@ -31,6 +31,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const [items, setItems] = useState<ItemNotaCredito[]>(
         factura.detalles?.map((item: any, index: number) => ({
@@ -47,6 +48,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
         setItems((prev: ItemNotaCredito[]) => prev.map(item =>
             item.id === id ? { ...item, cantidadDevolver: Math.min(Math.max(0, val), item.cantidadOriginal) } : item
         ));
+        if (errorValidacion) setErrorValidacion(null);
     };
 
     const subtotalDevolucion = items.reduce((acc, item) => acc + (item.cantidadDevolver * item.precio), 0);
@@ -59,11 +61,12 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
     const handleEmitirNC = async () => {
         if (!currentEmpresa) return;
         if (!motivo || totalDevolucion === 0 || !secuencial) {
-            alert("Debe ingresar un motivo, secuencial y devolver al menos un ítem.");
+            setErrorValidacion("Debe ingresar un motivo, secuencial y devolver al menos un ítem.");
             return;
         }
 
         setGuardando(true);
+        setErrorValidacion(null);
         try {
             const dataNC = {
                 ambiente: AMBIENTE.PRUEBAS,
@@ -157,7 +160,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
             onClose();
         } catch (error: any) {
             console.error('Error al emitir NC:', error);
-            alert(`Error: ${error.message}`);
+            setErrorValidacion(`Error: ${error.message}`);
         } finally {
             setGuardando(false);
         }
@@ -183,6 +186,12 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
             size="lg"
         >
             <div className="space-y-6">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={20} className="shrink-0" />
+                        <p className="text-sm font-medium">{errorValidacion}</p>
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-1">Secuencial NC *</label>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUpCircle, Plus, Trash2, FileText, Calendar, Hash } from 'lucide-react';
+import { ArrowUpCircle, Plus, Trash2, FileText, Calendar, Hash, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
@@ -26,6 +26,7 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [motivos, setMotivos] = useState<MotivoNotaDebito[]>([{ razon: '', valor: 0 }]);
     const [formaPago] = useState(FORMA_PAGO.OTROS_CON_SISTEMA_FINANCIERO);
 
@@ -35,6 +36,7 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
         const nuevos = [...motivos];
         nuevos[index] = { ...nuevos[index], [campo]: valor };
         setMotivos(nuevos);
+        if (errorValidacion) setErrorValidacion(null);
     };
 
     const subtotal = motivos.reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
@@ -44,11 +46,12 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
     const handleEmitirND = async () => {
         if (!currentEmpresa) return;
         if (total === 0 || !secuencial || motivos.some(m => !m.razon || m.valor <= 0)) {
-            alert("Complete todos los motivos, valores y el secuencial.");
+            setErrorValidacion("Complete todos los motivos, valores y el secuencial.");
             return;
         }
 
         setGuardando(true);
+        setErrorValidacion(null);
         try {
             const dataND = {
                 ambiente: AMBIENTE.PRUEBAS,
@@ -136,7 +139,7 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
             onClose();
         } catch (error: any) {
             console.error('Error ND:', error);
-            alert(`Error: ${error.message}`);
+            setErrorValidacion(`Error: ${error.message}`);
         } finally {
             setGuardando(false);
         }
@@ -174,6 +177,12 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
             size="lg"
         >
             <div className="space-y-6">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={20} className="shrink-0" />
+                        <p className="text-sm font-medium">{errorValidacion}</p>
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">

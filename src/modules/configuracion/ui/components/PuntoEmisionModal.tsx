@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, Monitor, Building2, Hash, Layers, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Save, Monitor, Building2, Hash, Layers, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { PuntoEmision, Sucursal } from '../../domain/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -24,19 +24,25 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
         activo: true,
         secuenciales: [
             { tipoComprobante: TipoComprobante.FACTURA, secuencialActual: 1 },
+            { tipoComprobante: TipoComprobante.LIQUIDACION_COMPRA, secuencialActual: 1 },
+            { tipoComprobante: TipoComprobante.NOTA_CREDITO, secuencialActual: 1 },
+            { tipoComprobante: TipoComprobante.NOTA_DEBITO, secuencialActual: 1 },
+            { tipoComprobante: TipoComprobante.GUIA_REMISION, secuencialActual: 1 },
             { tipoComprobante: TipoComprobante.RETENCION, secuencialActual: 1 }
         ]
     });
 
     const [guardando, setGuardando] = useState(false);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const handleSubmit = async () => {
         if (!formData.codigo || !formData.nombre || !formData.sucursalId) {
-            alert('Complete los campos obligatorios');
+            setErrorValidacion('Complete los campos obligatorios (Sucursal, Código y Nombre)');
             return;
         }
 
         setGuardando(true);
+        setErrorValidacion(null);
         try {
             await ConfiguracionUseCases.guardarPuntoEmision({
                 ...formData,
@@ -44,9 +50,9 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
             });
             onSave();
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert('Error al guardar punto de emisión');
+            setErrorValidacion(error.message || 'Error al guardar punto de emisión');
         } finally {
             setGuardando(false);
         }
@@ -90,6 +96,12 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
             size="md"
         >
             <div className="space-y-6">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={20} className="shrink-0" />
+                        <p className="text-sm font-medium">{errorValidacion}</p>
+                    </div>
+                )}
                 <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                         <Building2 size={14} className="text-sri-blue" /> Sucursal de Pertenencia *
@@ -144,9 +156,11 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
                             <div key={sec.tipoComprobante} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm transition-all hover:border-sri-blue/20">
                                 <span className="text-[11px] font-black text-slate-600 uppercase tracking-tight">
                                     {sec.tipoComprobante === TipoComprobante.FACTURA ? 'Factura Electrónica' :
-                                        sec.tipoComprobante === TipoComprobante.RETENCION ? 'Retención en la Fuente' :
+                                        sec.tipoComprobante === TipoComprobante.LIQUIDACION_COMPRA ? 'Liquidación de Compra' :
                                             sec.tipoComprobante === TipoComprobante.NOTA_CREDITO ? 'Nota de Crédito' :
-                                                sec.tipoComprobante === TipoComprobante.GUIA_REMISION ? 'Guía de Remisión' : sec.tipoComprobante}
+                                                sec.tipoComprobante === TipoComprobante.NOTA_DEBITO ? 'Nota de Débito' :
+                                                    sec.tipoComprobante === TipoComprobante.GUIA_REMISION ? 'Guía de Remisión' :
+                                                        sec.tipoComprobante === TipoComprobante.RETENCION ? 'Retención en la Fuente' : sec.tipoComprobante}
                                 </span>
                                 <div className="relative">
                                     <input

@@ -5,13 +5,13 @@ export class BaseUseCase {
     protected static getHeaders() {
         // En una app real, estos vendrían de un store global (Pinia/Redux) o sesión
         // Intentamos obtener de localStorage si están disponibles
-        const empresaId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : 'c9bf9e57-1685-4c89-bafb-ff5af830be1a';
-        const usuarioId = typeof window !== 'undefined' ? localStorage.getItem('current_usuario_id') : 'c9bf9e57-1685-4c89-bafb-ff5af830be1u';
+        const empresaId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : null;
+        const usuarioId = typeof window !== 'undefined' ? localStorage.getItem('current_usuario_id') : null;
 
         return {
             'Content-Type': 'application/json',
-            'x-empresa-id': empresaId || 'c9bf9e57-1685-4c89-bafb-ff5af830be1a',
-            'x-usuario-id': usuarioId || 'c9bf9e57-1685-4c89-bafb-ff5af830be1u'
+            'x-empresa-id': empresaId || '',
+            'x-usuario-id': usuarioId || ''
         };
     }
 
@@ -362,6 +362,12 @@ export class ConfiguracionUseCases extends BaseUseCase {
     }
 
     static async guardarPuntoEmision(punto: any) {
+        if (punto.id) {
+            return this.request('/api/configuracion/puntos-emision', {
+                method: 'PUT',
+                body: JSON.stringify(punto)
+            });
+        }
         return this.request('/api/configuracion/puntos-emision', {
             method: 'POST',
             body: JSON.stringify(punto)

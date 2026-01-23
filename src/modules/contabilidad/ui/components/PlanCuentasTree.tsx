@@ -30,6 +30,8 @@ export const PlanCuentasTree = () => {
             const rootItems: TreeNode[] = [];
             const lookup: Record<string, TreeNode> = {};
 
+            if (!Array.isArray(items)) return [];
+
             // Initialize lookup
             items.forEach(item => {
                 lookup[item.codigo] = { ...item, children: [] };

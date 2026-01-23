@@ -51,6 +51,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     }]);
 
     const [guardando, setGuardando] = useState(false);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [errorIdentificacion, setErrorIdentificacion] = useState('');
     const [identificacionValida, setIdentificacionValida] = useState(false);
 
@@ -129,15 +130,17 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
 
         nuevosDetalles[index] = detalle;
         setDetalles(nuevosDetalles);
+        if (errorValidacion) setErrorValidacion(null);
     };
 
     const handleGuardar = async () => {
         if (!nombre || !identificacion || !secuencial || detalles.some(d => !d.descripcion)) {
-            alert('Por favor complete todos los campos obligatorios.');
+            setErrorValidacion('Por favor complete todos los campos obligatorios.');
             return;
         }
 
         setGuardando(true);
+        setErrorValidacion(null);
         try {
             const fullSecuencial = `${estab}-${ptoEmi}-${secuencial.padStart(9, '0')}`;
 
@@ -257,7 +260,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
             onClose();
         } catch (error: any) {
             console.error('Error al procesar liquidación:', error);
-            alert(`Error crítico: ${error.message}`);
+            setErrorValidacion(`Error crítico: ${error.message}`);
         } finally {
             setGuardando(false);
         }
@@ -303,6 +306,12 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
             size="2xl"
         >
             <div className="space-y-8">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={20} className="shrink-0" />
+                        <p className="text-sm font-medium">{errorValidacion}</p>
+                    </div>
+                )}
                 {/* Encabezado Documento */}
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Información del Documento</h3>

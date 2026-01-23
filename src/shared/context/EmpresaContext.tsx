@@ -9,6 +9,7 @@ interface EmpresaContextType {
     setCurrentEmpresa: (empresa: Empresa) => void;
     empresas: Empresa[];
     refreshEmpresas: () => Promise<void>;
+    hasEmpresas: boolean;
 }
 
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined);
@@ -70,7 +71,7 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (empresas.length === 0) {
         // Crear una empresa temporal para que la app pueda renderizar
         const tempEmpresa: Empresa = {
-            id: 'temp',
+            id: '',
             ruc: '',
             razonSocial: 'Sin empresa',
             nombreComercial: 'Sin empresa',
@@ -87,7 +88,8 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 currentEmpresa: tempEmpresa,
                 setCurrentEmpresa,
                 empresas: [],
-                refreshEmpresas
+                refreshEmpresas,
+                hasEmpresas: false
             }}>
                 {children}
             </EmpresaContext.Provider>
@@ -99,7 +101,8 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
             currentEmpresa: currentEmpresa!,
             setCurrentEmpresa,
             empresas,
-            refreshEmpresas
+            refreshEmpresas,
+            hasEmpresas: true
         }}>
             {children}
         </EmpresaContext.Provider>

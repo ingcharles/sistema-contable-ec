@@ -22,7 +22,7 @@ VALUES (
 -- Password: password123 (Hash SHA-256 referencial)
 INSERT INTO seguridad.usuarios (id, email, nombre, password_hash, rol, activo)
 VALUES (
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11',
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     'admin@demo.com',
     'Administrador Demo',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 
@@ -33,7 +33,7 @@ VALUES (
 -- 3. RELACIÓN USUARIO-EMPRESA
 INSERT INTO seguridad.usuarios_empresas (usuario_id, empresa_id)
 VALUES (
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11',
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
 ) ON CONFLICT (usuario_id, empresa_id) DO NOTHING;
 
@@ -48,7 +48,7 @@ VALUES (
     'CONSUMIDOR FINAL',
     'CLIENTE',
     true,
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11'
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
 ) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
 
 -- Cliente ejemplo 1
@@ -71,7 +71,7 @@ VALUES (
     5000.00,
     30,
     true,
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11'
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
 ) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
 
 -- Cliente ejemplo 2
@@ -92,7 +92,7 @@ VALUES (
     2000.00,
     15,
     true,
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11'
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
 ) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
 
 -- Proveedor ejemplo 1
@@ -114,7 +114,7 @@ VALUES (
     'Pichincha',
     45,
     true,
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11'
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
 ) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
 
 -- Cliente Y Proveedor (AMBOS)
@@ -136,22 +136,22 @@ VALUES (
     3000.00,
     30,
     true,
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11'
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
 ) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
 
 -- 5. PLAN DE CUENTAS BÁSICO (NIIF)
 INSERT INTO contabilidad.plan_cuentas (empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo) VALUES
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '1', 'ACTIVO', 'ACTIVO', 1, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '1.1', 'ACTIVO CORRIENTE', 'ACTIVO', 2, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '1.1.01', 'EFECTIVO Y EQUIVALENTES', 'ACTIVO', 3, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '1.1.01.01', 'CAJA GENERAL', 'ACTIVO', 4, 500.00),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '1.1.01.02', 'BANCOS', 'ACTIVO', 4, 15000.00),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '1.1.03', 'INVENTARIOS', 'ACTIVO', 3, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '2', 'PASIVO', 'PASIVO', 1, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '2.1', 'PASIVO CORRIENTE', 'PASIVO', 2, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '4', 'INGRESOS', 'INGRESO', 1, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '4.1', 'INGRESOS OPERACIONALES', 'INGRESO', 2, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11', '5', 'GASTOS', 'GASTO', 1, 0);
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1', 'ACTIVO', 'ACTIVO', 1, 0),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1', 'ACTIVO CORRIENTE', 'ACTIVO', 2, 0),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01', 'EFECTIVO Y EQUIVALENTES', 'ACTIVO', 3, 0),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01.01', 'CAJA GENERAL', 'ACTIVO', 4, 500.00),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01.02', 'BANCOS', 'ACTIVO', 4, 15000.00),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.03', 'INVENTARIOS', 'ACTIVO', 3, 0),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '2', 'PASIVO', 'PASIVO', 1, 0),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '2.1', 'PASIVO CORRIENTE', 'PASIVO', 2, 0),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '4', 'INGRESOS', 'INGRESO', 1, 0),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '4.1', 'INGRESOS OPERACIONALES', 'INGRESO', 2, 0),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '5', 'GASTOS', 'GASTO', 1, 0);
 
 -- 6. BODEGA PRINCIPAL
 INSERT INTO inventario.bodegas (id, empresa_id, codigo, nombre, responsable, ubicacion)
@@ -181,7 +181,7 @@ VALUES
 (
     'p0eebc99-9c0b-4ef8-bb6d-6bb9bd380p01',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11',
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     'LAP-001',
     'LAPTOP DELL INSPIRON 15',
     899.99,
@@ -193,7 +193,7 @@ VALUES
 (
     'p0eebc99-9c0b-4ef8-bb6d-6bb9bd380p02',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11',
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     'MOU-001',
     'MOUSE INALAMBRICO LOGITECH',
     25.50,
@@ -207,7 +207,7 @@ VALUES
 INSERT INTO bancos.bancos_cuentas (empresa_id, usuario_id, numero_cuenta, nombre, banco, saldo_actual)
 VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11',
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     '1234567890',
     'CUENTA CORRIENTE PRINCIPAL',
     'BANCO PICHINCHA',
@@ -219,7 +219,7 @@ INSERT INTO contabilidad.asientos_cab (id, empresa_id, usuario_id, numero, fecha
 VALUES (
     'as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'u0eebc99-9c0b-4ef8-bb6d-6bb9bd380u11',
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     '2024-00001',
     '2024-01-01',
     'ASIENTO DE APERTURA 2024',

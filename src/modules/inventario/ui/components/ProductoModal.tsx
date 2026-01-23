@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Package, Tag, DollarSign, BarChart2 } from 'lucide-react';
+import { Save, Package, Tag, DollarSign, BarChart2, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { useCategorias, useInventarioMutations } from '../../hooks/useInventario';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
@@ -22,6 +22,7 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
     const [categoriaId, setCategoriaId] = useState('');
     const [precioVenta, setPrecioVenta] = useState(0);
     const [stockMinimo, setStockMinimo] = useState(1);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     // Manejo de IVA con catálogos dinámicos
     const { getCatalogo, loading: loadingCatalogos } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA']);
@@ -49,7 +50,7 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
 
     const handleGuardar = async () => {
         if (!nombre || !codigo || !categoriaId) {
-            alert('Por favor complete los campos obligatorios.');
+            setErrorValidacion('Por favor complete los campos obligatorios marcados con *');
             return;
         }
 
@@ -75,7 +76,7 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
             onSave();
             onClose();
         } else {
-            alert(resultado.error);
+            setErrorValidacion(resultado.error || 'Error al guardar el producto');
         }
     };
 
@@ -114,6 +115,12 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
             size="lg"
         >
             <div className="space-y-6">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2 border border-red-100">
+                        <AlertCircle size={18} />
+                        {errorValidacion}
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2 col-span-1">
                         <label className="text-sm font-bold text-slate-700 flex items-center gap-2">

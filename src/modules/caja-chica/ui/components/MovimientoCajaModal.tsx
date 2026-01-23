@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DollarSign, Calendar, FileText, Save, ArrowUpCircle, ArrowDownCircle, User, Wallet } from 'lucide-react';
+import { DollarSign, Calendar, FileText, Save, ArrowUpCircle, ArrowDownCircle, User, Wallet, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { TipoMovimientoCaja } from '../../domain/types';
@@ -20,10 +20,11 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
     const [beneficiario, setBeneficiario] = useState('');
     const [concepto, setConcepto] = useState('');
     const [comprobante, setComprobante] = useState('');
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const handleGuardar = async () => {
         if (monto <= 0 || !concepto || (tipo === 'EGRESO' && !beneficiario)) {
-            alert('Por favor complete los campos obligatorios');
+            setErrorValidacion('Por favor complete los campos obligatorios');
             return;
         }
 
@@ -39,7 +40,7 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
             onClose();
         } catch (error) {
             console.error('Error guardando vale:', error);
-            alert('Error al guardar el vale');
+            setErrorValidacion('Error al guardar el vale');
         }
     };
 
@@ -75,6 +76,12 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
             size="md"
         >
             <div className="space-y-6">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2 border border-red-100">
+                        <AlertCircle size={18} />
+                        {errorValidacion}
+                    </div>
+                )}
                 <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
@@ -85,8 +92,8 @@ export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: Movimi
                             value={monto}
                             onChange={(e) => setMonto(Number(e.target.value))}
                             className={`w-full px-4 py-3 text-xl font-black text-right border-2 rounded-xl outline-none focus:ring-4 transition-all ${tipo === 'INGRESO'
-                                    ? 'border-emerald-200 text-emerald-700 bg-emerald-50 focus:ring-emerald-500/20'
-                                    : 'border-rose-200 text-rose-700 bg-rose-50 focus:ring-rose-500/20'
+                                ? 'border-emerald-200 text-emerald-700 bg-emerald-50 focus:ring-emerald-500/20'
+                                : 'border-rose-200 text-rose-700 bg-rose-50 focus:ring-rose-500/20'
                                 }`}
                             min="0"
                             step="0.01"

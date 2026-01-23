@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, Building, Hash, MapPin, Stars, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Save, Building, Hash, MapPin, Stars, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { Sucursal } from '../../domain/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -23,14 +23,21 @@ export const SucursalModal = ({ onClose, onSave, sucursalEditar }: SucursalModal
     });
 
     const [guardando, setGuardando] = useState(false);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
+
+    const handleChange = (field: keyof Sucursal, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        if (errorValidacion) setErrorValidacion(null);
+    };
 
     const handleSubmit = async () => {
         if (!formData.codigo || !formData.nombre) {
-            alert('El código y nombre son obligatorios');
+            setErrorValidacion('El código y nombre son obligatorios');
             return;
         }
 
         setGuardando(true);
+        setErrorValidacion(null);
         try {
             await ConfiguracionUseCases.guardarSucursal({
                 ...formData,
@@ -38,9 +45,9 @@ export const SucursalModal = ({ onClose, onSave, sucursalEditar }: SucursalModal
             });
             onSave();
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert('Error al guardar la sucursal');
+            setErrorValidacion(error.message || 'Error al guardar la sucursal');
         } finally {
             setGuardando(false);
         }
@@ -78,6 +85,13 @@ export const SucursalModal = ({ onClose, onSave, sucursalEditar }: SucursalModal
             size="md"
         >
             <div className="space-y-6">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={20} className="shrink-0" />
+                        <p className="text-sm font-medium">{errorValidacion}</p>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-3 gap-6">
                     <div className="col-span-1 space-y-1.5 text-center">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-center gap-2">
@@ -86,7 +100,7 @@ export const SucursalModal = ({ onClose, onSave, sucursalEditar }: SucursalModal
                         <input
                             type="text"
                             value={formData.codigo}
-                            onChange={e => setFormData({ ...formData, codigo: e.target.value })}
+                            onChange={e => handleChange('codigo', e.target.value)}
                             className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-black text-center text-sri-blue text-lg"
                             placeholder="001"
                             maxLength={3}
@@ -99,7 +113,7 @@ export const SucursalModal = ({ onClose, onSave, sucursalEditar }: SucursalModal
                         <input
                             type="text"
                             value={formData.nombre}
-                            onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                            onChange={e => handleChange('nombre', e.target.value)}
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all text-sm font-medium"
                             placeholder="Ej: Sucursal Norte"
                         />
@@ -112,7 +126,7 @@ export const SucursalModal = ({ onClose, onSave, sucursalEditar }: SucursalModal
                     </label>
                     <textarea
                         value={formData.direccion}
-                        onChange={e => setFormData({ ...formData, direccion: e.target.value })}
+                        onChange={e => handleChange('direccion', e.target.value)}
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all text-sm h-24 resize-none font-medium"
                         placeholder="Av. Principal y Calle Secundaria..."
                     />

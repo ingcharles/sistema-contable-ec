@@ -9,6 +9,7 @@ import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { TerceroModal } from '@/modules/directorio/ui/components/TerceroModal';
 import { ConfirmModal } from '@/shared/ui/ConfirmModal';
+import { EstadoBadge } from '@/shared/ui/EstadoBadge';
 
 export default function DirectorioPage() {
     const { currentEmpresa } = useEmpresa();
@@ -102,6 +103,13 @@ export default function DirectorioPage() {
                 <span className="font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded text-xs">
                     {row.identificacion}
                 </span>
+            )
+        },
+        {
+            header: 'Tipo',
+            accessorKey: 'tipo',
+            cell: (row) => (
+                <EstadoBadge estado={row.tipo} />
             )
         },
         {

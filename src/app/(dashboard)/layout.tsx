@@ -53,31 +53,50 @@ export default function DashboardLayout({
                 </div>
 
                 <nav className="p-4 space-y-1.5 overflow-y-auto max-h-[calc(100vh-12rem)] custom-scrollbar">
-                    <div className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-2 opacity-80">Módulos del Sistema</div>
-                    {NAV_ITEMS.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = pathname === item.path;
-                        return (
-                            <Link
-                                key={item.path}
-                                href={item.path}
-                                onClick={() => setSidebarOpen(false)}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${isActive
-                                    ? 'bg-gradient-to-r from-sri-blue to-sri-light text-white shadow-lg shadow-sri-blue/30 scale-[1.02]'
-                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                                    }`}
-                            >
-                                {isActive && (
-                                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50" />
-                                )}
-                                <Icon size={18} className={`${isActive ? 'text-white' : 'text-slate-500 group-hover:text-sky-400'} transition-colors duration-300`} />
-                                <span className="relative z-10">{item.label}</span>
-                                {!isActive && (
-                                    <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-sri-blue scale-0 group-hover:scale-100 transition-transform duration-300" />
-                                )}
-                            </Link>
-                        );
-                    })}
+                    {currentEmpresa.id ? (
+                        <>
+                            <div className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-2 opacity-80">Módulos del Sistema</div>
+                            {NAV_ITEMS.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = pathname === item.path;
+                                return (
+                                    <Link
+                                        key={item.path}
+                                        href={item.path}
+                                        onClick={() => setSidebarOpen(false)}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${isActive
+                                            ? 'bg-gradient-to-r from-sri-blue to-sri-light text-white shadow-lg shadow-sri-blue/30 scale-[1.02]'
+                                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {isActive && (
+                                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50" />
+                                        )}
+                                        <Icon size={18} className={`${isActive ? 'text-white' : 'text-slate-500 group-hover:text-sky-400'} transition-colors duration-300`} />
+                                        <span className="relative z-10">{item.label}</span>
+                                        {!isActive && (
+                                            <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-sri-blue scale-0 group-hover:scale-100 transition-transform duration-300" />
+                                        )}
+                                    </Link>
+                                );
+                            })}
+                        </>
+                    ) : (
+                        <div className="px-4 py-8 text-center">
+                            <div className="mb-4 flex justify-center">
+                                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-amber-400/20 to-orange-400/20 flex items-center justify-center">
+                                    <Building size={32} className="text-amber-500" />
+                                </div>
+                            </div>
+                            <h3 className="text-sm font-bold text-white mb-2">Configuración Inicial</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                                Para comenzar a usar el sistema, primero debes crear una empresa desde el selector en la parte superior.
+                            </p>
+                            <div className="text-[10px] text-slate-500 bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                                💡 Haz clic en el selector de empresas arriba para agregar tu primera empresa
+                            </div>
+                        </div>
+                    )}
                 </nav>
 
                 <div className="absolute bottom-0 w-full p-4 border-t border-slate-800/50 bg-[#0f172a]/80 backdrop-blur-xl">

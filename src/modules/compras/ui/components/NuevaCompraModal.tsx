@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Save, Calculator, Search, Receipt } from 'lucide-react';
+import { Save, Calculator, Search, Receipt, AlertCircle } from 'lucide-react';
 import { SustentoTributario, OrdenCompra } from '../../domain/types';
 import { CodigoRetencion } from '@/modules/configuracion/domain/types';
 import { ComprasUseCases, ConfiguracionUseCases, ContabilidadUseCases, FacturacionUseCases, DirectorioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -43,6 +43,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     const [codRetIva, setCodRetIva] = useState('');
 
     const [guardando, setGuardando] = useState(false);
+    const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const buscarProveedor = async () => {
         if (!proveedorRuc) return;
@@ -89,9 +90,13 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     const totalPagar = totalFactura - totalRetenido;
 
     const handleGuardar = async () => {
-        if (!proveedorRuc || !secuencial) return;
+        if (!proveedorRuc || !secuencial) {
+            setErrorValidacion('El RUC del proveedor y el número de comprobante son obligatorios.');
+            return;
+        }
 
         setGuardando(true);
+        setErrorValidacion(null);
         try {
             let resSri = null;
             let nroRetencionGenerado = '';
@@ -223,9 +228,9 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
 
             onSave();
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert('Error al registrar la compra');
+            setErrorValidacion(error.message || 'Error al registrar la compra');
         } finally {
             setGuardando(false);
         }
@@ -263,6 +268,12 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
             size="xl"
         >
             <div className="space-y-8">
+                {errorValidacion && (
+                    <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <AlertCircle size={20} className="shrink-0" />
+                        <p className="text-sm font-medium">{errorValidacion}</p>
+                    </div>
+                )}
                 <section>
                     <h3 className="text-sm font-bold text-sri-blue uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">1. Datos del Proveedor y Comprobante</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

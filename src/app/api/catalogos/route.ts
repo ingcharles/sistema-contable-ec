@@ -9,7 +9,6 @@ import { validateContext } from '@/shared/middleware/authContext';
  */
 export async function GET(req: NextRequest) {
     const context = validateContext(req);
-    // Permitir acceso público a catálogos básicos si es necesario, pero por seguridad validamos
     if (!context.isValid) return NextResponse.json({ error: context.error }, { status: 401 });
 
     try {
@@ -19,7 +18,7 @@ export async function GET(req: NextRequest) {
         if (!codigosParam) {
             // Si no pide específicos, devolvemos la lista de tipos disponibles
             const tiposResult = await db.querySimple({
-                text: 'SELECT codigo, nombre FROM catalogos_tipos WHERE activo = true ORDER BY nombre'
+                text: 'SELECT codigo, nombre FROM configuracion.catalogos_tipos WHERE activo = true ORDER BY nombre'
                 // NOTE: catalogos_tipos may need schema prefix if schema is defined
             });
             return NextResponse.json(tiposResult.rows);
@@ -30,7 +29,7 @@ export async function GET(req: NextRequest) {
         const itemsResult = await db.querySimple({
             text: `
                 SELECT catalogo_codigo, codigo, valor, descripcion, orden
-                FROM catalogos_items 
+                FROM configuracion.catalogos_items 
                 WHERE catalogo_codigo = ANY($1) 
                 AND activo = true
                 ORDER BY catalogo_codigo, orden, valor
