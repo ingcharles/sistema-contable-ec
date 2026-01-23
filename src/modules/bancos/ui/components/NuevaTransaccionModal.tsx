@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Save, Plus, Calendar, User, FileText, Hash, DollarSign } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { CuentaBancaria, TipoMovimientoBancario } from '../../domain/types';
-import { BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useBancosMutations } from '../../hooks/useBancos';
 import { Button } from '@/shared/ui/Button';
 
 interface Props {
@@ -21,15 +21,16 @@ export const NuevaTransaccionModal: React.FC<Props> = ({ cuentas, onClose, onSav
     const [beneficiario, setBeneficiario] = useState('');
     const [concepto, setConcepto] = useState('');
     const [referencia, setReferencia] = useState('');
-    const [guardando, setGuardando] = useState(false);
+
+    const { registrarTransaccion, guardando } = useBancosMutations();
 
     const handleGuardar = async () => {
         if (!cuentaId || monto <= 0) return;
-        setGuardando(true);
+
         const esEgreso = [TipoMovimientoBancario.TRANSFERENCIA_ENVIADA, TipoMovimientoBancario.CHEQUE, TipoMovimientoBancario.NOTA_DEBITO].includes(tipo);
 
         try {
-            await BancosUseCases.registrarTransaccion({
+            await registrarTransaccion({
                 cuentaId,
                 fecha,
                 tipo,
@@ -43,9 +44,10 @@ export const NuevaTransaccionModal: React.FC<Props> = ({ cuentas, onClose, onSav
             onClose();
         } catch (error) {
             console.error(error);
+            // El hook ya maneja el error en consola, pero podemos mostrar un alert si deseamos, 
+            // aunque idealmente deberíamos usar un sistema de notificaciones.
+            // Por ahora mantenemos la alerta simple o dejamos que la UI reaccione al error del hook si lo expusiéramos.
             alert('Error al registrar la transacción');
-        } finally {
-            setGuardando(false);
         }
     };
 

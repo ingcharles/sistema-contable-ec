@@ -463,8 +463,9 @@ export class XmlGenerator {
     static generateAccessKey(data: any): string {
         const info = data.infoTributaria;
         // La fecha depende de la sección de info del documento específico
-        const infoDoc = data.infoFactura || data.infoLiquidacionCompra || data.infoCompRetencion || data.infoNotaCredito;
-        const date = infoDoc.fechaEmision.replace(/\//g, '').replace(/-/g, '');
+        const infoDoc = data.infoFactura || data.infoLiquidacionCompra || data.infoCompRetencion || data.infoNotaCredito || data.infoGuiaRemision;
+        const fechaEmision = infoDoc.fechaEmision || infoDoc.fechaIniTraslado;
+        const date = fechaEmision.replace(/\//g, '').replace(/-/g, '');
 
         const ruc = info.ruc;
         const codDoc = info.codDoc;

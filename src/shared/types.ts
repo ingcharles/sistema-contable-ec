@@ -26,6 +26,25 @@ export enum TipoComprobante {
     LIQUIDACION_COMPRA = '03'
 }
 
+export interface PlanFeature {
+    id: string;
+    planId: string;
+    featureKey: string; // 'MAX_EMPRESAS', 'IA_ACCESO_LOCAL', etc
+    tipoDocumento?: string; // Código SRI '01', '07', etc
+    valueType: 'NUMERO' | 'BOOLEANO' | 'NUMBER' | 'BOOLEAN';
+    valueNumber?: number;
+    valueBool?: boolean;
+}
+
+export interface Plan {
+    id: string;
+    codigo: string; // 'GRATUITO', 'PROFESIONAL', 'EMPRESARIAL'
+    nombre: string;
+    precioMensual: number;
+    activo: boolean;
+    features?: PlanFeature[];
+}
+
 export interface Empresa {
     id: string;
     razonSocial: string;
@@ -37,13 +56,21 @@ export interface Empresa {
     contribuyenteEspecial: string | null;
     rimpe: 'NEGOCIO_POPULAR' | 'EMPRENDEDOR' | null;
     logoUrl?: string;
+    ambienteSri?: number;
 }
 
 export interface Usuario {
     id: string;
     nombre: string;
-    rol: 'ADMIN' | 'CONTADOR' | 'AUDITOR' | 'ASISTENTE';
+    roles: ('SUPERADMIN' | 'ADMIN' | 'CONTADOR' | 'AUDITOR' | 'ASISTENTE')[];
     email: string;
+    plan?: Plan; // Plan poblado
+    planId?: string;
+    planStatus?: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED';
+    usageStats?: {
+        createdCompanies: number;
+        currentMonthDocs: number;
+    };
 }
 
 // Entidad de Auditoría Base

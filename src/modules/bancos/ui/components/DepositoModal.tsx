@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { ArrowRightLeft, Save, Calendar, Hash, DollarSign } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { CuentaBancaria, TipoMovimientoBancario } from '../../domain/types';
-import { BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useBancosMutations } from '../../hooks/useBancos';
 import { Button } from '@/shared/ui/Button';
 
 interface Props {
@@ -18,13 +18,14 @@ export const DepositoModal: React.FC<Props> = ({ cuentas, onClose, onSave }) => 
     const [monto, setMonto] = useState(0);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [referencia, setReferencia] = useState('');
-    const [guardando, setGuardando] = useState(false);
+
+    const { registrarTransaccion, guardando } = useBancosMutations();
 
     const handleGuardar = async () => {
         if (!cuentaId || monto <= 0) return;
-        setGuardando(true);
+
         try {
-            await BancosUseCases.registrarTransaccion({
+            await registrarTransaccion({
                 cuentaId,
                 fecha,
                 tipo: TipoMovimientoBancario.DEPOSITO,
@@ -39,8 +40,6 @@ export const DepositoModal: React.FC<Props> = ({ cuentas, onClose, onSave }) => 
         } catch (error) {
             console.error(error);
             alert('Error al registrar el depósito');
-        } finally {
-            setGuardando(false);
         }
     };
 

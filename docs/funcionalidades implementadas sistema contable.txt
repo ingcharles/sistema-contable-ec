@@ -363,3 +363,14 @@ Es el paso previo a los estados financieros. Una lista sábana de todas las cuen
 IMPORTACIÓN DE EXTRACTOS BANCARIOS:
 En el módulo de Bancos, implementaste la conciliación manual, pero el requerimiento exigía "Carga de estados de cuenta". Implementaré la lectura de archivos (CSV/Excel) para pre-llenar la conciliación.
 A continuación, implemento estas funcionalidades críticas.
+
+Nómina Avanzada (IESS / SUT):
+Generación de Planillas (Archivos de Texto para IESS): El sistema debe exportar el .txt que se sube al portal del IESS para avisos de entrada, salida y planillas de aportes mensules. Sin esto, el contador pierde horas copiando datos.
+Formulario 107 (RDEP): Generar el XML de gastos personales y retenciones en la fuente de empleados para el SRI (se presenta en Enero).
+Décimos y Fondos de Reserva: Cálculo automático de provisiones mensuales y reporte de "Acumulación" para el IESS.
+Activos Fijos (Depreciación Real):
+La generación del asiento contable de depreciación mensual automático.
+Impresión de actas de entrega-recepción de activos a empleados.
+Gestión de Cobranzas (Cartera):
+Estado de Cuenta por Cliente: Un reporte PDF que se envía al cliente con todas sus facturas pendientes y abonos.
+Antigüedad de Saldos: Reporte "Aging" (Vencido 30, 60, 90 días) para provisión de cuentas incobrables.

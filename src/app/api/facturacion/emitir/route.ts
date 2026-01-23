@@ -4,12 +4,14 @@ import { SignatureService } from '@/modules/facturacion/domain/services/Signatur
 import { SriWebService, SriEnvironment } from '@/modules/facturacion/domain/services/SriWebService';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
+import { XsdValidator } from '@/modules/facturacion/domain/services/XsdValidator';
 
 /**
  * POST /api/facturacion/emitir
  * Proceso completo de Facturación Electrónica (SRI Ecuador)
  * 1. Recupera configuración parametrizada desde PostgreSQL
  * 2. Genera Clave de Acceso y XML estructurado
+ * 2.5. Valida XML contra esquema XSD
  * 3. Firma digitalmente el XML (XAdES-BES)
  * 4. Envía al SRI (Recepción)
  * 5. Consulta Autorización
@@ -78,6 +80,22 @@ export async function POST(req: NextRequest) {
                 throw new Error(`Tipo de comprobante ${codDoc} no soportado para generación de XML`);
         }
 
+        // 2.5. Validación XSD Estricta
+        try {
+            console.log(`Validando XML contra esquema XSD para tipo ${codDoc}...`);
+            // Se valida el XML generado antes de firmar
+            XsdValidator.validate(rawXml, codDoc);
+            console.log('Validación XSD exitosa.');
+        } catch (validationError: any) {
+            console.error('Error de validación XSD:', validationError.message);
+            // Devolvemos error detallado al cliente para que pueda corregir
+            return NextResponse.json({
+                success: false,
+                error: 'El XML generado no cumple con el esquema XSD del SRI',
+                details: validationError.message.split('\n')
+            }, { status: 400 });
+        }
+
         // 3. Firma Electrónica (Proceso Seguro en Backend)
         const signedXml = await SignatureService.signXml(rawXml, {
             p12Base64: p12Base64,
@@ -102,10 +120,6 @@ export async function POST(req: NextRequest) {
         const autorizacionResult = await SriWebService.autorizarComprobante(accessKey, sriEnv);
 
         // 6. Persistencia en PostgreSQL (Simulación de INSERT con auditoría automática)
-        /**
-         * SQL INSERT INTO comprobantes_cab (...) 
-         * Trigger 'audit_comprobantes' capturará este cambio automáticamente.
-         */
         console.log(`DB: Comprobante ${accessKey} guardado en PostgreSQL con estado ${autorizacionResult.estado}`);
 
         return NextResponse.json({

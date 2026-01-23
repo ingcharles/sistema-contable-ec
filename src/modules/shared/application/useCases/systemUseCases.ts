@@ -74,45 +74,6 @@ export class ContabilidadUseCases extends BaseUseCase {
 }
 
 /**
- * MÓDULO: FACTURACIÓN / SRI
- */
-export class FacturacionUseCases extends BaseUseCase {
-    static async emitirFactura(factura: any) {
-        return this.request('/api/facturacion/emitir', {
-            method: 'POST',
-            body: JSON.stringify(factura)
-        });
-    }
-    static async registrarComprobante(comprobante: any) {
-        return this.request('/api/facturacion/comprobantes', {
-            method: 'POST',
-            body: JSON.stringify(comprobante)
-        });
-    }
-    static async listarComprobantes() {
-        return this.request('/api/facturacion/comprobantes');
-    }
-    static async listarGuias() {
-        return this.request('/api/facturacion/guias');
-    }
-    static async guardarGuiaRemision(guia: any) {
-        return this.request('/api/facturacion/guias', {
-            method: 'POST',
-            body: JSON.stringify(guia)
-        });
-    }
-    static async listarTransportistas() {
-        return this.request('/api/transportistas');
-    }
-    static async guardarTransportista(transportista: any) {
-        return this.request('/api/transportistas', {
-            method: 'POST',
-            body: JSON.stringify(transportista)
-        });
-    }
-}
-
-/**
  * MÓDULO: INVENTARIO
  */
 export class InventarioUseCases extends BaseUseCase {
@@ -248,8 +209,10 @@ export class CarteraUseCases extends BaseUseCase {
             body: JSON.stringify(pago)
         });
     }
-    static async listarDocumentosPendientes(tipo: string) {
-        return this.request(`/api/cartera/documentos?tipo=${tipo}`);
+    static async listarDocumentosPendientes(tipo: string, terceroId?: string) {
+        let url = `/api/cartera/documentos?tipo=${tipo}`;
+        if (terceroId) url += `&terceroId=${terceroId}`;
+        return this.request(url);
     }
     static async listarAnticipos(tipo: string) {
         return this.request(`/api/cartera/anticipos?tipo=${tipo}`);
@@ -259,6 +222,10 @@ export class CarteraUseCases extends BaseUseCase {
             method: 'POST',
             body: JSON.stringify(anticipo)
         });
+    }
+
+    static async obtenerReporteAging(tipo: string) {
+        return this.request(`/api/cartera/aging?tipo=${tipo}`);
     }
 }
 
@@ -412,6 +379,55 @@ export class ConfiguracionUseCases extends BaseUseCase {
 
     static async listarEmpresas() {
         return this.request('/api/empresas');
+    }
+}
+
+/**
+ * MÓDULO: FACTURACIÓN / SRI
+ */
+export class FacturacionUseCases extends BaseUseCase {
+    static async emitirFactura(factura: any) {
+        return this.request('/api/facturacion/emitir', {
+            method: 'POST',
+            body: JSON.stringify(factura)
+        });
+    }
+    static async registrarComprobante(comprobante: any) {
+        return this.request('/api/facturacion/comprobantes', {
+            method: 'POST',
+            body: JSON.stringify(comprobante)
+        });
+    }
+    static async listarComprobantes() {
+        return this.request('/api/facturacion/comprobantes');
+    }
+    static async listarGuias() {
+        return this.request('/api/facturacion/guias');
+    }
+    static async guardarGuiaRemision(guia: any) {
+        return this.request('/api/facturacion/guias', {
+            method: 'POST',
+            body: JSON.stringify(guia)
+        });
+    }
+    static async actualizarGuia(guia: any) {
+        return this.request('/api/facturacion/guias', {
+            method: 'PUT',
+            body: JSON.stringify(guia)
+        });
+    }
+    static async listarTransportistas() {
+        return this.request('/api/transportistas');
+    }
+    static async guardarTransportista(transportista: any) {
+        return this.request('/api/transportistas', {
+            method: 'POST',
+            body: JSON.stringify(transportista)
+        });
+    }
+
+    static async listarPuntosEmision() {
+        return ConfiguracionUseCases.listarPuntosEmision();
     }
 }
 

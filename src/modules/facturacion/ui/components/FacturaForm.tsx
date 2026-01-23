@@ -18,10 +18,12 @@ import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 // Repositorios para integración
-import { DirectorioUseCases, InventarioUseCases, FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { InventarioUseCases, FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Producto } from '@/modules/inventario/domain/types';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 
 export interface FacturaFormProps {
     factura?: Partial<FacturaViewModel>;
@@ -33,9 +35,14 @@ export interface FacturaFormProps {
 
 export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', showButtons = true }: FacturaFormProps) {
     const { currentEmpresa } = useEmpresa();
+    const { parametros, cargarParametros } = useConfiguracion();
+
+    useEffect(() => {
+        cargarParametros();
+    }, []);
 
     // Estados para integración
-    const [clientes, setClientes] = useState<Tercero[]>([]);
+    const { terceros: clientes, cargarTerceros: cargarClientes } = useTerceros();
     const [productos, setProductos] = useState<Producto[]>([]);
     const [busquedaCliente, setBusquedaCliente] = useState('');
     const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
@@ -55,7 +62,8 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     useEffect(() => {
         if (currentEmpresa) {
             const loadData = async () => {
-                const listaClientes = await DirectorioUseCases.listarTerceros('CLIENTE');
+                await cargarClientes('CLIENTE');
+
                 const productosResponse = await InventarioUseCases.listarProductos('?limit=1000');
                 const productosData = productosResponse.data || [];
 
@@ -77,7 +85,6 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                     createdBy: ''
                 }));
 
-                setClientes(listaClientes);
                 setProductos(listaProductos);
             };
             loadData();
@@ -225,9 +232,13 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         const tarifaSeleccionada = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
 
         if (tarifaSeleccionada) {
-            const match = tarifaSeleccionada.valor.match(/(\d+)%/);
-            if (match) {
-                porcentajeIVA = parseInt(match[1]) / 100;
+            if (detalle.codigoIVA === '2') {
+                porcentajeIVA = (parametros?.iva || 15) / 100;
+            } else {
+                const match = tarifaSeleccionada.valor.match(/(\d+)%/);
+                if (match) {
+                    porcentajeIVA = parseInt(match[1]) / 100;
+                }
             }
         }
 
@@ -310,7 +321,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
         };
 
-        const dataSri = SriStandardizer.standardizeFactura(nuevaFactura);
+        const dataSri = SriStandardizer.standardizeFactura(nuevaFactura, parametros?.iva || 15);
 
         let sriResult = {
             success: false,
@@ -595,11 +606,11 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                                             {tarifasIVA && tarifasIVA.length > 0 ? (
                                                 tarifasIVA.map(tarifa => (
                                                     <option key={tarifa.codigo} value={tarifa.codigo}>
-                                                        {tarifa.valor}
+                                                        {tarifa.codigo === '2' ? `${parametros?.iva || 15}%` : tarifa.valor}
                                                     </option>
                                                 ))
                                             ) : (
-                                                <option value="2">12%</option>
+                                                <option value="2">{parametros?.iva || 15}%</option>
                                             )}
                                         </select>
                                     </td>
@@ -713,7 +724,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                         <span className="font-bold text-white">${totales.totalDescuento.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-blue-100 font-medium">
-                        <span>IVA:</span>
+                        <span>IVA ({parametros?.iva || 15}%):</span>
                         <span className="font-bold text-white">${totales.totalIVA.toFixed(2)}</span>
                     </div>
                     <div className="pt-4 border-t border-white/10 flex justify-between items-center">

@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
         const result = await db.transaction(async (client) => {
             // 1. Obtener datos del documento y del tercero
             const docResult = await client.query(`
-                SELECT d.*, t.cuenta_contable_cxc, t.cuenta_contable_cxp
-                FROM cartera.cartera_documentos d
+                SELECT d.*, t.razon_social as tercero_nombre, t.cuenta_contable_cxc, t.cuenta_contable_cxp
+                FROM cartera.documentos_pendientes d
                 JOIN directorio.terceros t ON d.tercero_id = t.id
                 WHERE d.id = $1 AND d.empresa_id = $2
             `, [documentoId, context.empresaId]);
@@ -50,12 +50,12 @@ export async function POST(req: NextRequest) {
             }
 
             const doc = docResult.rows[0];
-            const esCobro = doc.tipo_cartera === 'CXC';
+            const esCobro = doc.tipo === 'CXC';
 
             // 2. Actualizar saldo en Cartera
             await client.query(`
-                UPDATE cartera.cartera_documentos 
-                SET saldo_pendiente = saldo_pendiente - $1, updated_at = NOW()
+                UPDATE cartera.documentos_pendientes 
+                SET saldo_pendiente = saldo_pendiente - $1, total_pagado = total_pagado + $1, updated_at = NOW()
                 WHERE id = $2
             `, [monto, documentoId]);
 

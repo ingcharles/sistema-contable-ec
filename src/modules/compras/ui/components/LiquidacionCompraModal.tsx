@@ -10,6 +10,7 @@ import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
 import { ComprasUseCases, ContabilidadUseCases, ConfiguracionUseCases, FacturacionUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { Producto } from '@/modules/inventario/domain/types';
 
 interface Props {
@@ -80,6 +81,12 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         }
     }, [totales.importeTotal]);
 
+    const { parametros, cargarParametros } = useConfiguracion();
+
+    useEffect(() => {
+        cargarParametros();
+    }, [cargarParametros]);
+
     useEffect(() => {
         if (!identificacion || tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL) {
             setErrorIdentificacion('');
@@ -116,13 +123,15 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         loadData();
     }, []);
 
+    const ivaPorcentaje = (parametros?.iva || 15) / 100;
+
     const handleActualizarDetalle = (index: number, campo: string, valor: any) => {
         const nuevosDetalles = [...detalles];
         const detalle = { ...nuevosDetalles[index], [campo]: valor };
 
         detalle.baseImponible = (detalle.cantidad * detalle.precioUnitario) - detalle.descuento;
         let porcentaje = 0;
-        if (detalle.codigoIVA === TARIFA_IVA.IVA_15) porcentaje = 0.15;
+        if (detalle.codigoIVA === TARIFA_IVA.IVA_15) porcentaje = ivaPorcentaje;
         else if (detalle.codigoIVA === TARIFA_IVA.IVA_12) porcentaje = 0.12;
 
         detalle.valorIVA = detalle.baseImponible * porcentaje;
@@ -284,7 +293,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                     <p className="text-lg font-black text-white">{formatMoney(totales.totalSinImpuestos)}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-[10px] text-blue-100 uppercase font-black opacity-60">IVA</p>
+                    <p className="text-[10px] text-blue-100 uppercase font-black opacity-60">IVA ({parametros?.iva || 15}%)</p>
                     <p className="text-lg font-black text-white">{formatMoney(totales.totalIVA)}</p>
                 </div>
                 <div className="pl-6 border-l border-white/20 text-right">
@@ -442,7 +451,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                                         <td className="px-4 py-4 text-center">
                                             <select value={d.codigoIVA} onChange={e => handleActualizarDetalle(i, 'codigoIVA', e.target.value)} className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-black text-sri-blue outline-none border-none">
                                                 <option value={TARIFA_IVA.IVA_0}>0%</option>
-                                                <option value={TARIFA_IVA.IVA_15}>15%</option>
+                                                <option value={TARIFA_IVA.IVA_15}>{parametros?.iva || 15}%</option>
                                                 <option value={TARIFA_IVA.IVA_12}>12%</option>
                                             </select>
                                         </td>

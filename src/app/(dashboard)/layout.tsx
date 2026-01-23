@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NAV_ITEMS } from '@/shared/constants';
-import { Bell, Search, ChevronDown, Menu, User, Building, LogOut, Sparkles } from 'lucide-react';
+import { ICON_MAP } from '@/shared/constants';
+import { Bell, Search, ChevronDown, Menu, User, Building, LogOut, Sparkles, FileText } from 'lucide-react';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { AsistenteFloating } from '@/shared/ui/AsistenteFloating';
@@ -18,12 +18,32 @@ export default function DashboardLayout({
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isEmpresaMenuOpen, setEmpresaMenuOpen] = useState(false);
     const [isEmpresaModalOpen, setEmpresaModalOpen] = useState(false);
-    const pathname = usePathname();
+    const [menuItems, setMenuItems] = useState<any[]>([]);
+    const [loadingMenu, setLoadingMenu] = useState(true);
 
+    const pathname = usePathname();
     const { user, logout } = useAuth();
     const { currentEmpresa, setCurrentEmpresa, empresas, refreshEmpresas } = useEmpresa();
 
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
+
+    // Cargar menú dinámico desde la DB (Ya viene filtrado por Rol y Plan desde el Backend)
+    React.useEffect(() => {
+        const fetchMenu = async () => {
+            try {
+                const response = await fetch('/api/configuracion/menu');
+                if (response.ok) {
+                    const data = await response.json();
+                    setMenuItems(data);
+                }
+            } catch (error) {
+                console.error('Error loading menu:', error);
+            } finally {
+                setLoadingMenu(false);
+            }
+        };
+        fetchMenu();
+    }, []);
 
     return (
         <div className="min-h-screen bg-[#f8fafc] flex font-sans selection:bg-sri-blue/10 selection:text-sri-blue">
@@ -56,30 +76,38 @@ export default function DashboardLayout({
                     {currentEmpresa.id ? (
                         <>
                             <div className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-2 opacity-80">Módulos del Sistema</div>
-                            {NAV_ITEMS.map((item) => {
-                                const Icon = item.icon;
-                                const isActive = pathname === item.path;
-                                return (
-                                    <Link
-                                        key={item.path}
-                                        href={item.path}
-                                        onClick={() => setSidebarOpen(false)}
-                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${isActive
-                                            ? 'bg-gradient-to-r from-sri-blue to-sri-light text-white shadow-lg shadow-sri-blue/30 scale-[1.02]'
-                                            : 'text-slate-400 hover:text-white hover:bg-white/5'
-                                            }`}
-                                    >
-                                        {isActive && (
-                                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50" />
-                                        )}
-                                        <Icon size={18} className={`${isActive ? 'text-white' : 'text-slate-500 group-hover:text-sky-400'} transition-colors duration-300`} />
-                                        <span className="relative z-10">{item.label}</span>
-                                        {!isActive && (
-                                            <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-sri-blue scale-0 group-hover:scale-100 transition-transform duration-300" />
-                                        )}
-                                    </Link>
-                                );
-                            })}
+                            {loadingMenu ? (
+                                <div className="px-4 py-2 space-y-4">
+                                    {[1, 2, 3, 4, 5].map(i => (
+                                        <div key={i} className="h-10 bg-slate-800/50 rounded-xl animate-pulse" />
+                                    ))}
+                                </div>
+                            ) : (
+                                menuItems.map((item) => {
+                                    const Icon = ICON_MAP[item.iconName] || FileText;
+                                    const isActive = pathname === item.path;
+                                    return (
+                                        <Link
+                                            key={item.path}
+                                            href={item.path}
+                                            onClick={() => setSidebarOpen(false)}
+                                            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${isActive
+                                                ? 'bg-gradient-to-r from-sri-blue to-sri-light text-white shadow-lg shadow-sri-blue/30 scale-[1.02]'
+                                                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                                }`}
+                                        >
+                                            {isActive && (
+                                                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50" />
+                                            )}
+                                            <Icon size={18} className={`${isActive ? 'text-white' : 'text-slate-500 group-hover:text-sky-400'} transition-colors duration-300`} />
+                                            <span className="relative z-10">{item.label}</span>
+                                            {!isActive && (
+                                                <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-sri-blue scale-0 group-hover:scale-100 transition-transform duration-300" />
+                                            )}
+                                        </Link>
+                                    );
+                                })
+                            )}
                         </>
                     ) : (
                         <div className="px-4 py-8 text-center">

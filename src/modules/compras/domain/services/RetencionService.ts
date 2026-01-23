@@ -1,6 +1,7 @@
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 import { SignatureService } from '@/modules/facturacion/domain/services/SignatureService';
+import { ServicioSeguimientoUso, TipoComprobanteEnum } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
 
 export interface DetalleRetencionRequest {
     codigo: string;          // 1 (Renta), 2 (IVA), 6 (ISD)
@@ -19,8 +20,14 @@ export class RetencionService {
      * Emite una Retención Electrónica para una Compra existente
      */
     static async emitir(empresaId: string, usuarioId: string, compraId: string, detalles: DetalleRetencionRequest[]) {
-        // 1. Obtener Datos de la Compra y Empresa
-        const compraResult = await db.querySimple<any>({
+        // 0. VALIDAR CUOTA DE RETENCIONES ('07')
+        const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(usuarioId, TipoComprobanteEnum.RETENCION);
+        if (!verificacionCuota.permitido) {
+            throw new Error(`Cuota de retenciones excedida: ${verificacionCuota.mensaje}`);
+        }
+
+        // 1. Obtener Datos de la Compra, Empresa y Punto de Emisión Matriz
+        const setupResult = await db.querySimple<any>({
             text: `
                 SELECT 
                     c.*, 
@@ -30,21 +37,23 @@ export class RetencionService {
                     e.ruc as emp_ruc, e.razon_social as emp_razon, e.nombre_comercial as emp_nombre_comercial,
                     e.direccion_matriz as emp_dir, e.obligado_contabilidad as emp_obligado,
                     e.contribuyente_especial as emp_cont_esp, e.agente_retencion as emp_agente_ret,
-                    e.ambiente_sri as emp_ambiente, e.firma_electronica, e.clave_firma
+                    e.ambiente_sri as emp_ambiente, e.firma_electronica, e.clave_firma,
+                    s.codigo as estab, pe.codigo as pto_emi
                 FROM compras.compras c
                 JOIN directorio.terceros t ON c.proveedor_id = t.id
                 JOIN configuracion.empresas e ON c.empresa_id = e.id
+                LEFT JOIN configuracion.sucursales s ON e.id = s.empresa_id AND s.es_matriz = true
+                LEFT JOIN configuracion.puntos_emision pe ON s.id = pe.sucursal_id AND pe.activo = true
                 WHERE c.id = $1 AND c.empresa_id = $2
+                ORDER BY pe.created_at ASC LIMIT 1
             `,
             values: [compraId, empresaId]
         });
 
-        if (compraResult.rows.length === 0) throw new Error('Compra no encontrada');
-        const data = compraResult.rows[0];
+        if (setupResult.rows.length === 0) throw new Error('Compra no encontrada');
+        const data = setupResult.rows[0];
 
         // 2. Generar Secuencial de Retención
-        // (Buscamos el último secuencial de tipo RETENCION en facturacion o compras)
-        // OJO: La tabla de facturación guarda todos los documentos EMITIDOS.
         const secResult = await db.querySimple<any>({
             text: `SELECT COALESCE(MAX(secuencial::int), 0) + 1 as next FROM facturacion.comprobantes_electronicos WHERE empresa_id = $1 AND tipo_comprobante = 'RETENCION'`,
             values: [empresaId]
@@ -73,13 +82,12 @@ export class RetencionService {
                 razonSocial: data.emp_razon,
                 nombreComercial: data.emp_nombre_comercial,
                 ruc: data.emp_ruc,
-                // accessKey generado auto
                 codDoc: '07', // Retención
-                estab: '001', // TODO: Parametrizar sucursales
-                ptoEmi: '001',
+                estab: data.estab || '001',
+                ptoEmi: data.pto_emi || '001',
                 secuencial: nextSecuencial,
                 dirMatriz: data.emp_dir,
-                agenteRetencion: data.emp_agente_ret // Resolución No.
+                agenteRetencion: data.emp_agente_ret
             },
             infoCompRetencion: {
                 fechaEmision: fechaEmision,
@@ -144,6 +152,9 @@ export class RetencionService {
             `, [`001-001-${nextSecuencial}`, compraId]);
 
         }, { empresaId, usuarioId });
+
+        // Incrementar contador de uso
+        await ServicioSeguimientoUso.incrementarUso(usuarioId, TipoComprobanteEnum.RETENCION);
 
         return { success: true, claveAcceso, secuencial: nextSecuencial, xml };
     }

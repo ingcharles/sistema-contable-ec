@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { extractPaginationParams, buildPaginatedResponse } from '@/shared/utils/pagination';
+import { ServicioSeguimientoUso, TipoComprobanteEnum, TipoComprobanteSri } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
 
 /**
  * GET /api/facturacion/comprobantes
@@ -127,6 +128,35 @@ export async function POST(req: NextRequest) {
             ambienteSri = '1',
             tipoEmisionSri = '1'
         } = body;
+
+        // ===== VALIDACIÓN DE CUOTA DE DOCUMENTOS =====
+        // Verificar si el usuario puede emitir este tipo de documento
+        const tipoDocMap: Record<string, TipoComprobanteSri> = {
+            'FACTURA': TipoComprobanteEnum.FACTURA,
+            'NOTA_CREDITO': TipoComprobanteEnum.NOTA_CREDITO,
+            'NOTA_DEBITO': TipoComprobanteEnum.NOTA_DEBITO,
+            'GUIA_REMISION': TipoComprobanteEnum.GUIA_REMISION
+        };
+
+        const tipoDocParaCuota = tipoDocMap[tipoComprobante];
+        if (tipoDocParaCuota && context.usuarioId) {
+            const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(
+                context.usuarioId,
+                tipoDocParaCuota
+            );
+
+            if (!verificacionCuota.permitido) {
+                return NextResponse.json({
+                    error: 'Cuota de documentos excedida',
+                    mensaje: verificacionCuota.mensaje,
+                    detalles: {
+                        tipo: tipoDocParaCuota,
+                        usado: verificacionCuota.actual,
+                        limite: verificacionCuota.limite
+                    }
+                }, { status: 403 });
+            }
+        }
 
         if (!tipoComprobante || !fechaEmision || !clienteId || !total || !detalles) {
             return NextResponse.json(
@@ -310,6 +340,11 @@ export async function POST(req: NextRequest) {
 
             return { comprobanteId, secuencial };
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+
+        // Incrementar contador de uso DESPUÉS de creación exitosa
+        if (tipoDocParaCuota && context.usuarioId) {
+            await ServicioSeguimientoUso.incrementarUso(context.usuarioId, tipoDocParaCuota);
+        }
 
         return NextResponse.json({
             success: true,

@@ -40,9 +40,9 @@ export async function GET(req: NextRequest) {
                 cuentaIvaCompras: '1.1.05.01',
                 cuentaRetRentaPorPagar: '2.1.03.01',
                 cuentaCxcClientes: '1.1.02.01',
-                cuentaAnticipoClientes: '2.1.01.05',
+                cuentaAnticipoClientes: '2.1.04.01',
                 cuentaCxpProveedores: '2.1.01.01',
-                cuentaAnticipoProveedores: '1.1.02.05',
+                cuentaAnticipoProveedores: '1.1.04.01',
                 fechaCierre: null
             });
         }

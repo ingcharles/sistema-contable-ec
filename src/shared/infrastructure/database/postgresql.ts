@@ -10,7 +10,7 @@ class PostgreSQLClient {
 
     private constructor() {
         this.pool = new Pool({
-            host: process.env.DB_HOST || 'localhost',
+            host: process.env.DB_HOST || '127.0.0.1',
             port: parseInt(process.env.DB_PORT || '5435'),
             database: process.env.DB_NAME || 'ecucontabledb',
             user: process.env.DB_USER || 'postgres',

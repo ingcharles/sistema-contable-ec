@@ -9,12 +9,20 @@
 // Remove unused React import
 import { FacturaViewModel } from '../../domain/FacturaViewModel';
 import { FORMA_PAGO } from '../../domain/catalogos';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
+import { useEffect } from 'react';
 
 interface FacturaRIDEProps {
     factura: FacturaViewModel;
 }
 
 export function FacturaRIDE({ factura }: FacturaRIDEProps) {
+    const { parametros, cargarParametros } = useConfiguracion();
+
+    useEffect(() => {
+        cargarParametros();
+    }, []);
+
     const getNombreFormaPago = (codigo: string) => {
         const entry = Object.entries(FORMA_PAGO).find(([_, val]) => val === codigo);
         return entry ? entry[0].replace(/_/g, ' ') : 'OTROS CON SISTEMA FINANCIERO';
@@ -157,8 +165,8 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
                                 <td className="px-3 py-1.5 text-right font-bold">{factura.totalSinImpuestos.toFixed(2)}</td>
                             </tr>
                             <tr>
-                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal 15%</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '4').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal {parametros?.iva || 15}%</td>
+                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal 0%</td>
@@ -177,7 +185,7 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
                                 <td className="px-3 py-1.5 text-right">{(factura.totalDescuento || 0).toFixed(2)}</td>
                             </tr>
                             <tr>
-                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA 15%</td>
+                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA {parametros?.iva || 15}%</td>
                                 <td className="px-3 py-1.5 text-right font-bold">{(factura.totalIVA || 0).toFixed(2)}</td>
                             </tr>
                             <tr className="bg-slate-900 text-white">

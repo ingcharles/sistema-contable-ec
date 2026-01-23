@@ -19,13 +19,17 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Buscar usuario
+        // Buscar usuario con sus roles
         const userResult = await db.querySimple({
             text: `
                 SELECT 
-                    u.id, u.email, u.nombre, u.password_hash, u.rol, u.activo
+                    u.id, u.email, u.nombre, u.password_hash, u.activo,
+                    COALESCE(array_agg(r.nombre) FILTER (WHERE r.nombre IS NOT NULL), ARRAY[]::text[]) as roles
                 FROM seguridad.usuarios u
+                LEFT JOIN seguridad.usuarios_roles ur ON u.id = ur.usuario_id
+                LEFT JOIN seguridad.roles r ON ur.rol_id = r.id
                 WHERE u.email = $1
+                GROUP BY u.id
             `,
             values: [email]
         });
@@ -39,7 +43,7 @@ export async function POST(req: NextRequest) {
 
         const user = userResult.rows[0];
 
-        // Verificar que el usuario esté activo
+        // ... (verificación de activo y password_hash igual que antes)
         if (!user.activo) {
             return NextResponse.json(
                 { error: 'Usuario inactivo. Contacte al administrador' },
@@ -47,7 +51,6 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Verificar contraseña (comparar hash)
         const passwordHash = crypto
             .createHash('sha256')
             .update(password)
@@ -71,10 +74,9 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Determinar empresa
+        // Determinar empresa (igual que antes)
         let selectedEmpresaId = empresaId;
 
-        // Si no se proporciona empresaId, usar la primera del usuario
         if (!selectedEmpresaId) {
             const empresaResult = await db.querySimple({
                 text: `
@@ -95,7 +97,6 @@ export async function POST(req: NextRequest) {
 
             selectedEmpresaId = empresaResult.rows[0].empresa_id;
         } else {
-            // Verificar que el usuario tenga acceso a la empresa solicitada
             const accessResult = await db.querySimple({
                 text: `
                     SELECT 1 FROM seguridad.usuarios_empresas
@@ -112,17 +113,17 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Generar tokens JWT
+        // Generar tokens JWT con múltiples roles
         const accessToken = JWTService.generateAccessToken({
             userId: user.id,
             empresaId: selectedEmpresaId,
             email: user.email,
-            rol: user.rol
+            roles: user.roles
         });
 
         const refreshToken = JWTService.generateRefreshToken(user.id);
 
-        // Registrar login exitoso
+        // Registrar login exitoso (igual que antes)
         await db.querySimple({
             text: `
                 INSERT INTO auditoria.auditoria_logs 
@@ -138,7 +139,6 @@ export async function POST(req: NextRequest) {
             ]
         });
 
-        // Actualizar última conexión
         await db.querySimple({
             text: `UPDATE seguridad.usuarios SET ultimo_acceso = NOW() WHERE id = $1`,
             values: [user.id]
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
                 id: user.id,
                 email: user.email,
                 nombre: user.nombre,
-                rol: user.rol
+                roles: user.roles
             },
             empresaId: selectedEmpresaId,
             accessToken,

@@ -1,259 +1,246 @@
+
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { ShieldAlert, Search, Eye, User, Activity, AlertCircle, ShieldCheck, FileSpreadsheet } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { LogAuditoria, NivelSeveridad } from '@/modules/auditoria/domain/types';
 import { AuditoriaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
+import { LogDetailsModal } from '@/modules/auditoria/ui/components/LogDetailsModal';
+import { LogAuditoria, NivelSeveridad, TipoEvento } from '@/modules/auditoria/domain/types';
+import { ShieldAlert, Eye, RefreshCw, Filter } from 'lucide-react';
 
 export default function AuditoriaPage() {
     const { currentEmpresa } = useEmpresa();
     const [logs, setLogs] = useState<LogAuditoria[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [moduloFiltro, setModuloFiltro] = useState<string>('TODOS');
-    const [severidadFiltro, setSeveridadFiltro] = useState<string>('TODOS');
+    const [selectedLog, setSelectedLog] = useState<LogAuditoria | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const loadData = async () => {
+    // Filtros
+    const [filters, setFilters] = useState({
+        modulo: '',
+        evento: '',
+        usuarioId: '',
+        severidad: '',
+        limit: 50,
+        offset: 0
+    });
+
+
+
+    const loadLogs = async () => {
         if (!currentEmpresa) return;
         setLoading(true);
         try {
-            const data = await AuditoriaUseCases.consultarLogs({});
-            setLogs(data);
+            const response: any = await AuditoriaUseCases.consultarLogs({
+                ...filters,
+                empresaId: currentEmpresa.id
+            });
+            setLogs(response.data);
+
         } catch (error) {
-            console.error('Error cargando auditoría:', error);
+            console.error('Error cargando logs:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => { loadData(); }, [currentEmpresa?.id]);
+    useEffect(() => {
+        loadLogs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentEmpresa, filters.offset, filters.limit]); // Recargar cuando cambie paginación o empresa
 
-    const filteredLogs = useMemo(() => {
-        return logs.filter(l => {
-            const matchSearch = l.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                l.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                l.modulo.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchModulo = moduloFiltro === 'TODOS' || l.modulo === moduloFiltro;
-            const matchSeveridad = severidadFiltro === 'TODOS' || l.severidad === severidadFiltro;
-            return matchSearch && matchModulo && matchSeveridad;
-        });
-    }, [logs, searchTerm, moduloFiltro, severidadFiltro]);
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        setFilters(prev => ({ ...prev, offset: 0 })); // Reset page
+        loadLogs();
+    };
 
-    const stats = useMemo(() => {
-        const hoy = new Date().toISOString().split('T')[0];
-        return {
-            hoy: filteredLogs.filter(l => l.createdAt.startsWith(hoy)).length,
-            accesos: filteredLogs.filter(l => l.evento === 'LOGIN' || l.evento === 'ACCESO').length,
-            success: filteredLogs.filter(l => l.severidad === NivelSeveridad.SUCCESS).length,
-            warnings: filteredLogs.filter(l => l.severidad === NivelSeveridad.WARNING).length,
-            criticals: filteredLogs.filter(l => l.severidad === NivelSeveridad.CRITICAL).length
-        };
-    }, [filteredLogs]);
-
-    const handleExportExcel = () => {
-        if (filteredLogs.length === 0) return;
-
-        // Simple CSV export as "Excel" implementation
-        const headers = ['Fecha', 'Hora', 'Usuario', 'Modulo', 'Evento', 'Descripcion', 'Severidad', 'IP'];
-        const rows = filteredLogs.map(log => [
-            new Date(log.createdAt).toLocaleDateString(),
-            new Date(log.createdAt).toLocaleTimeString(),
-            log.usuario,
-            log.modulo,
-            log.evento,
-            `"${log.descripcion.replace(/"/g, '""')}"`,
-            log.severidad,
-            log.ip
-        ]);
-
-        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `auditoria_${currentEmpresa?.razonSocial.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const handleViewDetails = (log: LogAuditoria) => {
+        setSelectedLog(log);
+        setIsModalOpen(true);
     };
 
     const columns: Column<LogAuditoria>[] = [
         {
             header: 'Fecha / Hora',
-            cell: (log) => (
+            accessorKey: 'created_at' as keyof LogAuditoria, // Mapping raw api response
+            cell: (row: any) => (
                 <div className="flex flex-col">
-                    <span className="font-medium text-slate-700">{new Date(log.createdAt).toLocaleDateString()}</span>
-                    <span className="text-[10px] font-mono text-slate-400">{new Date(log.createdAt).toLocaleTimeString()}</span>
+                    <span className="text-sm font-medium text-slate-700">
+                        {new Date(row.created_at).toLocaleDateString()}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                        {new Date(row.created_at).toLocaleTimeString()}
+                    </span>
                 </div>
-            ),
-            sortable: true,
-            accessorKey: 'createdAt'
+            )
         },
         {
             header: 'Usuario',
-            cell: (log) => (
-                <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                        <User size={14} />
-                    </div>
-                    <span className="font-medium text-slate-600">{log.usuario}</span>
-                </div>
-            ),
-            sortable: true,
-            accessorKey: 'usuario'
-        },
-        {
-            header: 'Módulo / Evento',
-            cell: (log) => (
+            accessorKey: 'usuario_nombre',
+            cell: (row: any) => (
                 <div className="flex flex-col">
-                    <span className="font-bold text-sri-blue text-[11px] uppercase tracking-wider">{log.modulo}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">{log.evento}</span>
+                    <span className="text-sm font-medium text-slate-800">{row.usuario_nombre || 'Sistema'}</span>
+                    <span className="text-xs text-slate-500 font-mono">{row.ip_address}</span>
                 </div>
-            ),
-            sortable: true,
-            accessorKey: 'modulo'
+            )
         },
         {
-            header: 'Descripción',
-            accessorKey: 'descripcion',
-            className: 'text-slate-600 max-w-xs'
+            header: 'Módulo',
+            accessorKey: 'modulo',
+            cell: (row) => (
+                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
+                    {row.modulo}
+                </span>
+            )
+        },
+        {
+            header: 'Evento',
+            accessorKey: 'evento',
+            cell: (row) => (
+                <span className={`inline-flex items-center gap-1 font-medium text-sm ${row.evento.includes('ELIMINACION') ? 'text-red-600' :
+                    row.evento.includes('CREACION') ? 'text-green-600' : 'text-blue-600'
+                    }`}>
+                    {row.evento}
+                </span>
+            )
         },
         {
             header: 'Severidad',
-            cell: (log) => (
-                <div className="text-center">
-                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-tighter uppercase ${log.severidad === NivelSeveridad.CRITICAL ? 'bg-rose-100 text-rose-700' :
-                        log.severidad === NivelSeveridad.WARNING ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-                        }`}>
-                        {log.severidad}
+            accessorKey: 'severidad',
+            cell: (row) => {
+                const colors = {
+                    [NivelSeveridad.CRITICAL]: 'bg-red-50 text-red-700 border-red-100',
+                    [NivelSeveridad.WARNING]: 'bg-amber-50 text-amber-700 border-amber-100',
+                    [NivelSeveridad.SUCCESS]: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                };
+                // @ts-ignore
+                const style = colors[row.severidad] || 'bg-slate-50 text-slate-700';
+                return (
+                    <span className={`px-2 py-1 rounded-full text-xs border ${style}`}>
+                        {row.severidad}
                     </span>
-                </div>
-            ),
-            className: 'text-center'
+                );
+            }
         },
         {
             header: 'Acciones',
-            cell: () => (
-                <div className="text-right">
-                    <button className="p-2 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-all" title="Ver Detalles">
-                        <Eye size={18} />
-                    </button>
-                </div>
-            ),
-            className: 'text-right'
+            accessorKey: 'id',
+            cell: (row) => (
+                <button
+                    onClick={() => handleViewDetails(row)}
+                    className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
+                    title="Ver Detalles"
+                >
+                    <Eye size={18} />
+                </button>
+            )
         }
     ];
 
-    if (!currentEmpresa) return null;
-
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-slate-900 text-white rounded-2xl shadow-lg shadow-slate-200">
-                        <ShieldAlert size={28} />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Registro de Auditoría</h1>
-                        <p className="text-slate-500 text-sm mt-1">Trazabilidad completa de operaciones y seguridad del sistema.</p>
-                    </div>
+            <div className="flex justify-between items-start">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        <ShieldAlert className="text-sri-blue" />
+                        Auditoría del Sistema
+                    </h1>
+                    <p className="text-slate-500 text-sm mt-1">
+                        Traza de seguridad y registro de actividades de usuarios.
+                    </p>
                 </div>
                 <div className="flex gap-2">
+                    <button
+                        onClick={loadLogs}
+                        className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-all shadow-sm text-sm"
+                    >
+                        <RefreshCw size={16} /> Actualizar
+                    </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Activity size={20} /></div>
+            {/* Filtros */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                     <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Eventos Hoy</p>
-                        <h3 className="text-xl font-black text-slate-800">{stats.hoy}</h3>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><ShieldCheck size={20} /></div>
-                    <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Accesos Exitosos</p>
-                        <h3 className="text-xl font-black text-slate-800">{stats.accesos}</h3>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-amber-50 text-amber-600 rounded-xl"><AlertCircle size={20} /></div>
-                    <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Advertencias</p>
-                        <h3 className="text-xl font-black text-slate-800">{stats.warnings}</h3>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-rose-50 text-rose-600 rounded-xl"><ShieldAlert size={20} /></div>
-                    <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Críticos</p>
-                        <h3 className="text-xl font-black text-rose-600">{stats.criticals}</h3>
-                    </div>
-                </div>
-            </div>
-
-            <div className="space-y-4">
-                {/* Custom Filters */}
-                <div className="flex flex-wrap gap-4 items-center justify-between">
-                    <div className="flex flex-1 max-w-md gap-4">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 bg-white"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Módulo</label>
                         <select
-                            value={moduloFiltro}
-                            onChange={(e) => setModuloFiltro(e.target.value)}
-                            className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 bg-white"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                            value={filters.modulo}
+                            onChange={(e) => setFilters({ ...filters, modulo: e.target.value })}
                         >
-                            <option value="TODOS">Todos los Módulos</option>
+                            <option value="">Todos</option>
                             <option value="FACTURACION">Facturación</option>
+                            <option value="CONTABILIDAD">Contabilidad</option>
                             <option value="COMPRAS">Compras</option>
                             <option value="INVENTARIO">Inventario</option>
-                            <option value="BANCOS">Bancos</option>
-                            <option value="CONTABILIDAD">Contabilidad</option>
-                            <option value="CARTERA">Cartera</option>
-                            <option value="NOMINA">Nómina</option>
-                            <option value="AUDITORIA">Auditoría</option>
-                            <option value="SISTEMA">Sistema</option>
-                        </select>
-                        <select
-                            value={severidadFiltro}
-                            onChange={(e) => setSeveridadFiltro(e.target.value)}
-                            className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 bg-white"
-                        >
-                            <option value="TODOS">Todas las Severidades</option>
-                            <option value={NivelSeveridad.SUCCESS}>Success</option>
-                            <option value={NivelSeveridad.WARNING}>Warning</option>
-                            <option value={NivelSeveridad.CRITICAL}>Critical</option>
+                            <option value="SEGURIDAD">Seguridad</option>
+                            <option value="CONFIGURACION">Configuración</option>
                         </select>
                     </div>
-                </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Evento</label>
+                        <select
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                            value={filters.evento}
+                            onChange={(e) => setFilters({ ...filters, evento: e.target.value })}
+                        >
+                            <option value="">Todos</option>
+                            {Object.values(TipoEvento).map(evt => (
+                                <option key={evt} value={evt}>{evt}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Severidad</label>
+                        <select
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                            value={filters.severidad}
+                            onChange={(e) => setFilters({ ...filters, severidad: e.target.value })}
+                        >
+                            <option value="">Todas</option>
+                            <option value="SUCCESS">Éxito</option>
+                            <option value="WARNING">Advertencia</option>
+                            <option value="CRITICAL">Crítico / Error</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Usuario (ID o Nombre)</label>
+                        <input
+                            type="text"
+                            placeholder="Buscar usuario..."
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                            value={filters.usuarioId}
+                            onChange={(e) => setFilters({ ...filters, usuarioId: e.target.value })}
+                        />
+                    </div>
+                    <div>
+                        <button
+                            type="submit"
+                            className="w-full px-4 py-2 bg-sri-blue text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                            <Filter size={16} /> Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
 
+            {/* Tabla */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <DataTable
-                    data={filteredLogs}
                     columns={columns}
+                    data={logs}
                     loading={loading}
-                    itemsPerPage={5}
-                    emptyMessage="No hay registros de auditoría que coincidan con los filtros."
-                    actions={
-                        <Button onClick={handleExportExcel} variant="secondary" size="sm" className="flex items-center gap-2">
-                            <FileSpreadsheet size={16} /> Exportar
-                        </Button>
-                    }
                 />
             </div>
+
+            <LogDetailsModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                log={selectedLog}
+            />
         </div>
     );
 }

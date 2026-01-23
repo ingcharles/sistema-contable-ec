@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     try {
         const url = new URL(req.url);
         const tipo = url.searchParams.get('tipo'); // 'CXC' o 'CXP'
+        const terceroId = url.searchParams.get('terceroId');
 
         if (!tipo || !['CXC', 'CXP'].includes(tipo)) {
             return NextResponse.json(
@@ -23,26 +24,37 @@ export async function GET(req: NextRequest) {
             );
         }
 
+        // Construir query dinámica
+        let query = `
+            SELECT 
+                d.id, d.tipo as tipo_cartera, d.nro_comprobante, d.tercero_id, t.razon_social as tercero_nombre, t.identificacion as tercero_ruc, t.email as tercero_email, t.direccion as tercero_direccion, t.telefono as tercero_telefono,
+                d.fecha_emision, d.fecha_vencimiento, d.monto_total, d.saldo_pendiente,
+                d.created_at,
+                CASE 
+                    WHEN d.fecha_vencimiento < CURRENT_DATE 
+                    THEN CURRENT_DATE - d.fecha_vencimiento 
+                    ELSE 0 
+                END as dias_vencidos
+            FROM cartera.documentos_pendientes d
+            LEFT JOIN directorio.terceros t ON t.id = d.tercero_id
+            WHERE d.empresa_id = $1 
+            AND d.tipo = $2
+            AND d.saldo_pendiente > 0
+        `;
+
+        const values = [context.empresaId, tipo];
+
+        if (terceroId) {
+            query += ` AND d.tercero_id = $3`;
+            values.push(terceroId);
+        }
+
+        query += ` ORDER BY d.fecha_vencimiento ASC`;
+
         const result = await db.query(
             {
-                text: `
-                    SELECT 
-                        d.id, d.tipo as tipo_cartera, d.nro_comprobante, d.tercero_id, t.razon_social as tercero_nombre,
-                        d.fecha_emision, d.fecha_vencimiento, d.monto_total, d.saldo_pendiente,
-                        d.created_at,
-                        CASE 
-                            WHEN d.fecha_vencimiento < CURRENT_DATE 
-                            THEN CURRENT_DATE - d.fecha_vencimiento 
-                            ELSE 0 
-                        END as dias_vencidos
-                    FROM cartera.documentos_pendientes d
-                    LEFT JOIN directorio.terceros t ON t.id = d.tercero_id
-                    WHERE d.empresa_id = $1 
-                    AND d.tipo = $2
-                    AND d.saldo_pendiente > 0
-                    ORDER BY d.fecha_vencimiento ASC
-                `,
-                values: [context.empresaId, tipo]
+                text: query,
+                values: values
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );

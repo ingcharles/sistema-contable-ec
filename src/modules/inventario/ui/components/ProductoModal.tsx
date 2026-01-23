@@ -6,6 +6,7 @@ import { Button } from '@/shared/ui/Button';
 import { useCategorias, useInventarioMutations } from '../../hooks/useInventario';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
 import { Modal } from '@/shared/ui/Modal';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 
 interface ProductoModalProps {
     onClose: () => void;
@@ -24,6 +25,12 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
     const [stockMinimo, setStockMinimo] = useState(1);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
+    const { parametros, cargarParametros } = useConfiguracion();
+
+    useEffect(() => {
+        cargarParametros();
+    }, []);
+
     // Manejo de IVA con catálogos dinámicos
     const { getCatalogo, loading: loadingCatalogos } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA']);
     const tarifasIva = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
@@ -41,8 +48,8 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
         if (!loadingCatalogos && tarifasIva.length > 0) {
             const existe = tarifasIva.some(t => t.codigo === codigoTarifaIva);
             if (!existe) {
-                const tarifa15 = tarifasIva.find(t => t.valor.includes('15%'));
-                if (tarifa15) setCodigoTarifaIva(tarifa15.codigo);
+                const tarifaDinamica = tarifasIva.find(t => t.valor.includes(`${parametros?.iva || 15}%`));
+                if (tarifaDinamica) setCodigoTarifaIva(tarifaDinamica.codigo);
                 else setCodigoTarifaIva(tarifasIva[0].codigo);
             }
         }

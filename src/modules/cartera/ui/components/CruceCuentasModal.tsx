@@ -44,8 +44,8 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
             const esCxC = documento.tipo === TipoCartera.CXC;
             const ctaCxC = params.cuentaCxcClientes || '1.1.02.01';
             const ctaCxP = params.cuentaCxpProveedores || '2.1.01.01';
-            const ctaAntCli = params.cuentaAnticipoClientes || '2.1.03.01';
-            const ctaAntProv = params.cuentaAnticipoProveedores || '1.1.03.01';
+            const ctaAntCli = params.cuentaAnticipoClientes || '2.1.04.01';
+            const ctaAntProv = params.cuentaAnticipoProveedores || '1.1.04.01';
 
             const detalles = esCxC ? [
                 { cuentaCodigo: ctaAntCli, debe: valorCruce, haber: 0 },

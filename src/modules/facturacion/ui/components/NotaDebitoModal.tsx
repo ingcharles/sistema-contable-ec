@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowUpCircle, Plus, Trash2, FileText, Calendar, Hash, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
@@ -8,6 +8,7 @@ import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
 import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { AMBIENTE, TIPO_EMISION, FORMA_PAGO } from '../../domain/catalogos';
 
 interface MotivoNotaDebito {
@@ -23,12 +24,17 @@ interface NotaDebitoModalProps {
 
 export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalProps) {
     const { currentEmpresa } = useEmpresa();
+    const { parametros, cargarParametros } = useConfiguracion();
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [motivos, setMotivos] = useState<MotivoNotaDebito[]>([{ razon: '', valor: 0 }]);
     const [formaPago] = useState(FORMA_PAGO.OTROS_CON_SISTEMA_FINANCIERO);
+
+    useEffect(() => {
+        cargarParametros();
+    }, [cargarParametros]);
 
     const agregarMotivo = () => setMotivos([...motivos, { razon: '', valor: 0 }]);
     const eliminarMotivo = (index: number) => setMotivos(motivos.filter((_, i) => i !== index));
@@ -40,7 +46,8 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
     };
 
     const subtotal = motivos.reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
-    const iva = subtotal * 0.15;
+    const ivaPorcentaje = (parametros?.iva || 15) / 100;
+    const iva = subtotal * ivaPorcentaje;
     const total = subtotal + iva;
 
     const handleEmitirND = async () => {
@@ -262,7 +269,7 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
                             <span className="font-mono">{formatearDinero(subtotal)}</span>
                         </div>
                         <div className="flex justify-between text-sm font-medium text-slate-600">
-                            <span>IVA (15%):</span>
+                            <span>IVA ({parametros?.iva || 15}%):</span>
                             <span className="font-mono">{formatearDinero(iva)}</span>
                         </div>
                         <div className="flex justify-between text-lg font-black text-blue-600 border-t-2 border-blue-100 pt-2">

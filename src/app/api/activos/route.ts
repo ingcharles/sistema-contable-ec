@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
+import { DepreciacionService } from '@/modules/activos/domain/services/DepreciacionService';
 
 export async function GET(req: NextRequest) {
     const context = validateContext(req);
@@ -35,6 +36,28 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
+
+        // Manejar acción de depreciación
+        if (body.action === 'depreciar') {
+            const { periodo } = body;
+
+            if (!periodo) {
+                return NextResponse.json(
+                    { error: 'Parámetro periodo requerido (formato: YYYY-MM)' },
+                    { status: 400 }
+                );
+            }
+
+            const resultado = await DepreciacionService.calcularDepreciacionMensual(
+                context.empresaId!,
+                periodo,
+                context.usuarioId!
+            );
+
+            return NextResponse.json(resultado);
+        }
+
+        // CRUD normal de activos
         const {
             id, codigo, nombre, categoria, fechaAdquisicion,
             valorAdquisicion, valorResidual, vidaUtilMeses,

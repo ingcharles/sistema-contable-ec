@@ -1,14 +1,35 @@
-import { Empresa, ComprobanteElectronico, EstadoSRI, TipoComprobante } from './types';
+
 import {
     LayoutDashboard, FileText, ShoppingCart, TrendingUp, Users, Settings,
     PieChart, Landmark, Package, Wallet, FileBarChart, Contact2, Monitor,
     UploadCloud, ShieldAlert, Coins, LucideIcon
 } from 'lucide-react';
 
+export const ICON_MAP: Record<string, LucideIcon> = {
+    LayoutDashboard,
+    FileText,
+    ShoppingCart,
+    UploadCloud,
+    Contact2,
+    Wallet,
+    Package,
+    Monitor,
+    Coins,
+    Landmark,
+    TrendingUp,
+    PieChart,
+    Users,
+    FileBarChart,
+    ShieldAlert,
+    Settings
+};
+
 export interface NavItem {
     label: string;
     icon: LucideIcon;
     path: string;
+    requiredRoles?: ('SUPERADMIN' | 'ADMIN' | 'CONTADOR' | 'AUDITOR' | 'ASISTENTE')[];
+    minPlan?: 'GRATUITO' | 'PROFESIONAL' | 'EMPRESARIAL';
 }
 
 // export const MOCK_EMPRESAS: Empresa[] = [
@@ -80,21 +101,4 @@ export interface NavItem {
 //     }
 // ];
 
-export const NAV_ITEMS: NavItem[] = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Facturación', icon: FileText, path: '/facturacion' },
-    { label: 'Compras', icon: ShoppingCart, path: '/compras' },
-    { label: 'Buzón XML', icon: UploadCloud, path: '/buzon' },
-    { label: 'Terceros', icon: Contact2, path: '/directorio' },
-    { label: 'Cartera', icon: Wallet, path: '/cartera' },
-    { label: 'Inventario', icon: Package, path: '/inventario' },
-    { label: 'Activos Fijos', icon: Monitor, path: '/activos' },
-    { label: 'Caja Chica', icon: Coins, path: '/caja-chica' },
-    { label: 'Bancos', icon: Landmark, path: '/bancos' },
-    { label: 'Contabilidad', icon: TrendingUp, path: '/contabilidad' },
-    { label: 'Impuestos', icon: PieChart, path: '/impuestos' },
-    { label: 'Nómina', icon: Users, path: '/nomina' },
-    { label: 'Reportes', icon: FileBarChart, path: '/reportes' },
-    { label: 'Auditoría', icon: ShieldAlert, path: '/auditoria' },
-    { label: 'Configuración', icon: Settings, path: '/configuracion' },
-];
+

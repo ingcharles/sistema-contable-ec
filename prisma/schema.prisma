@@ -117,12 +117,20 @@ model Usuario {
   nombre          String
   password        String
   rol             String   // 'ADMIN' | 'CONTADOR' | 'VENDEDOR' | 'USUARIO'
+  
+  // Suscripción
+  planId          String?  @map("plan_id")
+  planStatus      String?  @default("ACTIVE") @map("plan_status") // 'ACTIVE', 'EXPIRED'
+  planStartDate   DateTime? @map("plan_start_date")
+  planEndDate     DateTime? @map("plan_end_date")
+
   activo          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   // Relaciones
   empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  plan            Plan?    @relation(fields: [planId], references: [id])
 
   @@map("usuarios")
 }
@@ -554,5 +562,42 @@ model NominaRol {
 
   @@unique([empresaId, empleadoId, periodo])
   @@map("nomina_roles")
+}
+
+
+// ============================================
+// MÓDULO: SUSCRIPCIONES Y PLANES
+// ============================================
+
+model Plan {
+  id              String   @id @default(uuid())
+  codigo          String   @unique // 'GRATUITO', 'PROFESIONAL'
+  nombre          String
+  precioMensual   Float    @map("precio_mensual")
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  features        PlanFeature[]
+  usuarios        Usuario[]
+
+  @@map("planes")
+}
+
+model PlanFeature {
+  id              String   @id @default(uuid())
+  planId          String   @map("plan_id")
+  featureKey      String   @map("feature_key") // 'MAX_DOCS', 'IA_ACCESS'
+  valueType       String   @map("value_type") // 'NUMBER', 'BOOLEAN'
+  valueNumber     Int?     @map("value_number")
+  valueBool       Boolean? @map("value_bool")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("plan_features")
 }
 

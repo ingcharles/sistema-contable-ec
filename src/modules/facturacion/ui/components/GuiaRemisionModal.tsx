@@ -23,6 +23,8 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     const { currentEmpresa } = useEmpresa();
     const { transportistas, cargarTransportistas } = useTransportistas();
     const [transportistaId, setTransportistaId] = useState('');
+    const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
+    const [puntoEmisionId, setPuntoEmisionId] = useState('');
     const [puntoPartida, setPuntoPartida] = useState('Matriz / Bodega Principal');
     const [puntoDestino, setPuntoDestino] = useState(facturaReferencia?.direccion || '');
     const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().split('T')[0]);
@@ -34,6 +36,16 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
 
     useEffect(() => {
         cargarTransportistas();
+        const cargarPuntos = async () => {
+            try {
+                const puntos = await FacturacionUseCases.listarPuntosEmision();
+                setPuntosEmision(puntos);
+                if (puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+            } catch (e) {
+                console.error('Error al cargar puntos de emisión:', e);
+            }
+        };
+        cargarPuntos();
     }, [cargarTransportistas]);
 
     useEffect(() => {
@@ -43,29 +55,69 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     }, [transportistas, transportistaId]);
 
     const handleGuardar = async () => {
-        if (!transportistaId || !puntoPartida || !puntoDestino) {
+        if (!transportistaId || !puntoPartida || !puntoDestino || !puntoEmisionId) {
             setErrorValidacion('Por favor complete los campos obligatorios.');
             return;
         }
 
         const transportista = transportistas.find(t => t.id === transportistaId);
+        const puntoEmi = puntosEmision.find(p => p.id === puntoEmisionId);
+
         if (!transportista) {
             setErrorValidacion('Seleccione un transportista válido');
             return;
         }
 
         setGuardando(true);
+        setErrorValidacion(null);
         try {
+            // 1. Registrar BORRADOR en backend (Obtiene Secuencial y Clave Acceso reales)
+            const detalles = facturaReferencia?.items?.map((i: any) => ({
+                codigoInterno: i.codigo || i.codigoPrincipal || 'S/N',
+                descripcion: i.nombre || i.descripcion,
+                cantidad: i.cantidad || 1,
+                unidadMedida: i.unidadMedida || 'UND'
+            })) || [];
 
+            const savedGuiaResponse = await FacturacionUseCases.guardarGuiaRemision({
+                tipoComprobante: '06',
+                fechaEmision: new Date().toISOString().split('T')[0],
+                clienteId: facturaReferencia?.terceroId || '9999999999999',
+                clienteNombre: facturaReferencia?.terceroNombre || 'CONSUMIDOR FINAL',
+                clienteIdentificacion: facturaReferencia?.identificacionAdquirente || '9999999999999',
+                subtotal: 0,
+                iva: 0,
+                total: 0,
+                puntoEmisionId: puntoEmisionId,
+                direccionPartida: puntoPartida,
+                direccionDestino: puntoDestino,
+                transportistaNombre: transportista.razonSocial,
+                transportistaIdentificacion: transportista.identificacion || transportista.ruc,
+                placaVehiculo: transportista.placa,
+                detalles: detalles.map((d: any) => ({
+                    codigoPrincipal: d.codigoInterno,
+                    descripcion: d.descripcion,
+                    cantidad: d.cantidad,
+                    unidadMedida: d.unidadMedida,
+                    precioUnitario: 0,
+                    total: 0
+                }))
+            });
+
+            if (!savedGuiaResponse.success) {
+                throw new Error(savedGuiaResponse.error || 'Error al guardar el borrador de la guía');
+            }
+
+            // 2. Preparar datos para SRI usando el secuencial generado por backend
             const dataGuia = {
-                ambiente: AMBIENTE.PRUEBAS,
+                ambiente: currentEmpresa.ambienteSri || AMBIENTE.PRUEBAS,
                 tipoEmision: TIPO_EMISION.NORMAL,
                 razonSocial: currentEmpresa.razonSocial,
                 nombreComercial: currentEmpresa.nombreComercial,
                 ruc: currentEmpresa.ruc,
-                estab: '001',
-                ptoEmi: '001',
-                secuencial: '000000001', // TODO: Obtener de Punto de Emisión
+                estab: puntoEmi?.sucursalCodigo || '001',
+                ptoEmi: puntoEmi?.codigo || '001',
+                secuencial: savedGuiaResponse.secuencial, // USAR SECUENCIAL REAL
                 dirMatriz: currentEmpresa.direccionMatriz || 'Quito',
                 dirPartida: puntoPartida,
                 razonSocialTransportista: transportista.razonSocial,
@@ -83,60 +135,47 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                         dirDestinatario: puntoDestino,
                         motivoTraslado: motivo,
                         codDocSustento: '01',
-                        numDocSustento: facturaReferencia?.secuencial || '001-001-000000001',
+                        numDocSustento: (facturaReferencia?.secuencial || '001-001-000000001').replace(/-/g, ''),
                         numAutDocSustento: facturaReferencia?.numeroAutorizacion || '1234567890123456789012345678901234567',
                         fechaEmisionDocSustento: facturaReferencia?.fechaEmision || new Date().toISOString().split('T')[0],
-                        detalles: facturaReferencia?.items?.map((i: any) => ({
-                            codigoInterno: i.codigo || 'S/N',
-                            descripcion: i.nombre || i.descripcion,
-                            cantidad: i.cantidad || 1,
-                            unidadMedida: i.unidadMedida || 'UND'
-                        })) || []
+                        detalles: detalles
                     }
                 ]
             };
 
             const guiaStandard = SriStandardizer.standardizeGuia(dataGuia);
 
-            let resSri = null;
+            // 3. Emitir al SRI
+            let resSri;
             try {
                 resSri = await FacturacionUseCases.emitirFactura(guiaStandard);
-            } catch (e) {
+            } catch (e: any) {
                 console.error('Error SRI Guía:', e);
+                setErrorValidacion(`Guía guardada como BORRADOR, pero falló SRI: ${e.message}`);
+                // No cerramos el modal, dejamos que el usuario vea el error.
+                // Podría intentar re-enviar desde otra pantalla.
+                setGuardando(false);
+                return;
             }
 
-            await FacturacionUseCases.registrarComprobante({
-                tipoComprobante: 'GUIA_REMISION',
-                fechaEmision: new Date().toISOString().split('T')[0],
-                clienteId: facturaReferencia?.identificacionAdquirente || '9999999999999',
-                clienteNombre: facturaReferencia?.razonSocialAdquirente || 'CONSUMIDOR FINAL',
-                clienteIdentificacion: facturaReferencia?.identificacionAdquirente || '9999999999999',
-                subtotal: 0,
-                iva: 0,
-                total: 0,
-                secuencial: dataGuia.secuencial,
-                claveAcceso: resSri?.claveAcceso,
-                numeroAutorizacion: resSri?.numeroAutorizacion,
-                estado: resSri?.estado || 'ERROR',
-                direccionPartida: puntoPartida,
-                direccionDestino: puntoDestino,
-                transportistaNombre: transportista.razonSocial,
-                placaVehiculo: transportista.placa,
-                detalles: dataGuia.destinatarios[0].detalles.map((d: any) => ({
-                    codigoPrincipal: d.codigoInterno,
-                    descripcion: d.descripcion,
-                    cantidad: d.cantidad,
-                    unidadMedida: d.unidadMedida,
-                    precioUnitario: 0,
-                    total: 0
-                }))
-            });
+            // 4. Actualizar estado si fue autorizado
+            if (resSri?.status === 'AUTORIZADO' || resSri?.success) {
+                await FacturacionUseCases.actualizarGuia({
+                    id: savedGuiaResponse.id,
+                    estado: resSri.status || 'AUTORIZADO',
+                    numeroAutorizacion: resSri.numeroAutorizacion,
+                    fechaAutorizacion: resSri.fechaAutorizacion,
+                    claveAcceso: resSri.claveAcceso
+                });
+                onSave();
+                onClose();
+            } else {
+                setErrorValidacion(`SRI Respondió: ${resSri?.status || 'Error desconocido'}`);
+            }
 
-            onSave();
-            onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error al procesar guía:', error);
-            setErrorValidacion('Error al procesar la guía de remisión');
+            setErrorValidacion(error.message || 'Error al procesar la guía de remisión');
         } finally {
             setGuardando(false);
         }
@@ -176,6 +215,43 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                 )}
                 {/* Sección Transportista */}
                 <div>
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <Save size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Punto de Emisión y Secuencial</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gradient-to-br from-slate-50 to-slate-100/50 p-6 rounded-2xl border border-slate-200 shadow-sm mb-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <Plus size={14} className="text-sri-blue" /> Punto de Emisión *
+                            </label>
+                            <select
+                                value={puntoEmisionId}
+                                onChange={(e) => setPuntoEmisionId(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-bold text-sri-blue"
+                            >
+                                {puntosEmision.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.sucursalNombre} - {p.codigo.padStart(3, '0')} ({p.sucursalCodigo.padStart(3, '0')})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <AlertCircle size={14} className="text-sri-blue" /> Secuencial Próximo
+                            </label>
+                            <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-black text-slate-600">
+                                {(() => {
+                                    const p = puntosEmision.find(p => p.id === puntoEmisionId);
+                                    const seq = p?.secuenciales?.find((s: any) => s.tipoComprobante === '06')?.secuencialActual || 1;
+                                    return `${p?.sucursalCodigo || '001'}-${p?.codigo || '001'}-${seq.toString().padStart(9, '0')}`;
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
                         <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
                             <User size={16} />

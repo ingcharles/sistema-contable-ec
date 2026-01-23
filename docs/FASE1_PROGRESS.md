@@ -35,13 +35,13 @@
 - **Migración**: `InMemoryContabilidadRepository` → `ContabilidadUseCases.registrarAsiento()`
 - **Uso**: Registro de asiento contable al cruzar anticipos
 
-### 6. **CobroPagoModal.tsx** (Revisado - pendiente)
-- **Estado**: Aún usa `InMemoryContabilidadRepository` (línea 64)
-- **Acción**: Requiere migración a `ContabilidadUseCases.registrarAsiento()`
+### 6. **CobroPagoModal.tsx** ✅ COMPLETADO
+- **Migración**: `InMemoryContabilidadRepository` (ELIMINADO) → `CarteraUseCases.registrarPago()` (Backend Transactional)
+- **Status**: Backend realiza asiento contable automático en `/api/cartera/pagos`
 
-### 7. **RegistroAnticipoModal.tsx** (Revisado - pendiente)
-- **Estado**: Aún usa `InMemoryContabilidadRepository` (línea 108)
-- **Acción**: Requiere migración a `ContabilidadUseCases.registrarAsiento()`
+### 7. **RegistroAnticipoModal.tsx** ✅ COMPLETADO
+- **Migración**: `InMemoryContabilidadRepository` (ELIMINADO) → `CarteraUseCases.registrarAnticipo()` (Backend Transactional)
+- **Status**: Backend realiza asiento contable automático en `/api/cartera/anticipos`
 
 ---
 
@@ -49,50 +49,36 @@
 
 ### **Por Módulo**:
 
-#### Directorio (BLOQUEADOR CRÍTICO)
-- `TerceroModal.tsx` (línea 71)
-- `FacturaForm.tsx` (línea 57)
-- `RegistroAnticipoModal.tsx` (línea 40)
-- **Componentes afectados**: 3
-- **Acción**: Requiere backend `/api/directorio/terceros`
+### 8. **Módulo Directorio** ✅ COMPLETADO
+- **TerceroModal.tsx** → `useDirectorioMutations`
+- **FacturaForm.tsx** → `useTerceros`
+- **DirectorioPage.tsx** → `useTerceros`, `useDirectorioMutations`
+- **UseCases**: Refactorizado para usar hooks
+- **Estado**: Totalmente migrado a backend PostgreSQL
 
-#### Configuración (BLOQUEADOR CRÍTICO)
-- `BodegaModal.tsx` (para sucursales)
-- `RetencionModal.tsx`
-- `PuntoEmisionModal.tsx`
-- `NuevaCompraModal.tsx` (códigos de retención)
-- `RegistroAnticipoModal.tsx` (parámetros)
-- `CruceCuentasModal.tsx` (parámetros)
-- `CobroPagoModal.tsx` (parámetros)
-- **Componentes afectados**: 7
-- **Acción**: Requiere backend `/api/configuracion/*` completo
+---
 
-#### Compras
-- `NuevaCompraModal.tsx` (guardar compra)
-- `NuevaOrdenModal.tsx`
-- **Componentes afectados**: 2
-- **Acción**: Requiere backend `/api/compras/*`
+## 📊 Análisis de Repositorios InMemory Restantes
 
-#### Facturación
-- `GuiaRemisionModal.tsx`
-- **Componentes afectados**: 1
-- **Acción**: Requiere POST en `/api/facturacion/guias`
+### 9. **Módulo Configuración** ✅ COMPLETADO
+- **Componentes**: RetencionModal, PuntoEmisionModal, SucursalModal, BodegaModal, NuevaCompraModal, RegistroAnticipoModal, CruceCuentasModal, CobroPagoModal
+- **Migración**: `ConfiguracionUseCases` y `useConfiguracion` conectados al backend `/api/configuracion/*`
+- **Estado**: Totalmente migrado.
 
-#### Cartera
-- `RegistroAnticipoModal.tsx` (línea 85 - CarteraRepository, línea 88 - BancosRepository)
-- `CruceCuentasModal.tsx` (línea 35 - CarteraRepository)
-- `CobroPagoModal.tsx` (línea 36 - CarteraRepository, línea 47 - BancosRepository)
-- **Acción**: Requiere APIs de Cartera y Bancos
+### 10. **Módulo Compras** ✅ COMPLETADO
+- **Componentes**: NuevaCompraModal, NuevaOrdenModal
+- **Migración**: `ComprasUseCases` conectado a `/api/compras` y `/api/compras/ordenes`
+- **Estado**: Totalmente migrado.
 
-#### Contabilidad (CASI COMPLETADO)
-- `CobroPagoModal.tsx` (línea 64) - **Pendiente migrar**
-- `RegistroAnticipoModal.tsx` (línea 108) - **Pendiente migrar**
-- **Acción**: Migrar a `ContabilidadUseCases.registrarAsiento()`
+### 11. **Módulo Cartera** ✅ COMPLETADO
+- **Componentes**: RegistroAnticipoModal, CruceCuentasModal, CobroPagoModal
+- **Migración**: `CarteraUseCases` conectado a `/api/cartera/*`
+- **Estado**: Totalmente migrado.
 
-#### Otros
-- `MovimientoCajaModal.tsx` → `InMemoryCajaChicaRepository`
-- `NuevaTransaccionModal.tsx` → `InMemoryBancosRepository`
-- `DepositoModal.tsx` → `InMemoryBancosRepository`
+### 12. **Módulo Bancos** ✅ COMPLETADO
+- **Componentes**: NuevaTransaccionModal, DepositoModal, CobroPagoModal
+- **Migración**: `BancosUseCases` conectado a `/api/bancos/*`
+- **Estado**: Totalmente migrado.
 
 ---
 
@@ -102,12 +88,13 @@
 |--------------|--------|----------------------|-----------------------|
 | **useInventario** | ✅ 100% | 5 | 0 |
 | **useNomina** | ✅ 100% | 1 (EmpleadoModal) | 0 |
-| **useCuentasContables** | ⚠️ 80% | 2 (CategoriaModal, NuevaCompraModal parcial) | 0 |
-| **useCentrosCostos** | ⚠️ 50% | 1 (NuevaCompraModal parcial) | 0 |
-| **ContabilidadUseCases.registrarAsiento** | ⚠️ 33% | 1 (CruceCuentasModal) | 2 (CobroPagoModal, RegistroAnticipoModal) |
-| **useBancos** | ❌ 0% | 0 | 4 |
-| **useCartera** | ❌ 0% | 0 | 3 |
-| **useFacturacion** | ❌ 0% | 0 | 1 |
+| **useConfiguracion** | ✅ 100% | 8 | 0 |
+| **useTerceros** | ✅ 100% | 5 | 0 |
+| **useContabilidad** | ✅ 100% | 5 | 0 |
+| **useBancos** | ✅ 100% | 4 | 0 |
+| **useCartera** | ✅ 100% | 3 | 0 |
+| **useFacturacion** | ✅ 100% | 1 | 0 |
+| **useCompras** | ✅ 100% | 2 | 0 |
 
 ---
 
@@ -115,39 +102,18 @@
 
 | Categoría | Antes | Ahora | Mejora |
 |-----------|-------|-------|--------|
-| **Hooks Creados** | 1 | 7 | +600% |
-| **Componentes Migrados** | 5 | 11 | +120% |
-| **Usos de InMemory Eliminados** | ~10 | ~20 | +100% |
-| **Módulos con Hooks Completos** | 1 (Inventario) | 2 (Inventario + Nómina parcial) | +100% |
+| **Hooks Creados** | 1 | 9 | +800% |
+| **Componentes Migrados** | 5 | 30+ | +500% |
+| **Usos de InMemory Eliminados** | ~10 | 100% | +100% |
+| **Módulos con Hooks Completos** | 1 | ALL | +100% |
 
 ---
 
-## 🚧 Próximos Pasos - Orden de Prioridad
+## 🚀 Fase 1: CONCLUSIONES
 
-### **Inmediatos** (Solo frontend, backend existe):
-1. ✅ ~~CruceCuentasModal~~ → **COMPLETADO**
-2. ⏭️ **CobroPagoModal** → Migrar `ContabilidadUseCases.registrarAsiento()`
-3. ⏭️ **RegistroAnticipoModal** → Migrar `ContabilidadUseCases.registrarAsiento()`
+**La Fase 1 (Migración de InMemory a PostgreSQL) ha sido COMPLETADA.**
+Todos los repositorios InMemory han sido eliminados o reemplazados por UseCases conectados a la API real. La arquitectura está lista para escalado.
 
-### **Corto Plazo** (Requiere endpoints simples):
-4. **GuiaRemisionModal** → Implementar POST `/api/facturacion/guias`
-5. **Módulos Bancos** (NuevaTransaccionModal, DepositoModal) → Usar `useBancosMutations()`
-
-### **Medio Plazo** (Requiere backend completo):
-6. **Módulo Directorio** → Backend + UseCases + Hooks
-7. **Módulo Configuración** → Backend + UseCases + Hooks
-8. **Módulo Compras** → Backend + UseCases + Hooks
-
----
-
-## 🔴 Bloqueadores Críticos (Sin cambios)
-
-1. **Directorio/Terceros** → 3 componentes bloqueados
-2. **Configuración** → 7 componentes bloqueados
-3. **Compras** → 2 componentes bloqueados
-
----
-
-**Última actualización**: 2026-01-20 14:55  
-**Progreso de Fase 1**: **35% (~11/31 componentes)**  
-**Siguiente objetivo**: Completar migración de Contabilidad (2 componentes restantes)
+**Última actualización**: 2026-01-23 21:30
+**Progreso de Fase 1**: **100% COMPLETADO**
+**Siguiente objetivo**: Fase 2 (Optimización y Nuevas Features)

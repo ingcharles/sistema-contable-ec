@@ -9,6 +9,8 @@ import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/appl
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 import { Modal } from '@/shared/ui/Modal';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
+import { useEffect } from 'react';
 
 interface ItemNotaCredito {
     id: string;
@@ -27,6 +29,12 @@ interface NotaCreditoModalProps {
 
 export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalProps) {
     const { currentEmpresa } = useEmpresa();
+    const { parametros, cargarParametros } = useConfiguracion();
+
+    useEffect(() => {
+        cargarParametros();
+    }, []);
+
     const [motivo, setMotivo] = useState('');
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [secuencial, setSecuencial] = useState('');
@@ -53,7 +61,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
 
     const subtotalDevolucion = items.reduce((acc, item) => acc + (item.cantidadDevolver * item.precio), 0);
     const ivaDevolucion = items.reduce((acc, item) => {
-        const tarifa = SriStandardizer.getTarifaValue(item.codigoIVA) / 100;
+        const tarifa = SriStandardizer.getTarifaValue(item.codigoIVA, parametros?.iva || 15) / 100;
         return acc + (item.cantidadDevolver * item.precio * tarifa);
     }, 0);
     const totalDevolucion = subtotalDevolucion + ivaDevolucion;
@@ -95,12 +103,12 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                     precioUnitario: i.precio,
                     descuento: 0,
                     baseImponible: i.cantidadDevolver * i.precio,
-                    valorIVA: i.cantidadDevolver * i.precio * (SriStandardizer.getTarifaValue(i.codigoIVA) / 100),
+                    valorIVA: i.cantidadDevolver * i.precio * (SriStandardizer.getTarifaValue(i.codigoIVA, parametros?.iva || 15) / 100),
                     codigoIVA: i.codigoIVA
                 }))
             };
 
-            const jsonSri = SriStandardizer.standardizeNotaCredito(dataNC);
+            const jsonSri = SriStandardizer.standardizeNotaCredito(dataNC, parametros?.iva || 15);
 
             let sriResult = {
                 success: false,
@@ -254,7 +262,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                             <span>{formatearDinero(subtotalDevolucion)}</span>
                         </div>
                         <div className="flex justify-between text-slate-500 font-medium text-sm">
-                            <span>IVA Devolución:</span>
+                            <span>IVA Devolución ({parametros?.iva || 15}%):</span>
                             <span>{formatearDinero(ivaDevolucion)}</span>
                         </div>
                         <div className="flex justify-between font-bold text-xl text-sri-blue pt-2 mt-2 border-t border-slate-100">

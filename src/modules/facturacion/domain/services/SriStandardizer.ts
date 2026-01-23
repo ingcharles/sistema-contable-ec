@@ -5,7 +5,7 @@ export class SriStandardizer {
     /**
      * Genera el JSON estandarizado para una Factura (Doc 01)
      */
-    static standardizeFactura(data: FacturaViewModel) {
+    static standardizeFactura(data: FacturaViewModel, generalIva: number = 15) {
         return {
             infoTributaria: {
                 ambiente: data.ambiente,
@@ -54,7 +54,7 @@ export class SriStandardizer {
                     {
                         codigo: CODIGO_IMPUESTO.IVA,
                         codigoPorcentaje: d.codigoIVA,
-                        tarifa: this.getTarifaValue(d.codigoIVA),
+                        tarifa: this.getTarifaValue(d.codigoIVA, generalIva),
                         baseImponible: Number(d.baseImponible.toFixed(2)),
                         valor: Number(d.valorIVA.toFixed(2))
                     }
@@ -66,7 +66,7 @@ export class SriStandardizer {
     /**
      * Genera el JSON estandarizado para una Liquidación de Compra (Doc 03)
      */
-    static standardizeLiquidacion(data: any) {
+    static standardizeLiquidacion(data: any, generalIva: number = 15) {
         return {
             infoTributaria: {
                 ambiente: data.ambiente,
@@ -111,7 +111,7 @@ export class SriStandardizer {
                     {
                         codigo: CODIGO_IMPUESTO.IVA,
                         codigoPorcentaje: d.codigoIVA,
-                        tarifa: this.getTarifaValue(d.codigoIVA),
+                        tarifa: this.getTarifaValue(d.codigoIVA, generalIva),
                         baseImponible: Number(d.baseImponible.toFixed(2)),
                         valor: Number(d.valorIVA.toFixed(2))
                     }
@@ -123,7 +123,7 @@ export class SriStandardizer {
     /**
      * Genera el JSON estandarizado para una Nota de Crédito (Doc 04)
      */
-    static standardizeNotaCredito(data: any) {
+    static standardizeNotaCredito(data: any, generalIva: number = 15) {
         return {
             infoTributaria: {
                 ambiente: data.ambiente,
@@ -164,7 +164,7 @@ export class SriStandardizer {
                     {
                         codigo: CODIGO_IMPUESTO.IVA,
                         codigoPorcentaje: d.codigoIVA,
-                        tarifa: this.getTarifaValue(d.codigoIVA),
+                        tarifa: this.getTarifaValue(d.codigoIVA, generalIva),
                         baseImponible: Number(d.baseImponible.toFixed(2)),
                         valor: Number(d.valorIVA.toFixed(2))
                     }
@@ -176,7 +176,7 @@ export class SriStandardizer {
     /**
      * Genera el JSON estandarizado para una Nota de Débito (Doc 05)
      */
-    static standardizeNotaDebito(data: any) {
+    static standardizeNotaDebito(data: any, generalIva: number = 15) {
         return {
             infoTributaria: {
                 ambiente: data.ambiente,
@@ -205,7 +205,7 @@ export class SriStandardizer {
                     {
                         codigo: CODIGO_IMPUESTO.IVA,
                         codigoPorcentaje: data.codigoIVA,
-                        tarifa: this.getTarifaValue(data.codigoIVA),
+                        tarifa: this.getTarifaValue(data.codigoIVA, generalIva),
                         baseImponible: Number(data.totalSinImpuestos.toFixed(2)),
                         valor: Number(data.valorIVA.toFixed(2))
                     }
@@ -319,10 +319,10 @@ export class SriStandardizer {
         return `${day}/${month}/${year}`;
     }
 
-    public static getTarifaValue(codigo: string): number {
+    public static getTarifaValue(codigo: string, generalIva: number = 15): number {
         switch (codigo) {
             case '4': return 15;
-            case '2': return 12;
+            case '2': return generalIva;
             case '0': return 0;
             default: return 0;
         }

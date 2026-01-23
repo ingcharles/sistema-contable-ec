@@ -555,15 +555,30 @@ export default function ConfiguracionPage() {
                                     <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Valores de Referencia</h4>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1">SBU Vigente ($)</label>
-                                        <input type="number" defaultValue={parametros.sbu} className="w-full border rounded-lg p-2.5 text-sm" />
+                                        <input
+                                            type="number"
+                                            value={parametros.sbu}
+                                            onChange={e => setParametros({ ...parametros, sbu: Number(e.target.value) })}
+                                            className="w-full border rounded-lg p-2.5 text-sm"
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1">IVA General (%)</label>
-                                        <input type="number" defaultValue={parametros.iva} className="w-full border rounded-lg p-2.5 text-sm" />
+                                        <input
+                                            type="number"
+                                            value={parametros.iva}
+                                            onChange={e => setParametros({ ...parametros, iva: Number(e.target.value) })}
+                                            className="w-full border rounded-lg p-2.5 text-sm"
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1">Máximo Consumidor Final ($)</label>
-                                        <input type="number" defaultValue={parametros.maxConsumidorFinal} className="w-full border rounded-lg p-2.5 text-sm" />
+                                        <input
+                                            type="number"
+                                            value={parametros.maxConsumidorFinal}
+                                            onChange={e => setParametros({ ...parametros, maxConsumidorFinal: Number(e.target.value) })}
+                                            className="w-full border rounded-lg p-2.5 text-sm"
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-4">
@@ -618,7 +633,7 @@ export default function ConfiguracionPage() {
                                             className="w-full border rounded-lg p-2.5 text-sm font-mono"
                                         >
                                             <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.02')).map(c => (
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => (
                                                 <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
                                             ))}
                                         </select>
@@ -631,7 +646,7 @@ export default function ConfiguracionPage() {
                                             className="w-full border rounded-lg p-2.5 text-sm font-mono"
                                         >
                                             <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1.01')).map(c => (
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => (
                                                 <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
                                             ))}
                                         </select>
@@ -644,7 +659,7 @@ export default function ConfiguracionPage() {
                                             className="w-full border rounded-lg p-2.5 text-sm font-mono"
                                         >
                                             <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1.01')).map(c => (
+                                            {planCuentas.filter(c => c.nivel >= 4 && (c.codigo.startsWith('2.1'))).map(c => (
                                                 <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
                                             ))}
                                         </select>
@@ -657,7 +672,7 @@ export default function ConfiguracionPage() {
                                             className="w-full border rounded-lg p-2.5 text-sm font-mono"
                                         >
                                             <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.02')).map(c => (
+                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => (
                                                 <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
                                             ))}
                                         </select>

@@ -11,6 +11,11 @@ export interface DocumentoPendiente extends Auditable {
     tipo: TipoCartera;
     terceroId: string; // RUC/Cedula
     terceroNombre: string;
+    terceroRuc?: string;
+    terceroAddress?: string; // Using similar naming convention or just 'direccion'
+    terceroDireccion?: string;
+    terceroEmail?: string;
+    terceroTelefono?: string;
     nroComprobante: string; // Secuencial Factura
     fechaEmision: string;
     fechaVencimiento: string;

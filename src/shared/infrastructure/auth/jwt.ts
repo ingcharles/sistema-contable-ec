@@ -4,7 +4,7 @@ export interface JWTPayload {
     userId: string;
     empresaId: string;
     email: string;
-    rol: string;
+    roles: string[];
     iat?: number;
     exp?: number;
 }

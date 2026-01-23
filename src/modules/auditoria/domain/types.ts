@@ -30,13 +30,19 @@ export enum NivelSeveridad {
 export interface LogAuditoria extends Auditable {
     id: string;
     empresaId: string;
-    usuario: string;
+    usuario: string; // ID usuario
+    usuario_nombre?: string;
     evento: TipoEvento;
     modulo: string;
     descripcion: string;
     ip: string;
+    ip_address?: string; // API alias
     severidad: NivelSeveridad;
     detalles?: string;
+    datos_antes?: any;
+    datos_despues?: any;
+    metodo_http?: string;
+    ruta?: string;
 }
 
 export interface AuditoriaRepository {

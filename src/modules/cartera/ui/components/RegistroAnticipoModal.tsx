@@ -5,8 +5,8 @@ import { X, Save, Search, User, Wallet, Calendar, Hash, DollarSign, Info } from 
 import { Modal } from '@/shared/ui/Modal';
 import { TipoCartera } from '../../domain/types';
 import { TipoTercero, Tercero } from '@/modules/directorio/domain/types';
-import { DirectorioUseCases, ContabilidadUseCases, ConfiguracionUseCases, CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { TipoMovimientoBancario } from '@/modules/bancos/domain/types';
+import { CarteraUseCases, BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
 import { Button } from '@/shared/ui/Button';
 
 interface Props {
@@ -22,22 +22,38 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
     const [monto, setMonto] = useState(0);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [referencia, setReferencia] = useState('');
-    const [bancoId] = useState('cta1');
+    const [cuentaBancoId, setCuentaBancoId] = useState('');
+    const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]);
 
+    // Search State
     const [busqueda, setBusqueda] = useState('');
-    const [terceros, setTerceros] = useState<Tercero[]>([]);
     const [mostrarResultados, setMostrarResultados] = useState(false);
-    const [cargandoTerceros, setCargandoTerceros] = useState(false);
     const [guardando, setGuardando] = useState(false);
+
+    // Hooks
+    const { terceros, cargarTerceros, loading: cargandoTerceros } = useTerceros();
+
+    useEffect(() => {
+        const cargarCuentas = async () => {
+            try {
+                const data = await BancosUseCases.listarCuentas();
+                setCuentasBancarias(data);
+                if (data.length > 0) setCuentaBancoId(data[0].id);
+            } catch (error) {
+                console.error('Error cargando cuentas bancarias:', error);
+            }
+        };
+        cargarCuentas();
+    }, []);
 
     useEffect(() => {
         if (busqueda.length > 2) {
+            // Si ya seleccionamos uno y el nombre coincide, no buscar
+            if (terceroId && busqueda === terceroNombre) return;
+
             const buscar = async () => {
-                setCargandoTerceros(true);
                 const tipoBusqueda = esCliente ? TipoTercero.CLIENTE : TipoTercero.PROVEEDOR;
-                const data = await DirectorioUseCases.listarTerceros(tipoBusqueda, busqueda);
-                setTerceros(data);
-                setCargandoTerceros(false);
+                await cargarTerceros(tipoBusqueda, busqueda);
                 setMostrarResultados(true);
             };
             const timer = setTimeout(buscar, 300);
@@ -45,17 +61,17 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
         } else {
             setMostrarResultados(false);
         }
-    }, [busqueda, esCliente]);
+    }, [busqueda, esCliente, terceroId, terceroNombre, cargarTerceros]);
 
     const seleccionarTercero = (t: Tercero) => {
-        setTerceroId(t.identificacion);
+        setTerceroId(t.id!); // Use ID, not identification for backend relation
         setTerceroNombre(t.razonSocial);
         setBusqueda(t.razonSocial);
         setMostrarResultados(false);
     };
 
     const handleGuardar = async () => {
-        if (!terceroId || monto <= 0) return;
+        if (!terceroId || monto <= 0 || !cuentaBancoId) return;
 
         setGuardando(true);
         try {
@@ -63,49 +79,16 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
                 tipo,
                 fecha,
                 terceroId,
-                terceroNombre,
                 referencia,
                 monto,
-                moneda: 'USD',
-                observaciones: `Registro de anticipo ${esCliente ? 'recibido' : 'entregado'}`
-            });
-
-            await BancosUseCases.registrarTransaccion({
-                cuentaId: bancoId,
-                fecha,
-                tipo: esCliente ? TipoMovimientoBancario.TRANSFERENCIA_RECIBIDA : TipoMovimientoBancario.TRANSFERENCIA_ENVIADA,
-                referencia: referencia || 'ANTICIPO',
-                beneficiario: terceroNombre,
-                concepto: `Anticipo ${esCliente ? 'de Cliente' : 'a Proveedor'} - ${referencia}`,
-                monto,
-                esEgreso: !esCliente
-            });
-
-            const params = await ConfiguracionUseCases.obtenerParametros();
-            const ctaBanco = params.cuentaCaja || '1.1.01.01';
-            const ctaAnticipo = esCliente ? params.cuentaAnticipoClientes : params.cuentaAnticipoProveedores;
-
-            const detalles = esCliente ? [
-                { cuentaCodigo: ctaBanco, debe: monto, haber: 0 },
-                { cuentaCodigo: ctaAnticipo, debe: 0, haber: monto }
-            ] : [
-                { cuentaCodigo: ctaAnticipo, debe: monto, haber: 0 },
-                { cuentaCodigo: ctaBanco, debe: 0, haber: monto }
-            ];
-
-            await ContabilidadUseCases.registrarAsiento({
-                numero: `ANT-${crypto.randomUUID().slice(0, 8)}`,
-                fecha,
-                glosa: `Reg. Anticipo ${esCliente ? 'Cliente' : 'Proveedor'} ${terceroNombre}`,
-                tipo: esCliente ? 'INGRESO' : 'EGRESO',
-                detalles
+                cuentaBancoId
             });
 
             onSave();
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert('Error al registrar el anticipo');
+            alert(error.message || 'Error al registrar el anticipo');
         } finally {
             setGuardando(false);
         }
@@ -227,6 +210,23 @@ export const RegistroAnticipoModal: React.FC<Props> = ({ tipo, onClose, onSave }
                         </button>
                     </div>
                 )}
+
+                <div className="space-y-1.5 mb-6">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Wallet size={14} className="text-sri-blue" /> Cuenta Bancaria (Origen/Destino) *
+                    </label>
+                    <select
+                        value={cuentaBancoId}
+                        onChange={e => setCuentaBancoId(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-sri-blue/10 focus:bg-white transition-all text-sm font-medium"
+                    >
+                        {cuentasBancarias.map(cta => (
+                            <option key={cta.id} value={cta.id}>
+                                {cta.banco} - {cta.nombre} (Saldo: ${Number(cta.saldo_actual).toFixed(2)})
+                            </option>
+                        ))}
+                    </select>
+                </div>
 
                 <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-1.5">

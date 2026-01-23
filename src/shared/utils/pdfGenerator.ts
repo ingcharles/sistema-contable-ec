@@ -315,3 +315,111 @@ export const generatePayrollPDF = (data: RolPagoData) => {
     const fileName = `Rol_${data.empleado.nombre.replace(/\s+/g, '_')}_${data.periodo}.pdf`;
     doc.save(fileName);
 };
+
+export const generateEstadoCuentaPDF = (
+    empresa: any,
+    cliente: any,
+    documentos: any[],
+    tipo: 'CXC' | 'CXP',
+    fechaCorte: Date = new Date()
+) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // 1. Encabezado
+    doc.setFontSize(18);
+    // sri-blue
+    doc.setTextColor(14, 165, 233);
+    doc.text(empresa.nombre_comercial || 'Empresa', 15, 20);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(`RUC: ${empresa.ruc}`, 15, 26);
+    if (empresa.direccion) {
+        doc.text(empresa.direccion.substring(0, 80), 15, 31);
+    }
+
+    // Título del Reporte
+    doc.setFontSize(16);
+    doc.setTextColor(30, 41, 59); // slate-800
+    const titulo = `ESTADO DE CUENTA - ${tipo === 'CXC' ? 'CLIENTE' : 'PROVEEDOR'}`;
+    const tituloWidth = doc.getTextWidth(titulo);
+    doc.text(titulo, pageWidth - tituloWidth - 15, 20);
+
+    // Info Cliente
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(tipo === 'CXC' ? 'CLIENTE:' : 'PROVEEDOR:', 15, 45);
+    doc.setFont('helvetica', 'normal');
+    // Validar que cliente y razon_social existen
+    doc.text(cliente?.razon_social || 'N/A', 40, 45);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('RUC/CI:', 15, 51);
+    doc.setFont('helvetica', 'normal');
+    doc.text(cliente?.identificacion || 'N/A', 40, 51);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('FECHA CORTE:', pageWidth - 60, 45);
+    doc.setFont('helvetica', 'normal');
+    doc.text(fechaCorte.toLocaleDateString(), pageWidth - 60, 51);
+
+    // Tabla de Documentos
+    const tableBody = documentos.map(doc => [
+        new Date(doc.fecha_emision).toLocaleDateString(),
+        doc.nro_comprobante,
+        new Date(doc.fecha_vencimiento).toLocaleDateString(),
+        doc.dias_vencidos > 0 ? doc.dias_vencidos : '-',
+        formatMoney(Number(doc.monto_total)),
+        formatMoney(Number(doc.saldo_pendiente))
+    ]);
+
+    const totalPendiente = documentos.reduce((sum, d) => sum + Number(d.saldo_pendiente), 0);
+    const totalVencido = documentos.reduce((sum, d) => sum + (d.dias_vencidos > 0 ? Number(d.saldo_pendiente) : 0), 0);
+
+    autoTable(doc, {
+        startY: 60,
+        head: [['Emisión', 'Documento', 'Vencimiento', 'Días Venc.', 'Total', 'Saldo Pendiente']],
+        body: tableBody,
+        foot: [['', '', '', 'TOTAL', '', formatMoney(totalPendiente)]],
+        theme: 'striped',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [14, 165, 233] }, // sri-blue
+        footStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: 'bold' }, // slate-100, slate-800
+        columnStyles: {
+            4: { halign: 'right' },
+            5: { halign: 'right', fontStyle: 'bold' }
+        }
+    });
+
+    // Resumen
+    const finalY = (doc as any).lastAutoTable.finalY + 15;
+
+    doc.setFontSize(11);
+    doc.setTextColor(30, 41, 59);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Resumen de Saldos:', 15, finalY);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total Por Vencer: ${formatMoney(totalPendiente - totalVencido)}`, 15, finalY + 7);
+
+    doc.setTextColor(220, 38, 38); // red-600
+    doc.text(`Total Vencido: ${formatMoney(totalVencido)}`, 15, finalY + 13);
+
+    // Pie de página
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184); // slate-400
+        doc.text(
+            `Página ${i} de ${pageCount} - Generado el ${new Date().toLocaleString()}`,
+            pageWidth / 2,
+            doc.internal.pageSize.height - 10,
+            { align: 'center' }
+        );
+    }
+
+    doc.save(`EstadoCuenta_${cliente?.identificacion || 'Consolidado'}_${new Date().toISOString().split('T')[0]}.pdf`);
+};

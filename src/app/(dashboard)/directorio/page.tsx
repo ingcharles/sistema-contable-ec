@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Mail, Phone, MapPin, Edit2, Trash2, UserPlus, FileSpreadsheet } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Tercero, TipoTercero } from '@/modules/directorio/domain/types';
-import { DirectorioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useTerceros, useDirectorioMutations } from '@/modules/directorio/hooks/useDirectorio';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { TerceroModal } from '@/modules/directorio/ui/components/TerceroModal';
@@ -13,7 +13,9 @@ import { EstadoBadge } from '@/shared/ui/EstadoBadge';
 
 export default function DirectorioPage() {
     const { currentEmpresa } = useEmpresa();
-    const [terceros, setTerceros] = useState<Tercero[]>([]);
+    // Hooks
+    const { terceros, cargarTerceros } = useTerceros();
+    const { eliminarTercero } = useDirectorioMutations();
     const [filtroTipo, setFiltroTipo] = useState<TipoTercero | 'TODOS'>('TODOS');
 
     // Modal State
@@ -21,17 +23,11 @@ export default function DirectorioPage() {
     const [terceroEdit, setTerceroEdit] = useState<Tercero | undefined>(undefined);
     const [confirmDelete, setConfirmDelete] = useState<{ isOpen: boolean; id?: string }>({ isOpen: false });
 
-    const loadData = async () => {
-        if (!currentEmpresa) return;
-        try {
-            const data = await DirectorioUseCases.listarTerceros(filtroTipo === 'TODOS' ? undefined : filtroTipo);
-            setTerceros(data);
-        } catch (error) {
-            console.error('Error al cargar terceros:', error);
+    useEffect(() => {
+        if (currentEmpresa) {
+            cargarTerceros(filtroTipo === 'TODOS' ? undefined : filtroTipo);
         }
-    };
-
-    useEffect(() => { loadData(); }, [currentEmpresa?.id, filtroTipo]);
+    }, [currentEmpresa?.id, filtroTipo, cargarTerceros]);
 
     const handleNew = () => {
         setTerceroEdit(undefined);
@@ -50,8 +46,8 @@ export default function DirectorioPage() {
     const confirmDeleteTercero = async () => {
         if (!confirmDelete.id) return;
         try {
-            await DirectorioUseCases.eliminarTercero(confirmDelete.id);
-            loadData();
+            await eliminarTercero(confirmDelete.id);
+            cargarTerceros(filtroTipo === 'TODOS' ? undefined : filtroTipo);
             setConfirmDelete({ isOpen: false });
         } catch (error) {
             console.error('Error al eliminar tercero:', error);
@@ -63,7 +59,7 @@ export default function DirectorioPage() {
         if (terceros.length === 0) return;
 
         const headers = ['Identificación', 'Razón Social', 'Nombre Comercial', 'Tipo', 'Email', 'Teléfono', 'Dirección'];
-        const rows = terceros.map(t => [
+        const rows = terceros.map((t: Tercero) => [
             t.identificacion,
             `"${t.razonSocial.replace(/"/g, '""')}"`,
             t.nombreComercial ? `"${t.nombreComercial.replace(/"/g, '""')}"` : '',
@@ -203,7 +199,7 @@ export default function DirectorioPage() {
                 <TerceroModal
                     terceroEditar={terceroEdit}
                     onClose={() => setModalOpen(false)}
-                    onSave={() => { setModalOpen(false); loadData(); }}
+                    onSave={() => { setModalOpen(false); cargarTerceros(filtroTipo === 'TODOS' ? undefined : filtroTipo); }}
                     empresaId={currentEmpresa.id}
                 />
             )}

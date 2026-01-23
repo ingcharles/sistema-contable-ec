@@ -1,11 +1,11 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, Calculator, Search, Receipt, AlertCircle } from 'lucide-react';
 import { SustentoTributario, OrdenCompra } from '../../domain/types';
 import { CodigoRetencion } from '@/modules/configuracion/domain/types';
-import { ComprasUseCases, ConfiguracionUseCases, ContabilidadUseCases, FacturacionUseCases, DirectorioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { ComprasUseCases, ConfiguracionUseCases, ContabilidadUseCases, FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useCentrosCostos } from '@/modules/contabilidad/hooks/useContabilidad';
+import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
@@ -23,8 +23,10 @@ interface Props {
 export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia }) => {
     const { currentEmpresa } = useEmpresa();
     const { centros: centrosCostos, cargarCentros } = useCentrosCostos();
+    const { cargarTerceros } = useTerceros();
+    const { parametros, cargarParametros } = useConfiguracion();
     const [proveedorCompleto, setProveedorCompleto] = useState<Tercero | null>(null);
-    const [retencionesDisponibles, setRetencionesDisponibles] = React.useState<CodigoRetencion[]>([]);
+    const [retencionesDisponibles, setRetencionesDisponibles] = useState<CodigoRetencion[]>([]);
 
     const [proveedorNombre, setProveedorNombre] = useState(ordenPrevia?.proveedor.razonSocial || '');
     const [proveedorRuc, setProveedorRuc] = useState(ordenPrevia?.proveedor.ruc || '');
@@ -48,8 +50,8 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     const buscarProveedor = async () => {
         if (!proveedorRuc) return;
         try {
-            const terceros = await DirectorioUseCases.listarTerceros('PROVEEDOR', proveedorRuc);
-            if (terceros.length > 0) {
+            const terceros = await cargarTerceros('PROVEEDOR', proveedorRuc);
+            if (terceros && terceros.length > 0) {
                 const prov = terceros[0];
                 setProveedorCompleto(prov);
                 setProveedorNombre(prov.razonSocial);
@@ -59,13 +61,17 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
         }
     };
 
-    React.useEffect(() => {
+    useEffect(() => {
+        cargarParametros();
+    }, [cargarParametros]);
+
+    useEffect(() => {
         if (ordenPrevia) {
             buscarProveedor();
         }
     }, [ordenPrevia]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         ConfiguracionUseCases.listarRetenciones().then(data => {
             setRetencionesDisponibles(data);
             const defaultRenta = data.find((r: any) => r.tipo === 'RENTA' && r.codigo === '312');
@@ -77,7 +83,8 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
         cargarCentros();
     }, [cargarCentros]);
 
-    const montoIva = Number((subtotalIva * 0.15).toFixed(2));
+    const ivaPorcentaje = (parametros?.iva || 15) / 100;
+    const montoIva = Number((subtotalIva * ivaPorcentaje).toFixed(2));
     const totalFactura = subtotalIva + subtotal0 + montoIva;
 
     const selectedRetRenta = retencionesDisponibles.find(c => c.codigo === codRetRenta && c.tipo === 'RENTA');
@@ -327,7 +334,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Subtotal 15%</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Subtotal {parametros?.iva || 15}%</label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
                                 <input type="number" value={subtotalIva} onChange={e => setsubtotalIva(Number(e.target.value))} className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all text-sm text-right font-mono font-bold" />
@@ -341,7 +348,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Monto IVA (15%)</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Monto IVA ({parametros?.iva || 15}%)</label>
                             <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-right font-mono font-bold text-slate-600">{formatMoney(montoIva)}</div>
                         </div>
                         <div>

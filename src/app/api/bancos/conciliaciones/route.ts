@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/infrastructure/database/postgresql';
+import { validateContext } from '@/shared/middleware/authContext';
 import { EstadoConciliacion } from '@/modules/bancos/domain/types';
 
 // GET /api/bancos/conciliaciones?cuentaId=xxx
 export async function GET(request: NextRequest) {
+    const context = validateContext(request);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
+
     try {
         const searchParams = request.nextUrl.searchParams;
         const cuentaId = searchParams.get('cuentaId');
@@ -29,9 +35,9 @@ export async function GET(request: NextRequest) {
                         updated_at as "updatedAt",
                         created_by as "createdBy"
                     FROM bancos.bancos_conciliaciones 
-                    WHERE id = $1
+                    WHERE id = $1 AND empresa_id = $2
                 `,
-                values: [id]
+                values: [id, context.empresaId]
             });
 
             if (result.rowCount === 0) {
@@ -89,10 +95,10 @@ export async function GET(request: NextRequest) {
                         updated_at as "updatedAt",
                         created_by as "createdBy"
                     FROM bancos.bancos_conciliaciones 
-                    WHERE cuenta_id = $1
+                    WHERE cuenta_id = $1 AND empresa_id = $2
                     ORDER BY fecha_corte DESC
                 `,
-                values: [cuentaId]
+                values: [cuentaId, context.empresaId]
             });
 
             return NextResponse.json(result.rows);
@@ -113,10 +119,14 @@ export async function GET(request: NextRequest) {
 
 // POST /api/bancos/conciliaciones
 export async function POST(request: NextRequest) {
+    const context = validateContext(request);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
+
     try {
         const body = await request.json();
         const {
-            empresaId,
             cuentaId,
             fechaCorte,
             saldoLibro,
@@ -130,7 +140,7 @@ export async function POST(request: NextRequest) {
         } = body;
 
         // Validaciones básicas
-        if (!empresaId || !cuentaId || !fechaCorte) {
+        if (!cuentaId || !fechaCorte) {
             return NextResponse.json(
                 { error: 'Faltan campos requeridos' },
                 { status: 400 }
@@ -140,7 +150,8 @@ export async function POST(request: NextRequest) {
         const id = crypto.randomUUID();
         const now = new Date();
         const estadoFinal = estado || EstadoConciliacion.BORRADOR;
-        const usuarioId = 'sistema'; // TODO: Extraer de token/sesión real si disponible
+        const usuarioId = context.usuarioId;
+        const empresaId = context.empresaId;
 
         // Transacción
         await db.transaction(async (client) => {
@@ -173,7 +184,7 @@ export async function POST(request: NextRequest) {
             }
 
             return { id };
-        }, { empresaId, usuarioId });
+        }, { empresaId: empresaId!, usuarioId: usuarioId! });
 
         const nuevaConciliacion = {
             id,
@@ -205,6 +216,11 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/bancos/conciliaciones
 export async function PUT(request: NextRequest) {
+    const context = validateContext(request);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
+
     try {
         const body = await request.json();
         const {
@@ -217,9 +233,7 @@ export async function PUT(request: NextRequest) {
             diferencia,
             estado,
             observaciones,
-            movimientosIds,
-            // Para transaction context
-            empresaId
+            movimientosIds
         } = body;
 
         if (!id) {
@@ -230,8 +244,8 @@ export async function PUT(request: NextRequest) {
         }
 
         const updatedAt = new Date();
-        const usuarioId = 'sistema';
-        const empId = empresaId || 'unknown'; // Debería validarse
+        const usuarioId = context.usuarioId;
+        const empId = context.empresaId;
 
         await db.transaction(async (client) => {
             // 1. Actualizar conciliación
@@ -273,7 +287,7 @@ export async function PUT(request: NextRequest) {
                     `, [id, movimientosIds]);
                 }
             }
-        }, { empresaId: empId, usuarioId });
+        }, { empresaId: empId!, usuarioId: usuarioId! });
 
         // Retornar actualizado
         const result = await db.querySimple<any>({
@@ -310,6 +324,11 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/bancos/conciliaciones?id=xxx
 export async function DELETE(request: NextRequest) {
+    const context = validateContext(request);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
+
     try {
         const searchParams = request.nextUrl.searchParams;
         const id = searchParams.get('id');
@@ -321,15 +340,8 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // Idealmente necesitamos empresaId para el contexto de auditoria
-        // Podríamos consultarlo antes
-        const infoResult = await db.querySimple<any>({
-            text: 'SELECT empresa_id FROM bancos.bancos_conciliaciones WHERE id = $1',
-            values: [id]
-        });
-
-        const empresaId = infoResult.rows[0]?.empresa_id || 'unknown';
-        const usuarioId = 'sistema';
+        const empresaId = context.empresaId;
+        const usuarioId = context.usuarioId;
 
         await db.transaction(async (client) => {
             // 1. Desmarcar movimientos
@@ -341,7 +353,7 @@ export async function DELETE(request: NextRequest) {
 
             // 2. Eliminar
             await client.query('DELETE FROM bancos.bancos_conciliaciones WHERE id = $1', [id]);
-        }, { empresaId, usuarioId });
+        }, { empresaId: empresaId!, usuarioId: usuarioId! });
 
         return NextResponse.json({ success: true });
     } catch (error) {

@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Plus, Trash2, Save, ShoppingCart, Calendar, User, Tag, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Save, ShoppingCart, Calendar, User, Tag, AlertCircle, Search } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { DetalleOrden } from '../../domain/types';
 import { ComprasUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
+import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 
@@ -14,6 +16,8 @@ interface Props {
 }
 
 export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
+    const { cargarTerceros } = useTerceros();
+    const { parametros, cargarParametros } = useConfiguracion();
     const [proveedorNombre, setProveedorNombre] = useState('');
     const [proveedorRuc, setProveedorRuc] = useState('');
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
@@ -28,9 +32,30 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
     const [nuevoPrecio, setNuevoPrecio] = useState(0);
     const [nuevaGrabaIva, setNuevaGrabaIva] = useState(true);
 
+    useEffect(() => {
+        cargarParametros();
+    }, [cargarParametros]);
+
+    const buscarProveedor = async () => {
+        if (!proveedorRuc) return;
+        try {
+            const terceros = await cargarTerceros('PROVEEDOR', proveedorRuc);
+            if (terceros && terceros.length > 0) {
+                const prov = terceros[0];
+                setProveedorNombre(prov.razonSocial);
+            } else {
+                setErrorValidacion('Proveedor no encontrado con ese RUC');
+            }
+        } catch (error) {
+            console.error('Error buscando proveedor:', error);
+        }
+    };
+
+    const ivaPorcentaje = (parametros?.iva || 15) / 100;
+
     const subtotalNoIva = detalles.filter(d => !d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0);
     const subtotalIva = detalles.filter(d => d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0);
-    const iva = Number((subtotalIva * 0.15).toFixed(2));
+    const iva = Number((subtotalIva * ivaPorcentaje).toFixed(2));
     const subtotalTotal = subtotalNoIva + subtotalIva;
     const total = subtotalTotal + iva;
 
@@ -94,7 +119,7 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
                     <p className="text-xl font-black text-slate-600">{formatMoney(subtotalTotal)}</p>
                 </div>
                 <div className="space-y-0.5">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IVA (15%)</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IVA ({parametros?.iva || 15}%)</p>
                     <p className="text-xl font-black text-slate-600">{formatMoney(iva)}</p>
                 </div>
                 <div className="h-10 w-px bg-slate-200"></div>
@@ -151,13 +176,21 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
                         <div className="grid grid-cols-1 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Identificación / RUC *</label>
-                                <input
-                                    type="text"
-                                    value={proveedorRuc}
-                                    onChange={e => setProveedorRuc(e.target.value)}
-                                    className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all text-xs font-medium"
-                                    placeholder="1790000000001"
-                                />
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={proveedorRuc}
+                                        onChange={e => setProveedorRuc(e.target.value)}
+                                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all text-xs font-medium"
+                                        placeholder="1790000000001"
+                                    />
+                                    <button
+                                        onClick={buscarProveedor}
+                                        className="p-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200"
+                                    >
+                                        <Search size={16} />
+                                    </button>
+                                </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Razón Social *</label>

@@ -12,7 +12,9 @@ import { CruceCuentasModal } from '@/modules/cartera/ui/components/CruceCuentasM
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { CobroPagoModal } from '@/modules/cartera/ui/components/CobroPagoModal';
-import { FileSpreadsheet, LayoutList } from 'lucide-react';
+import { FileSpreadsheet, LayoutList, FileText, Clock } from 'lucide-react';
+import { generateEstadoCuentaPDF } from '@/shared/utils/pdfGenerator';
+import { AgingReportModal } from '@/modules/cartera/ui/components/AgingReportModal';
 
 export default function CarteraPage() {
     const { currentEmpresa } = useEmpresa();
@@ -26,6 +28,7 @@ export default function CarteraPage() {
     const [showAnticipoModal, setShowAnticipoModal] = useState(false);
     const [showCruceModal, setShowCruceModal] = useState(false);
     const [showCobroModal, setShowCobroModal] = useState(false);
+    const [showAgingModal, setShowAgingModal] = useState(false);
 
     const loadData = async () => {
         if (!currentEmpresa) return;
@@ -42,6 +45,26 @@ export default function CarteraPage() {
     };
 
     useEffect(() => { loadData(); }, [currentEmpresa?.id, tipo]);
+
+    const handleGenerateEstadoCuenta = async (doc: DocumentoPendiente) => {
+        try {
+            const docsCliente = await CarteraUseCases.listarDocumentosPendientes(tipo, doc.terceroId);
+
+            // Construir objeto cliente con lo que tenemos y lo que vino del API
+            const cliente = {
+                identificacion: doc.terceroRuc || doc.terceroId,
+                razon_social: doc.terceroNombre,
+                direccion: doc.terceroDireccion || doc.terceroAddress || '',
+                email: doc.terceroEmail || '',
+                telefono: doc.terceroTelefono || ''
+            };
+
+            generateEstadoCuentaPDF(currentEmpresa, cliente, docsCliente, tipo);
+        } catch (error) {
+            console.error('Error generando estado de cuenta:', error);
+            alert('Error al generar el estado de cuenta');
+        }
+    };
 
     const docColumns: Column<DocumentoPendiente>[] = [
         {
@@ -74,6 +97,15 @@ export default function CarteraPage() {
             className: 'text-center',
             cell: (doc) => (
                 <div className="flex justify-center gap-2">
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        title="Generar Estado de Cuenta"
+                        className="bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 h-8 w-8 p-0"
+                        onClick={() => handleGenerateEstadoCuenta(doc)}
+                    >
+                        <FileText size={14} />
+                    </Button>
                     <Button
                         variant="secondary"
                         size="sm"
@@ -143,6 +175,12 @@ export default function CarteraPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Cartera y Tesorería</h1>
                     <p className="text-slate-500 text-sm mt-1">Gestión de cobros, pagos y anticipos.</p>
+                    <button
+                        onClick={() => setShowAgingModal(true)}
+                        className="mt-2 text-xs font-medium text-sri-blue hover:text-blue-700 hover:underline flex items-center gap-1"
+                    >
+                        <Clock size={12} /> Ver Reporte de Antigüedad
+                    </button>
                 </div>
                 <div className="flex bg-slate-100 p-1 rounded-xl">
                     <button onClick={() => setTipo(TipoCartera.CXC)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${tipo === TipoCartera.CXC ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -236,6 +274,12 @@ export default function CarteraPage() {
                     onSave={loadData}
                 />
             )}
+
+            <AgingReportModal
+                isOpen={showAgingModal}
+                onClose={() => setShowAgingModal(false)}
+                tipo={tipo}
+            />
         </div>
     );
 }

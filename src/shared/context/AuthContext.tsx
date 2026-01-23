@@ -18,7 +18,7 @@ const MOCK_USER: Usuario = {
     id: 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     nombre: 'Carlos Contador',
     email: 'admin@ecucontable.com',
-    rol: 'CONTADOR'
+    roles: ['CONTADOR', 'ADMIN']
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -32,9 +32,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const parsedUser = JSON.parse(storedUser);
             setUser(parsedUser);
             localStorage.setItem('current_usuario_id', parsedUser.id);
+            fetchSubscription(parsedUser.id); // Cargar plan actualizado
         }
         setLoading(false);
     }, []);
+
+    const fetchSubscription = async (userId: string) => {
+        try {
+            const res = await fetch('/api/users/me/subscription', {
+                headers: { 'x-usuario-id': userId }
+            });
+            if (res.ok) {
+                const subscriptionData = await res.json();
+                setUser(prev => {
+                    if (!prev) return null;
+                    const updatedUser = { ...prev, ...subscriptionData };
+                    localStorage.setItem('ecu_user', JSON.stringify(updatedUser)); // Actualizar cache
+                    return updatedUser;
+                });
+            }
+        } catch (error) {
+            console.error('Error loading subscription:', error);
+        }
+    };
 
     const login = async (email: string, password: string): Promise<boolean> => {
         // Simulación de API request
@@ -45,6 +65,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(userToSave);
             localStorage.setItem('ecu_user', JSON.stringify(userToSave));
             localStorage.setItem('current_usuario_id', userToSave.id);
+
+            // Cargar suscripción inmediatamente
+            fetchSubscription(userToSave.id);
+
             return true;
         }
         return false;
