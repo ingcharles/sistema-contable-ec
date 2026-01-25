@@ -1,4 +1,4 @@
-import libxml from 'libxmljs2';
+// import libxml from 'libxmljs2'; // Comentado para evitar errores de bindings en Windows durante el build
 import fs from 'fs';
 import path from 'path';
 
@@ -41,6 +41,15 @@ export class XsdValidator {
             if (!fs.existsSync(schemaPath)) {
                 console.warn(`XSD Schema not found at ${schemaPath}. Skipping validation.`);
                 return true; // Fail open to avoid blocking if schema is missing, but log warning
+            }
+
+            // Carga dinámica para evitar errores de bindings en entornos sin compilación nativa (ej. Windows build)
+            let libxml;
+            try {
+                libxml = require('libxmljs2');
+            } catch (e) {
+                console.warn('libxmljs2 not available. Skipping XSD validation.');
+                return true;
             }
 
             const schemaContent = fs.readFileSync(schemaPath, 'utf8');

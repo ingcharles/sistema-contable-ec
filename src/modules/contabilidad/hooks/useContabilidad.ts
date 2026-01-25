@@ -13,7 +13,9 @@ export const useCuentasContables = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await ContabilidadUseCases.listarCuentas();
+            const response = await ContabilidadUseCases.listarCuentas();
+            // La API devuelve { data: [], pagination: {} }
+            const data = response.data || [];
             setCuentas(data);
         } catch (err: any) {
             setError(err.message || 'Error al cargar cuentas');
@@ -28,6 +30,72 @@ export const useCuentasContables = () => {
         loading,
         error,
         cargarCuentas
+    };
+};
+
+/**
+ * Hook para listar TODAS las cuentas contables (sin paginación)
+ */
+export const useTodasLasCuentas = () => {
+    const [cuentas, setCuentas] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const cargarTodasLasCuentas = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await ContabilidadUseCases.listarTodasLasCuentas();
+            const listaCuentas = response.data || [];
+            setCuentas(listaCuentas);
+            return listaCuentas;
+        } catch (err: any) {
+            setError(err.message || 'Error al cargar cuentas');
+            console.error(err);
+            return [];
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    return {
+        cuentas,
+        loading,
+        error,
+        cargarTodasLasCuentas
+    };
+};
+
+/**
+ * Hook para listar SOLO cuentas de movimiento (para selects)
+ */
+export const useCuentasMovimiento = () => {
+    const [cuentas, setCuentas] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const cargarCuentasMovimiento = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await ContabilidadUseCases.listarCuentasMovimiento();
+            const listaCuentas = response.data || [];
+            setCuentas(listaCuentas);
+            return listaCuentas;
+        } catch (err: any) {
+            setError(err.message || 'Error al cargar cuentas de movimiento');
+            console.error(err);
+            return [];
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    return {
+        cuentas,
+        loading,
+        error,
+        cargarCuentasMovimiento
     };
 };
 

@@ -147,7 +147,7 @@ nuevoCosto = (stockAnterior * costoActual + cantidadIngreso * costoUnitario) / n
 
 | Módulo | Endpoints Migrados | Tablas Involucradas | Características Especiales |
 |--------|-------------------|---------------------|---------------------------|
-| Contabilidad | 2 | `plan_cuentas`, `asientos_cab`, `asientos_det` | Validación cuadratura, JSON_AGG |
+| Contabilidad | 2 | `plan_cuentas`, `asientos`, `asientos_detalles` | Validación cuadratura, JSON_AGG |
 | Inventario | 4 | `productos`, `categorias_producto`, `bodegas`, `kardex_movimientos` | Costo promedio, validación stock |
 | Nómina | 2 | `empleados`, `nomina_roles` | Generación automática, cálculos IESS |
 | **TOTAL** | **8 endpoints** | **7 tablas** | **200+ líneas SQL** |

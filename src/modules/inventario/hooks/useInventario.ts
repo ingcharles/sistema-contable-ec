@@ -15,20 +15,11 @@ export const useCategorias = (empresaId: string) => {
         if (!empresaId) return;
         setLoading(true);
         try {
-            const data = await InventarioUseCases.listarCategorias();
-            // Mapeo de Snake Case (API) a Camel Case (Dominio Frontend)
-            const mapped: CategoriaProducto[] = data.map((d: any) => ({
-                id: d.id,
-                empresaId: d.empresa_id || empresaId,
-                nombre: d.nombre,
-                cuentaInventario: d.cuenta_inventario || '',
-                cuentaCostoVenta: d.cuenta_costo_venta || '',
-                cuentaVenta: d.cuenta_venta || '',
-                createdAt: d.created_at || new Date().toISOString(),
-                updatedAt: d.updated_at || new Date().toISOString(),
-                createdBy: d.created_by || ''
-            }));
-            setCategorias(mapped);
+            const response = await InventarioUseCases.listarTodasCategorias();
+            // Extraer datos de la respuesta paginada
+            const data = response.data || [];
+           
+            setCategorias(data);
             setError(null);
         } catch (err: any) {
             console.error("Error cargando categorías:", err);

@@ -18,7 +18,7 @@ VALUES (
     true
 ) ON CONFLICT (ruc) DO NOTHING;
 
--- 2. USUARIO ADMIN
+-- 2. USUARIO SUPERADMIN
 -- Password: password123 (Hash SHA-256 referencial)
 INSERT INTO seguridad.usuarios (id, email, nombre, password_hash, rol, activo)
 VALUES (
@@ -26,7 +26,7 @@ VALUES (
     'admin@demo.com',
     'Administrador Demo',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 
-    'ADMIN',
+    'SUPERADMIN',
     true
 ) ON CONFLICT (email) DO NOTHING;
 
@@ -36,6 +36,120 @@ VALUES (
     'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
 ) ON CONFLICT (usuario_id, empresa_id) DO NOTHING;
+
+-- 3. Poblar Roles Estándar
+INSERT INTO seguridad.roles (nombre) VALUES 
+('SUPERADMIN'), ('ADMIN'), ('CONTADOR'), ('AUDITOR'), ('ASISTENTE')
+ON CONFLICT (nombre) DO NOTHING;
+
+
+
+-- 5. Insertar Menu Items y sus Permisos
+DO $$ 
+DECLARE 
+    role_superadmin UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'SUPERADMIN');
+    role_admin UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'ADMIN');
+    role_contador UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'CONTADOR');
+    role_auditor UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'AUDITOR');
+    role_asistente UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'ASISTENTE');
+    item_id UUID;
+BEGIN
+    -- Limpiar items anteriores para evitar duplicados si se re-ejecuta
+    DELETE FROM configuracion.menu_items;
+
+    -- Dashboard
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Dashboard', 'LayoutDashboard', '/dashboard', 10, 'GRATUITO') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_auditor), (item_id, role_asistente);
+
+    -- Facturación
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Facturación', 'FileText', '/facturacion', 20, 'GRATUITO') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
+
+    -- Compras
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Compras', 'ShoppingCart', '/compras', 30, 'GRATUITO') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
+
+    -- Buzón XML
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Buzón XML', 'UploadCloud', '/buzon', 40, 'PROFESIONAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
+
+    -- Terceros
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Terceros', 'Contact2', '/directorio', 50, 'GRATUITO') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
+
+    -- Cartera
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Cartera', 'Wallet', '/cartera', 60, 'PROFESIONAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
+
+    -- Inventario
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Inventario', 'Package', '/inventario', 70, 'GRATUITO') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
+
+    -- Activos Fijos
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Activos Fijos', 'Monitor', '/activos', 80, 'PROFESIONAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
+
+    -- Caja Chica
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Caja Chica', 'Coins', '/caja-chica', 90, 'GRATUITO') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
+
+    -- Bancos
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Bancos', 'Landmark', '/bancos', 100, 'PROFESIONAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
+
+    -- Contabilidad
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Contabilidad', 'TrendingUp', '/contabilidad', 110, 'PROFESIONAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
+
+    -- Impuestos
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Impuestos', 'PieChart', '/impuestos', 120, 'PROFESIONAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
+
+    -- Nómina
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Nómina', 'Users', '/nomina', 130, 'EMPRESARIAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
+
+    -- Reportes
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Reportes', 'FileBarChart', '/reportes', 140, 'GRATUITO') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
+
+    -- Auditoría
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Auditoría', 'ShieldAlert', '/auditoria', 150, 'EMPRESARIAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_auditor);
+
+    -- Configuración
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Configuración', 'Settings', '/configuracion', 160, 'GRATUITO') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin);
+
+END $$;
+
+
+
+
+
+-- 4. Migrar roles de usuarios actuales (Single -> Many)
+INSERT INTO seguridad.usuarios_roles (usuario_id, rol_id)
+SELECT id, (SELECT id FROM seguridad.roles WHERE nombre = 'SUPERADMIN')
+FROM seguridad.usuarios u
+ON CONFLICT DO NOTHING;
+
+
 
 -- 4. TERCEROS (CLIENTES Y PROVEEDORES)
 -- Consumidor Final (obligatorio según SRI)
@@ -140,18 +254,54 @@ VALUES (
 ) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
 
 -- 5. PLAN DE CUENTAS BÁSICO (NIIF)
-INSERT INTO contabilidad.plan_cuentas (empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo) VALUES
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1', 'ACTIVO', 'ACTIVO', 1, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1', 'ACTIVO CORRIENTE', 'ACTIVO', 2, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01', 'EFECTIVO Y EQUIVALENTES', 'ACTIVO', 3, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01.01', 'CAJA GENERAL', 'ACTIVO', 4, 500.00),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01.02', 'BANCOS', 'ACTIVO', 4, 15000.00),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.03', 'INVENTARIOS', 'ACTIVO', 3, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '2', 'PASIVO', 'PASIVO', 1, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '2.1', 'PASIVO CORRIENTE', 'PASIVO', 2, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '4', 'INGRESOS', 'INGRESO', 1, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '4.1', 'INGRESOS OPERACIONALES', 'INGRESO', 2, 0),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '5', 'GASTOS', 'GASTO', 1, 0);
+-- INSERT INTO contabilidad.plan_cuentas (empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo) VALUES
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1', 'ACTIVO', 'ACTIVO', 1, 0),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1', 'ACTIVO CORRIENTE', 'ACTIVO', 2, 0),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01', 'EFECTIVO Y EQUIVALENTES', 'ACTIVO', 3, 0),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01.01', 'CAJA GENERAL', 'ACTIVO', 4, 500.00),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01.02', 'BANCOS', 'ACTIVO', 4, 15000.00),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.03', 'INVENTARIOS', 'ACTIVO', 3, 0),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '2', 'PASIVO', 'PASIVO', 1, 0),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '2.1', 'PASIVO CORRIENTE', 'PASIVO', 2, 0),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '4', 'INGRESOS', 'INGRESO', 1, 0),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '4.1', 'INGRESOS OPERACIONALES', 'INGRESO', 2, 0),
+-- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '5', 'GASTOS', 'GASTO', 1, 0);
+INSERT INTO contabilidad.plan_cuentas 
+(empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo, acepta_movimiento) VALUES
+-- Activo
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1','ACTIVO','ACTIVO',1,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1','ACTIVO CORRIENTE','ACTIVO',2,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01','EFECTIVO Y EQUIVALENTES','ACTIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.01','CAJA GENERAL','ACTIVO',4,500.00, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.02','BANCOS','ACTIVO',4,15000.00, true),
+-- nuevas cuentas de movimiento
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.03','CAJA CHICA','ACTIVO',4,200.00, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.04','CUENTAS POR COBRAR CLIENTES','ACTIVO',4,3500.00, true),
+
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03','INVENTARIOS','ACTIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03.01','INVENTARIO DE MERCADERÍAS','ACTIVO',4,8000.00, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03.02','INVENTARIO DE MATERIA PRIMA','ACTIVO',4,2500.00, true),
+
+-- Pasivo
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2','PASIVO','PASIVO',1,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1','PASIVO CORRIENTE','PASIVO',2,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.01','CUENTAS POR PAGAR PROVEEDORES','PASIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.01.01','PROVEEDORES NACIONALES','PASIVO',4,4200.00, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.01.02','PROVEEDORES EXTRANJEROS','PASIVO',4,12000.00, true),
+
+-- Ingresos
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4','INGRESOS','INGRESO',1,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1','INGRESOS OPERACIONALES','INGRESO',2,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01','VENTAS DE MERCADERÍAS','INGRESO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.01','VENTAS LOCALES','INGRESO',4,25000.00, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.02','VENTAS EXPORTACIÓN','INGRESO',4,8000.00, true),
+
+-- Gastos
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5','GASTOS','GASTO',1,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1','GASTOS OPERACIONALES','GASTO',2,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01','COSTO DE VENTAS','GASTO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01.01','COSTO DE MERCADERÍAS VENDIDAS','GASTO',4,12000.00, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01.02','COSTO DE PRODUCCIÓN / SERVICIOS','GASTO',4,6000.00, true);
 
 -- 6. BODEGA PRINCIPAL
 INSERT INTO inventario.bodegas (id, empresa_id, codigo, nombre, responsable, ubicacion)
@@ -171,8 +321,8 @@ VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     'TECNOLOGÍA',
     '1.1.03.01', -- Inventario MP
-    '5.1.01',    -- Costo Ventas
-    '4.1.01'     -- Ventas
+    '5.1.01.01', -- Costo Ventas (Nivel 4)
+    '4.1.01.01'  -- Ventas (Nivel 4)
 );
 
 -- 8. PRODUCTOS
@@ -215,7 +365,7 @@ VALUES (
 ) ON CONFLICT (empresa_id, numero_cuenta) DO NOTHING;
 
 -- 10. ASIENTO CONTABLE DE APERTURA (Ejemplo)
-INSERT INTO contabilidad.asientos_cab (id, empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
+INSERT INTO contabilidad.asientos (id, empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
 VALUES (
     'as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
@@ -227,7 +377,7 @@ VALUES (
     'MAYORIZADO'
 ) ON CONFLICT (empresa_id, numero) DO NOTHING;
 
-INSERT INTO contabilidad.asientos_det (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES
+INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES
 ('as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1', '1.1.01.02', 15000.00, 0, 'Saldo Bancos'),
 ('as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1', '1.1.01.01', 500.00, 0, 'Caja Chica'),
 ('as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1', '4.1', 0, 15500.00, 'Capital Social');
@@ -244,7 +394,8 @@ INSERT INTO configuracion.catalogos_tipos (codigo, nombre, descripcion) VALUES
 ('SRI_TIPO_IMPUESTO_IVA', 'Porcentajes de IVA', 'Tabla 16: Código de Porcentaje IVA'),
 ('SRI_FORMA_PAGO', 'Formas de Pago', 'Tabla 24: Formas de Pago'),
 ('SYS_TIPO_CUENTA_BANCO', 'Tipos de Cuenta Bancaria', 'Catálogo interno de sistema'),
-('SYS_BANCOS_ECUADOR', 'Bancos del Ecuador', 'Instituciones financieras principales')
+('SYS_BANCOS_ECUADOR', 'Bancos del Ecuador', 'Instituciones financieras principales'),
+('SRI_UNIDAD_MEDIDA', 'Unidades de Medida SRI', 'Unidades estándar para facturación')
 ON CONFLICT (codigo) DO NOTHING;
 
 -- 2. INSERCIÓN DE ITEMS DE CATÁLOGOS SRI
@@ -272,8 +423,8 @@ ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
 INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor, descripcion, orden) VALUES
 ('SRI_TIPO_IMPUESTO_IVA', '0', '0%', 'Tarifa 0% de IVA', 1),
 ('SRI_TIPO_IMPUESTO_IVA', '2', '12%', 'Tarifa 12% de IVA', 2),
-('SRI_TIPO_IMPUESTO_IVA', '3', '14%', 'Tarifa 14% de IVA (Temporal)', 4),
-('SRI_TIPO_IMPUESTO_IVA', '4', '15%', 'Tarifa 15% de IVA (Actual 2024)', 3),
+('SRI_TIPO_IMPUESTO_IVA', '3', '14%', 'Tarifa 14% de IVA', 4),
+('SRI_TIPO_IMPUESTO_IVA', '4', '15%', 'Tarifa 15% de IVA', 3),
 ('SRI_TIPO_IMPUESTO_IVA', '5', '5%', 'Tarifa 5% de IVA (Materiales construcción)', 5),
 ('SRI_TIPO_IMPUESTO_IVA', '6', 'NO OBJETO DE IMPUESTO', 'No grava IVA', 6),
 ('SRI_TIPO_IMPUESTO_IVA', '7', 'EXENTO DE IVA', 'Exento legal de IVA', 7)
@@ -303,6 +454,18 @@ INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUE
 ('SYS_BANCOS_ECUADOR', 'BPA', 'BANCO DEL PACÍFICO'),
 ('SYS_BANCOS_ECUADOR', 'BI', 'BANCO INTERNACIONAL'),
 ('SYS_BANCOS_ECUADOR', 'BOL', 'BANCO BOLIVARIANO')
+ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
+ 
+-- G. SRI_UNIDAD_MEDIDA
+INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUES
+('SRI_UNIDAD_MEDIDA', 'UND', 'UNIDAD'),
+('SRI_UNIDAD_MEDIDA', 'KG', 'KILOGRAMO'),
+('SRI_UNIDAD_MEDIDA', 'LT', 'LITRO'),
+('SRI_UNIDAD_MEDIDA', 'MT', 'METRO'),
+('SRI_UNIDAD_MEDIDA', 'SER', 'SERVICIO'),
+('SRI_UNIDAD_MEDIDA', 'CAJ', 'CAJA'),
+('SRI_UNIDAD_MEDIDA', 'PAQ', 'PAQUETE'),
+('SRI_UNIDAD_MEDIDA', 'SER', 'SERVICIO')
 ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
 
 -- 11. DATOS INICIALES PARA CAJA CHICA
@@ -382,4 +545,6 @@ VALUES (
     500.00,
     'DISPONIBLE'
 );
+
+
 

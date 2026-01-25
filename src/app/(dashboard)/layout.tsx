@@ -9,6 +9,7 @@ import { useAuth } from '@/shared/context/AuthContext';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { AsistenteFloating } from '@/shared/ui/AsistenteFloating';
 import { EmpresaModal } from '@/modules/configuracion/ui/components/EmpresaModal';
+import { useMenu } from '@/shared/hooks/useMenu';
 
 export default function DashboardLayout({
     children,
@@ -18,32 +19,18 @@ export default function DashboardLayout({
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isEmpresaMenuOpen, setEmpresaMenuOpen] = useState(false);
     const [isEmpresaModalOpen, setEmpresaModalOpen] = useState(false);
-    const [menuItems, setMenuItems] = useState<any[]>([]);
-    const [loadingMenu, setLoadingMenu] = useState(true);
 
     const pathname = usePathname();
     const { user, logout } = useAuth();
     const { currentEmpresa, setCurrentEmpresa, empresas, refreshEmpresas } = useEmpresa();
+    const { menuItems, loading: loadingMenu, cargarMenu } = useMenu();
 
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
     // Cargar menú dinámico desde la DB (Ya viene filtrado por Rol y Plan desde el Backend)
     React.useEffect(() => {
-        const fetchMenu = async () => {
-            try {
-                const response = await fetch('/api/configuracion/menu');
-                if (response.ok) {
-                    const data = await response.json();
-                    setMenuItems(data);
-                }
-            } catch (error) {
-                console.error('Error loading menu:', error);
-            } finally {
-                setLoadingMenu(false);
-            }
-        };
-        fetchMenu();
-    }, []);
+        cargarMenu();
+    }, [cargarMenu]);
 
     return (
         <div className="min-h-screen bg-[#f8fafc] flex font-sans selection:bg-sri-blue/10 selection:text-sri-blue">

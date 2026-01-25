@@ -65,7 +65,7 @@
 | Módulo | Tablas |
 |--------|--------|
 | Seguridad | empresas, usuarios, usuarios_empresas |
-| Contabilidad | plan_cuentas, centros_costos, asientos_cab, asientos_det |
+| Contabilidad | plan_cuentas, centros_costos, asientos, asientos_detalles |
 | Inventario | productos, categorias_producto, bodegas, kardex_movimientos |
 | Nómina | empleados, nomina_roles |
 | Bancos | bancos_cuentas, bancos_movimientos |

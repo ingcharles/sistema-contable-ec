@@ -42,6 +42,12 @@ export class ContabilidadUseCases extends BaseUseCase {
     static async listarCuentas() {
         return this.request('/api/contabilidad/cuentas');
     }
+    static async listarTodasLasCuentas() {
+        return this.request('/api/contabilidad/cuentas?all=true');
+    }
+    static async listarCuentasMovimiento() {
+        return this.request('/api/contabilidad/cuentas?all=true&soloMovimiento=true');
+    }
     static async registrarAsiento(asiento: any) {
         return this.request('/api/contabilidad/asientos', {
             method: 'POST',
@@ -88,6 +94,12 @@ export class InventarioUseCases extends BaseUseCase {
     }
     static async listarCategorias() {
         return this.request('/api/inventario/categorias');
+    }
+    static async listarTodasCategorias() {
+        return this.request('/api/inventario/categorias?all=true');
+    }
+    static async listarCategoriasPaginado(page: number = 1, limit: number = 10) {
+        return this.request(`/api/inventario/categorias?page=${page}&limit=${limit}`);
     }
     static async guardarCategoria(categoria: any) {
         return this.request('/api/inventario/categorias', {
@@ -379,6 +391,10 @@ export class ConfiguracionUseCases extends BaseUseCase {
 
     static async listarEmpresas() {
         return this.request('/api/empresas');
+    }
+
+    static async obtenerMenu() {
+        return this.request('/api/configuracion/menu');
     }
 }
 

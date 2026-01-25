@@ -69,8 +69,7 @@ export const ConfirmModal = ({
                         isLoading={loading}
                         cancelLabel={cancelText}
                         submitLabel={confirmText}
-                        submitVariant={type}
-                        cancelVariant="ghost"
+                        submitVariant={variantMap[type]}
                     />
                 </div>
             </div>

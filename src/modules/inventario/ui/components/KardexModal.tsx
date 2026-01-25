@@ -1,32 +1,50 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { History, Package, Hash } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { History, Package, Hash, Plus } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { Producto } from '../../domain/types';
 import { useKardex } from '../../hooks/useKardex';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
+import { AjusteStockModal } from './AjusteStockModal';
+import { Button } from '@/shared/ui/Button';
 
 interface Props {
     producto: Producto;
     onClose: () => void;
     empresaId: string;
+    onRefresh?: () => void;
 }
 
-export const KardexModal: React.FC<Props> = ({ producto, onClose, empresaId: _empresaId }) => {
+export const KardexModal: React.FC<Props> = ({ producto, onClose, empresaId, onRefresh }) => {
     const { movimientos, loading, listarMovimientos } = useKardex();
+    const [showAjusteModal, setShowAjusteModal] = useState(false);
+
+    const cargarMovimientos = () => {
+        listarMovimientos(producto.id, '2020-01-01', '2030-12-31');
+    };
 
     useEffect(() => {
-        listarMovimientos(producto.id, '2020-01-01', '2030-12-31');
-    }, [producto.id, listarMovimientos]);
+        cargarMovimientos();
+    }, [producto.id]);
 
     const footer = (
-        <ModalFooter
-            onCancel={onClose}
-            showSubmit={false}
-            cancelLabel="Cerrar"
-        />
+        <div className="flex justify-between items-center">
+            <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowAjusteModal(true)}
+                className="flex items-center gap-2"
+            >
+                <Plus size={16} /> Nuevo Ajuste
+            </Button>
+            <ModalFooter
+                onCancel={onClose}
+                showSubmit={false}
+                cancelLabel="Cerrar"
+            />
+        </div>
     );
 
     return (
@@ -100,6 +118,19 @@ export const KardexModal: React.FC<Props> = ({ producto, onClose, empresaId: _em
                     </table>
                 </div>
             </div>
+
+            {showAjusteModal && (
+                <AjusteStockModal
+                    producto={producto}
+                    onClose={() => setShowAjusteModal(false)}
+                    onSave={() => {
+                        setShowAjusteModal(false);
+                        cargarMovimientos();
+                        onRefresh?.();
+                    }}
+                    empresaId={empresaId}
+                />
+            )}
         </Modal>
     );
 };

@@ -15,13 +15,51 @@ export async function GET(req: NextRequest) {
 
     try {
         const url = new URL(req.url);
-        const pagination = extractPaginationParams(url);
         const incluirInactivas = url.searchParams.get('incluirInactivas') === 'true';
+        const returnAll = url.searchParams.get('all') === 'true';
+        const soloMovimiento = url.searchParams.get('soloMovimiento') === 'true';
 
         // Query con filtros de empresa y estado activo
-        const whereClause = incluirInactivas
+        let whereClause = incluirInactivas
             ? 'WHERE empresa_id = $1'
             : 'WHERE empresa_id = $1 AND activa = true';
+
+        if (soloMovimiento) {
+            whereClause += ' AND acepta_movimiento = true';
+        }
+
+        // Si se piden todas, no hacemos count ni paginación
+        if (returnAll) {
+            const dataResult = await db.query(
+                {
+                    text: `
+                        SELECT 
+                            id, codigo, nombre, tipo, nivel, saldo, activa, 
+                            acepta_movimiento as "aceptaMovimiento",
+                            created_at, updated_at
+                        FROM contabilidad.plan_cuentas
+                        ${whereClause}
+                        ORDER BY codigo ASC
+                    `,
+                    values: [context.empresaId]
+                },
+                { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+            );
+
+            return NextResponse.json({
+                data: dataResult.rows,
+                pagination: {
+                    currentPage: 1,
+                    totalPages: 1,
+                    totalItems: dataResult.rowCount,
+                    itemsPerPage: dataResult.rowCount,
+                    hasNextPage: false,
+                    hasPrevPage: false
+                }
+            });
+        }
+
+        const pagination = extractPaginationParams(url);
 
         // Contar total para paginación
         const countResult = await db.query<{ count: string }>(
@@ -38,10 +76,11 @@ export async function GET(req: NextRequest) {
         const dataResult = await db.query(
             {
                 text: `
-                    SELECT 
-                        id, codigo, nombre, tipo, nivel, saldo, activa, 
-                        created_at, updated_at
-                    FROM contabilidad.plan_cuentas
+                        SELECT 
+                            id, codigo, nombre, tipo, nivel, saldo, activa, 
+                            acepta_movimiento as "aceptaMovimiento",
+                            created_at, updated_at
+                        FROM contabilidad.plan_cuentas
                     ${whereClause}
                     ORDER BY codigo ASC
                     LIMIT $2 OFFSET $3
@@ -103,7 +142,7 @@ export async function POST(req: NextRequest) {
                         tipo = EXCLUDED.tipo,
                         nivel = EXCLUDED.nivel,
                         saldo = EXCLUDED.saldo,
-                        acepta_movimiento = EXCLUDED.acepta_mov_movimiento,
+                        acepta_movimiento = EXCLUDED.acepta_movimiento,
                         activa = EXCLUDED.activa,
                         updated_at = NOW()
                     RETURNING *

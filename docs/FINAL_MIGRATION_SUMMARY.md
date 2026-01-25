@@ -162,7 +162,7 @@ Permiten consultas "index-only" sin acceder a la tabla:
 ```sql
 -- Asientos por empresa y fecha
 CREATE INDEX idx_asientos_empresa_fecha 
-ON asientos_cab(empresa_id, fecha DESC);
+ON contabilidad.asientos(empresa_id, fecha DESC);
 
 -- Kardex por producto y fecha
 CREATE INDEX idx_kardex_producto_fecha 

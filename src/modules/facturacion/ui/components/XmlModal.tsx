@@ -34,24 +34,23 @@ export const XmlModal = ({ xml, onClose, title = 'XML Comprobante Electrónico' 
     };
 
     const footer = (
-    const footer = (
-            <ModalFooter
-                onCancel={onClose}
-                cancelLabel="Cerrar"
-                onSubmit={handleCopy}
-                submitLabel={copied ? 'Copiado' : 'Copiar XML'}
-                submitIcon={copied ? <Check size={18} className="text-white" /> : <Copy size={18} />}
-                className="w-full justify-between"
+        <ModalFooter
+            onCancel={onClose}
+            cancelLabel="Cerrar"
+            onSubmit={handleCopy}
+            submitLabel={copied ? 'Copiado' : 'Copiar XML'}
+            submitIcon={copied ? <Check size={18} className="text-white" /> : <Copy size={18} />}
+            className="w-full justify-between"
+        >
+            <Button
+                variant="secondary"
+                onClick={handleDownload}
+                className="flex items-center gap-2"
             >
-                <Button
-                    variant="secondary"
-                    onClick={handleDownload}
-                    className="flex items-center gap-2"
-                >
-                    <Download size={18} /> Descargar XML
-                </Button>
-            </ModalFooter>
-        );
+                <Download size={18} /> Descargar XML
+            </Button>
+        </ModalFooter>
+    );
 
     return (
         <Modal

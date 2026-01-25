@@ -21,17 +21,17 @@ ON plan_cuentas(empresa_id, activa)
 WHERE activa = true;
 
 -- Asientos Contables
-CREATE INDEX IF NOT EXISTS idx_asientos_cab_empresa_fecha 
-ON asientos_cab(empresa_id, fecha DESC);
+CREATE INDEX IF NOT EXISTS idx_asientos_empresa_fecha 
+ON contabilidad.asientos(empresa_id, fecha DESC);
 
-CREATE INDEX IF NOT EXISTS idx_asientos_cab_empresa_estado 
-ON asientos_cab(empresa_id, estado);
+CREATE INDEX IF NOT EXISTS idx_asientos_empresa_estado 
+ON contabilidad.asientos(empresa_id, estado);
 
-CREATE INDEX IF NOT EXISTS idx_asientos_det_asiento 
-ON asientos_det(asiento_id);
+CREATE INDEX IF NOT EXISTS idx_asientos_detalles_asiento 
+ON contabilidad.asientos_detalles(asiento_id);
 
-CREATE INDEX IF NOT EXISTS idx_asientos_det_cuenta 
-ON asientos_det(cuenta_codigo);
+CREATE INDEX IF NOT EXISTS idx_asientos_detalles_cuenta 
+ON contabilidad.asientos_detalles(cuenta_codigo);
 
 -- ============================================================================
 -- SECCIÓN 2: ÍNDICES PARA INVENTARIO
@@ -128,6 +128,12 @@ WHERE conciliado = false;
 CREATE INDEX IF NOT EXISTS idx_bancos_movimientos_tipo 
 ON bancos_movimientos(empresa_id, tipo);
 
+-- 4. Crear índices para mejorar rendimiento
+CREATE INDEX IF NOT EXISTS idx_conciliaciones_empresa ON bancos.bancos_conciliaciones(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_conciliaciones_cuenta ON bancos.bancos_conciliaciones(cuenta_id);
+CREATE INDEX IF NOT EXISTS idx_conciliaciones_fecha ON bancos.bancos_conciliaciones(fecha_corte);
+CREATE INDEX IF NOT EXISTS idx_movimientos_conciliacion ON bancos.bancos_movimientos(conciliacion_id);
+
 -- ============================================================================
 -- SECCIÓN 5: ÍNDICES PARA CARTERA
 -- ============================================================================
@@ -186,7 +192,7 @@ ON auditoria_logs(empresa_id, evento);
 
 -- Asientos por empresa, periodo y estado (reportes)
 CREATE INDEX IF NOT EXISTS idx_asientos_reporte 
-ON asientos_cab(empresa_id, fecha, estado);
+ON contabilidad.asientos(empresa_id, fecha, estado);
 
 -- Inventario con categoría y stock (reportes)
 CREATE INDEX IF NOT EXISTS idx_productos_reporte 
@@ -228,14 +234,81 @@ ON empleados USING gin(
     )
 );
 
+
+-- Roles: búsqueda rápida por nombre
+CREATE INDEX IF NOT EXISTS idx_roles_nombre 
+ON seguridad.roles(nombre);
+
+-- Usuarios-Roles: consultas por usuario y rol
+CREATE INDEX IF NOT EXISTS idx_usuarios_roles_usuario 
+ON seguridad.usuarios_roles(usuario_id);
+
+CREATE INDEX IF NOT EXISTS idx_usuarios_roles_rol 
+ON seguridad.usuarios_roles(rol_id);
+
+-- Menú Items: consultas por estado y orden
+CREATE INDEX IF NOT EXISTS idx_menu_items_activo_orden 
+ON configuracion.menu_items(activo, orden);
+
+-- Menú Items: búsqueda por path
+CREATE INDEX IF NOT EXISTS idx_menu_items_path 
+ON configuracion.menu_items(path);
+
+-- Menú Item-Roles: consultas por ítem y rol
+CREATE INDEX IF NOT EXISTS idx_menu_item_roles_item 
+ON configuracion.menu_item_roles(menu_item_id);
+
+CREATE INDEX IF NOT EXISTS idx_menu_item_roles_rol 
+ON configuracion.menu_item_roles(rol_id);
+
+
+-- Índices multi-tenant (empresa_id debe estar en todas las consultas)
+CREATE INDEX IF NOT EXISTS idx_plan_cuentas_empresa ON contabilidad.plan_cuentas(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_asientos_empresa ON contabilidad.asientos(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_productos_empresa ON inventario.productos(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_empleados_empresa ON nomina.empleados(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_bancos_cuentas_empresa ON bancos.bancos_cuentas(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_comprobantes_empresa ON facturacion.comprobantes_electronicos(empresa_id);
+
+-- Índices catalogos_items
+CREATE INDEX IF NOT EXISTS idx_catalogos_items_catalogo ON configuracion.catalogos_items(catalogo_codigo);
+CREATE INDEX IF NOT EXISTS idx_catalogos_items_codigo ON configuracion.catalogos_items(codigo);
+CREATE INDEX IF NOT EXISTS idx_catalogos_items_activo ON configuracion.catalogos_items(catalogo_codigo, activo);
+
+-- Índices caja chica
+CREATE INDEX IF NOT EXISTS idx_caja_chica_empresa ON caja_chica.cajas(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_caja_chica_vales_caja ON caja_chica.movimientos(caja_id);
+CREATE INDEX IF NOT EXISTS idx_caja_chica_vales_empresa ON caja_chica.movimientos(empresa_id);
+
+-- Índices cartera
+CREATE INDEX IF NOT EXISTS idx_documentos_pendientes_empresa ON cartera.documentos_pendientes(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_documentos_pendientes_tercero ON cartera.documentos_pendientes(tercero_id);
+CREATE INDEX IF NOT EXISTS idx_documentos_pendientes_tipo ON cartera.documentos_pendientes(tipo);
+CREATE INDEX IF NOT EXISTS idx_anticipos_empresa ON cartera.anticipos(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_anticipos_tercero ON cartera.anticipos(tercero_id);
+CREATE INDEX IF NOT EXISTS idx_transacciones_empresa ON cartera.transacciones(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_transacciones_documento ON cartera.transacciones(documento_id);
+
+-- Índices buzon
+CREATE INDEX IF NOT EXISTS idx_buzon_empresa ON buzon.comprobantes_recibidos(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_buzon_ruc_emisor ON buzon.comprobantes_recibidos(ruc_emisor);
+CREATE INDEX IF NOT EXISTS idx_buzon_estado ON buzon.comprobantes_recibidos(estado);
+
+-- Índices terceros
+CREATE INDEX IF NOT EXISTS idx_terceros_empresa ON directorio.terceros(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_terceros_identificacion ON directorio.terceros(identificacion);
+CREATE INDEX IF NOT EXISTS idx_terceros_tipo ON directorio.terceros(tipo_tercero);
+CREATE INDEX IF NOT EXISTS idx_terceros_activo ON directorio.terceros(activo);
+CREATE INDEX IF NOT EXISTS idx_terceros_razon_social ON directorio.terceros USING gin(to_tsvector('spanish', razon_social));
+
 -- ============================================================================
 -- SECCIÓN 9: ESTADÍSTICAS Y MANTENIMIENTO
 -- ============================================================================
 
 -- Actualizar estadísticas para el optimizador
 ANALYZE plan_cuentas;
-ANALYZE asientos_cab;
-ANALYZE asientos_det;
+ANALYZE contabilidad.asientos;
+ANALYZE contabilidad.asientos_detalles;
 ANALYZE productos;
 ANALYZE kardex_movimientos;
 ANALYZE empleados;

@@ -45,7 +45,8 @@ export async function GET(req: NextRequest) {
         }
 
         const whereClause = whereConditions.join(' AND ');
-
+        console.log(whereClause);
+        console.log(values);
         const result = await db.query(
             {
                 text: `
@@ -58,7 +59,6 @@ export async function GET(req: NextRequest) {
                     FROM directorio.terceros
                     WHERE ${whereClause}
                     ORDER BY razon_social ASC
-                    LIMIT 500
                 `,
                 values
             },

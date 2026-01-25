@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        if (!['ENTRADA', 'SALIDA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO'].includes(tipo)) {
+        if (!['ENTRADA', 'SALIDA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'DEVOLUCION_COMPRA', 'DEVOLUCION_VENTA', 'TRANSFERENCIA_ENTRADA', 'TRANSFERENCIA_SALIDA'].includes(tipo)) {
             return NextResponse.json(
                 { error: 'Tipo de movimiento inválido' },
                 { status: 400 }
@@ -54,11 +54,15 @@ export async function POST(req: NextRequest) {
             switch (tipo) {
                 case 'ENTRADA':
                 case 'AJUSTE_POSITIVO':
+                case 'DEVOLUCION_VENTA':
+                case 'TRANSFERENCIA_ENTRADA':
                     nuevoStock = stockActual + cantidad;
                     esEntrada = true;
                     break;
                 case 'SALIDA':
                 case 'AJUSTE_NEGATIVO':
+                case 'DEVOLUCION_COMPRA':
+                case 'TRANSFERENCIA_SALIDA':
                     nuevoStock = stockActual - cantidad;
                     if (nuevoStock < 0) {
                         throw new Error('Stock insuficiente para realizar la salida');
