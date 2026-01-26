@@ -10,6 +10,8 @@ interface ModalFooterProps {
     onSubmit?: () => void;
     /** Text for the cancel button. Defaults to 'Cancelar' */
     cancelLabel?: string;
+    /** Variant for the cancel button. Defaults to 'secondary' */
+    cancelVariant?: 'primary' | 'secondary' | 'danger' | 'warning' | 'success' | 'ghost' | 'outline';
     /** Text for the submit button. Defaults to 'Guardar' */
     submitLabel?: string;
     /** Whether the submit button should show a loading state */
@@ -22,8 +24,11 @@ interface ModalFooterProps {
     submitVariant?: 'primary' | 'secondary' | 'danger' | 'warning' | 'success' | 'ghost' | 'outline';
     /** Whether to show the cancel button. Defaults to true */
     showCancel?: boolean;
-    /** Whether to show the submit button. Defaults to true */
     showSubmit?: boolean;
+    /** Type of the submit button. Defaults to 'button' */
+    submitButtonType?: 'button' | 'submit' | 'reset';
+    /** Form ID for the submit button to target */
+    submitButtonForm?: string;
     /** Additional classes for the container */
     className?: string;
     /** Additional content typically shown on the left of the buttons */
@@ -37,6 +42,7 @@ export const ModalFooter = ({
     onCancel,
     onSubmit,
     cancelLabel = 'Cancelar',
+    cancelVariant = 'secondary',
     submitLabel = 'Guardar',
     isLoading = false,
     isDisabled = false,
@@ -44,6 +50,8 @@ export const ModalFooter = ({
     submitVariant = 'primary',
     showCancel = true,
     showSubmit = true,
+    submitButtonType = 'button',
+    submitButtonForm,
     className = "",
     children
 }: ModalFooterProps) => {
@@ -56,7 +64,7 @@ export const ModalFooter = ({
                 {showCancel && (
                     <Button
                         type="button"
-                        variant="secondary"
+                        variant={cancelVariant}
                         onClick={onCancel}
                         disabled={isDisabled || isLoading}
                     >
@@ -65,7 +73,8 @@ export const ModalFooter = ({
                 )}
                 {showSubmit && (
                     <Button
-                        type="button"
+                        type={submitButtonType}
+                        form={submitButtonForm}
                         variant={submitVariant}
                         onClick={onSubmit}
                         isLoading={isLoading}

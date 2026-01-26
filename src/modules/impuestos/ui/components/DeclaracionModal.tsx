@@ -49,15 +49,14 @@ export const DeclaracionModal = ({ onClose, onSave, empresaId }: DeclaracionModa
     };
 
     const footer = (
-    const footer = (
-            <ModalFooter
-                onCancel={onClose}
-                onSubmit={handleGuardar}
-                isDisabled={!valores}
-                submitLabel="Guardar Declaración"
-                submitIcon={<Save size={18} />}
-            />
-        );
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isDisabled={!valores}
+            submitLabel="Guardar Declaración"
+            submitIcon={<Save size={18} />}
+        />
+    );
 
     return (
         <Modal

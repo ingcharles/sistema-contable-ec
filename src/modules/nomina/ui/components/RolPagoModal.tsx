@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FileText, Save, Plus, Minus, Receipt } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
+import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 
 interface RolPagoModalProps {
@@ -43,30 +44,21 @@ export const RolPagoModal = ({ empleado, periodo, onClose, onSave }: RolPagoModa
     };
 
     const footer = (
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 w-full bg-sri-blue/5 -m-6 p-6 border-t border-sri-blue/10 rounded-b-2xl">
-            <div className="space-y-1">
+        <ModalFooter
+            onCancel={onClose}
+            onSubmit={handleGuardar}
+            isLoading={guardando}
+            submitLabel="Generar Rol de Pago"
+            submitIcon={<Save size={18} />}
+        >
+            <div className="space-y-1 mr-auto">
                 <p className="text-[10px] font-black text-sri-blue uppercase tracking-[0.2em]">Neto a Recibir</p>
                 <h3 className="text-4xl font-black text-sri-blue tracking-tighter">{formatMoney(netoRecibir)}</h3>
             </div>
-            <div className="flex gap-3">
-                <Button variant="secondary" className="flex items-center gap-2">
-                    <FileText size={18} /> Previsualizar PDF
-                </Button>
-                <Button
-                    onClick={handleGuardar}
-                    disabled={guardando}
-                    className="flex items-center gap-2 min-w-[180px] justify-center shadow-lg shadow-sri-blue/20"
-                >
-                    {guardando ? (
-                        'Generando...'
-                    ) : (
-                        <>
-                            <Save size={18} /> Generar Rol de Pago
-                        </>
-                    )}
-                </Button>
-            </div>
-        </div>
+            <Button variant="secondary" className="flex items-center gap-2 mr-3" type="button">
+                <FileText size={18} /> Previsualizar PDF
+            </Button>
+        </ModalFooter>
     );
 
     return (
