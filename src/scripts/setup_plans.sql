@@ -1,80 +1,111 @@
 -- ============================================================================
--- SCRIPT UNIFICADO: CONFIGURACIÓN DE PLANES Y CUOTAS (TODO EN ESPAÑOL)
+-- ECUCONTABLE PRO - CONFIGURACIÓN DE PLANES Y CUOTAS
+-- ============================================================================
+-- Descripción: Script para configurar el sistema de planes, características
+-- y seguimiento de uso (cuotas mensuales).
 -- ============================================================================
 
--- 1. Crear catálogo de tipos de comprobante (Nombres legibles)
-CREATE TABLE IF NOT EXISTS facturacion.tipos_comprobante (
-    codigo tipo_comprobante_sri PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    activo BOOLEAN DEFAULT TRUE
-);
+-- ============================================================================
+-- TIPOS ENUMERADOS
+-- ============================================================================
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'estado_plan_usuario' AND typnamespace = 'seguridad'::regnamespace) THEN
+        CREATE TYPE seguridad.estado_plan_usuario AS ENUM ('ACTIVO', 'INACTIVO', 'SUSPENDIDO', 'EXPIRADO');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tipo_valor_caracteristica' AND typnamespace = 'seguridad'::regnamespace) THEN
+        CREATE TYPE seguridad.tipo_valor_caracteristica AS ENUM ('NUMERO', 'BOOLEANO');
+    END IF;
+END $$;
 
--- Seed de tipos de comprobante
-INSERT INTO facturacion.tipos_comprobante (codigo, nombre) VALUES
-('01', 'Facturas'),
-('03', 'Liquidaciones de Compra'),
-('04', 'Notas de Crédito'),
-('05', 'Notas de Débito'),
-('06', 'Guías de Remisión'),
-('07', 'Retenciones')
-ON CONFLICT (codigo) DO UPDATE SET nombre = EXCLUDED.nombre;
+-- ============================================================================
+-- TABLAS DE PLANES Y SUSCRIPCIONES
+-- ============================================================================
 
-
--- 2. Crear tabla de Planes en esquema SEGURIDAD
+-- Tabla: seguridad.planes
 CREATE TABLE IF NOT EXISTS seguridad.planes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     codigo VARCHAR(50) UNIQUE NOT NULL,
     nombre VARCHAR(100) NOT NULL,
     precio_mensual DECIMAL(10, 2) NOT NULL,
     activo BOOLEAN DEFAULT TRUE,
-    fecha_creacion TIMESTAMP DEFAULT NOW(),
-    fecha_actualizacion TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- 3. Crear tabla de Características del Plan (Con soporte para tipos de documento)
+COMMENT ON TABLE seguridad.planes IS 'Catálogo de planes de suscripción disponibles en el sistema.';
+COMMENT ON COLUMN seguridad.planes.id IS 'Identificador único del plan';
+COMMENT ON COLUMN seguridad.planes.codigo IS 'Código único del plan (ej: GRATUITO, PROFESIONAL)';
+COMMENT ON COLUMN seguridad.planes.nombre IS 'Nombre comercial del plan';
+COMMENT ON COLUMN seguridad.planes.precio_mensual IS 'Costo mensual de la suscripción';
+COMMENT ON COLUMN seguridad.planes.activo IS 'Estado del plan para nuevas suscripciones';
+COMMENT ON COLUMN seguridad.planes.created_at IS 'Fecha de creación del registro';
+COMMENT ON COLUMN seguridad.planes.updated_at IS 'Fecha de última actualización';
+
+-- Tabla: seguridad.plan_caracteristicas
 CREATE TABLE IF NOT EXISTS seguridad.plan_caracteristicas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plan_id UUID NOT NULL REFERENCES seguridad.planes(id) ON DELETE CASCADE,
     clave_caracteristica VARCHAR(50) NOT NULL,
-    tipo_documento tipo_comprobante_sri, -- Vinculación opcional a tipo de documento
-    tipo_valor VARCHAR(20) NOT NULL CHECK (tipo_valor IN ('NUMERO', 'BOOLEANO')),
+    tipo_documento facturacion.tipo_comprobante_sri NULL,
+    tipo_valor seguridad.tipo_valor_caracteristica NOT NULL,
     valor_numero INT,
     valor_booleano BOOLEAN,
-    fecha_creacion TIMESTAMP DEFAULT NOW(),
-    fecha_actualizacion TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Índice único parcial: Un plan no puede tener dos reglas para el mismo tipo de documento
 CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_caracteristica_tipo_doc 
     ON seguridad.plan_caracteristicas(plan_id, tipo_documento) 
     WHERE tipo_documento IS NOT NULL;
 
+COMMENT ON TABLE seguridad.plan_caracteristicas IS 'Características y límites específicos de cada plan.';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.id IS 'Identificador único de la característica';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.plan_id IS 'Referencia al plan';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.clave_caracteristica IS 'Nombre técnico de la característica (ej: MAX_EMPRESAS)';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.tipo_documento IS 'Código SRI si la característica es un límite por tipo de documento';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.tipo_valor IS 'Tipo de dato del valor: NUMERO o BOOLEANO';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.valor_numero IS 'Valor numérico si tipo_valor es NUMERO';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.valor_booleano IS 'Valor booleano si tipo_valor es BOOLEANO';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.created_at IS 'Fecha de creación';
+COMMENT ON COLUMN seguridad.plan_caracteristicas.updated_at IS 'Fecha de última actualización';
 
--- 4. Crear tabla de estadísticas de uso por usuario
+-- Tabla: seguridad.usuario_estadisticas_uso
 CREATE TABLE IF NOT EXISTS seguridad.usuario_estadisticas_uso (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id) ON DELETE CASCADE,
-    periodo VARCHAR(7) NOT NULL, -- 'YYYY-MM'
-    tipo_documento tipo_comprobante_sri NOT NULL,
+    periodo VARCHAR(7) NOT NULL,
+    tipo_documento facturacion.tipo_comprobante_sri NOT NULL,
     cantidad INT DEFAULT 0,
-    fecha_creacion TIMESTAMP DEFAULT NOW(),
-    fecha_actualizacion TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(usuario_id, periodo, tipo_documento)
 );
 
 CREATE INDEX IF NOT EXISTS idx_estadisticas_uso_usuario_periodo 
     ON seguridad.usuario_estadisticas_uso(usuario_id, periodo);
 
+COMMENT ON TABLE seguridad.usuario_estadisticas_uso IS 'Seguimiento mensual del uso de cuotas por usuario.';
+COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.id IS 'Identificador único del registro de uso';
+COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.usuario_id IS 'Referencia al usuario';
+COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.periodo IS 'Período de consumo en formato YYYY-MM';
+COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.tipo_documento IS 'Tipo de documento emitido (Código SRI)';
+COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.cantidad IS 'Cantidad acumulada en el período';
+COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.created_at IS 'Fecha de primer consumo en el período';
+COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.updated_at IS 'Fecha del último consumo registrado';
 
--- 5. Actualizar tabla de Usuarios (Columnas de suscripción)
-DO $$
-BEGIN
+-- ============================================================================
+-- ACTUALIZACIÓN DE TABLA USUARIOS
+-- ============================================================================
+DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'seguridad' AND table_name = 'usuarios' AND column_name = 'plan_id') THEN
         ALTER TABLE seguridad.usuarios ADD COLUMN plan_id UUID REFERENCES seguridad.planes(id);
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'seguridad' AND table_name = 'usuarios' AND column_name = 'estado_plan') THEN
-        ALTER TABLE seguridad.usuarios ADD COLUMN estado_plan VARCHAR(20) DEFAULT 'ACTIVO';
+        ALTER TABLE seguridad.usuarios ADD COLUMN estado_plan seguridad.estado_plan_usuario DEFAULT 'ACTIVO';
+    ELSE
+        -- Convertir de VARCHAR a ENUM si ya existe
+        ALTER TABLE seguridad.usuarios ALTER COLUMN estado_plan TYPE seguridad.estado_plan_usuario USING estado_plan::seguridad.estado_plan_usuario;
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'seguridad' AND table_name = 'usuarios' AND column_name = 'fecha_inicio_plan') THEN
@@ -86,8 +117,44 @@ BEGIN
     END IF;
 END $$;
 
+COMMENT ON COLUMN seguridad.usuarios.plan_id IS 'Referencia al plan de suscripción actual del usuario';
+COMMENT ON COLUMN seguridad.usuarios.estado_plan IS 'Estado de la suscripción: ACTIVO, INACTIVO, SUSPENDIDO, EXPIRADO';
+COMMENT ON COLUMN seguridad.usuarios.fecha_inicio_plan IS 'Fecha de inicio del plan actual';
+COMMENT ON COLUMN seguridad.usuarios.fecha_fin_plan IS 'Fecha de vencimiento del plan actual';
 
--- 6. Seed Data: Planes e Inserción de Características
+-- ============================================================================
+-- FUNCIONES Y TRIGGERS (updated_at)
+-- ============================================================================
+/*CREATE OR REPLACE FUNCTION seguridad.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Triggers para seguridad.planes
+DROP TRIGGER IF EXISTS trg_planes_updated_at ON seguridad.planes;
+CREATE TRIGGER trg_planes_updated_at
+    BEFORE UPDATE ON seguridad.planes
+    FOR EACH ROW EXECUTE FUNCTION seguridad.update_updated_at_column();
+
+-- Triggers para seguridad.plan_caracteristicas
+DROP TRIGGER IF EXISTS trg_plan_caracteristicas_updated_at ON seguridad.plan_caracteristicas;
+CREATE TRIGGER trg_plan_caracteristicas_updated_at
+    BEFORE UPDATE ON seguridad.plan_caracteristicas
+    FOR EACH ROW EXECUTE FUNCTION seguridad.update_updated_at_column();
+
+-- Triggers para seguridad.usuario_estadisticas_uso
+DROP TRIGGER IF EXISTS trg_usuario_estadisticas_uso_updated_at ON seguridad.usuario_estadisticas_uso;
+CREATE TRIGGER trg_usuario_estadisticas_uso_updated_at
+    BEFORE UPDATE ON seguridad.usuario_estadisticas_uso
+    FOR EACH ROW EXECUTE FUNCTION seguridad.update_updated_at_column()*/
+
+-- ============================================================================
+-- SEED DATA: PLANES E INSERCIÓN DE CARACTERÍSTICAS
+-- ============================================================================
 INSERT INTO seguridad.planes (codigo, nombre, precio_mensual) VALUES
 ('GRATUITO', 'Plan Gratuito', 0.00),
 ('PROFESIONAL', 'Plan Profesional', 29.99),
@@ -107,50 +174,36 @@ BEGIN
     -- Limpiar características existentes para evitar duplicados en re-runs
     DELETE FROM seguridad.plan_caracteristicas WHERE plan_id IN (plan_gratuito_id, plan_profesional_id, plan_empresarial_id);
 
-    -- ========================================================================
     -- PLAN GRATUITO
-    -- ========================================================================
-    -- Generales
     INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_valor, valor_numero, valor_booleano) VALUES
     (plan_gratuito_id, 'MAX_EMPRESAS', 'NUMERO', 1, NULL),
     (plan_gratuito_id, 'IA_ACCESO_LOCAL', 'BOOLEANO', NULL, TRUE),
     (plan_gratuito_id, 'IA_ACCESO_NUBE', 'BOOLEANO', NULL, FALSE);
     
-    -- Límites por Documento (Vinculados a tipo_documento)
     INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento, tipo_valor, valor_numero, valor_booleano) VALUES
     (plan_gratuito_id, 'MAX_FACTURAS_MENSUALES', '01', 'NUMERO', 30, NULL),
     (plan_gratuito_id, 'MAX_RETENCIONES_MENSUALES', '07', 'NUMERO', 20, NULL),
     (plan_gratuito_id, 'MAX_NOTAS_CREDITO_MENSUALES', '04', 'NUMERO', 10, NULL),
     (plan_gratuito_id, 'MAX_GUIAS_MENSUALES', '06', 'NUMERO', 10, NULL);
 
-
-    -- ========================================================================
     -- PLAN PROFESIONAL
-    -- ========================================================================
-    -- Generales
     INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_valor, valor_numero, valor_booleano) VALUES
     (plan_profesional_id, 'MAX_EMPRESAS', 'NUMERO', 5, NULL),
     (plan_profesional_id, 'IA_ACCESO_LOCAL', 'BOOLEANO', NULL, TRUE),
     (plan_profesional_id, 'IA_ACCESO_NUBE', 'BOOLEANO', NULL, TRUE);
 
-    -- Límites por Documento
     INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento, tipo_valor, valor_numero, valor_booleano) VALUES
     (plan_profesional_id, 'MAX_FACTURAS_MENSUALES', '01', 'NUMERO', 500, NULL),
     (plan_profesional_id, 'MAX_RETENCIONES_MENSUALES', '07', 'NUMERO', 300, NULL),
     (plan_profesional_id, 'MAX_NOTAS_CREDITO_MENSUALES', '04', 'NUMERO', 100, NULL),
     (plan_profesional_id, 'MAX_GUIAS_MENSUALES', '06', 'NUMERO', 200, NULL);
 
-
-    -- ========================================================================
-    -- PLAN EMPRESARIAL (Ilimitado = 999999)
-    -- ========================================================================
-    -- Generales
+    -- PLAN EMPRESARIAL
     INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_valor, valor_numero, valor_booleano) VALUES
     (plan_empresarial_id, 'MAX_EMPRESAS', 'NUMERO', 999999, NULL),
     (plan_empresarial_id, 'IA_ACCESO_LOCAL', 'BOOLEANO', NULL, TRUE),
     (plan_empresarial_id, 'IA_ACCESO_NUBE', 'BOOLEANO', NULL, TRUE);
 
-    -- Límites por Documento
     INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento, tipo_valor, valor_numero, valor_booleano) VALUES
     (plan_empresarial_id, 'MAX_FACTURAS_MENSUALES', '01', 'NUMERO', 999999, NULL),
     (plan_empresarial_id, 'MAX_RETENCIONES_MENSUALES', '07', 'NUMERO', 999999, NULL),

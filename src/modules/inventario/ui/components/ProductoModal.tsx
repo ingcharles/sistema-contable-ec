@@ -7,22 +7,25 @@ import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useCategorias, useInventarioMutations } from '../../hooks/useInventario';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
+import { Producto } from '../../domain/types';
 
 interface ProductoModalProps {
+    producto?: Producto;
     onClose: () => void;
     onSave: () => void;
     empresaId: string;
 }
 
-export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps) => {
+export const ProductoModal = ({ producto, onClose, onSave, empresaId }: ProductoModalProps) => {
     // Hooks de Negocio
     const { categorias } = useCategorias(empresaId);
     const { guardarProducto, guardando } = useInventarioMutations();
-    const [nombre, setNombre] = useState('');
-    const [codigo, setCodigo] = useState('');
-    const [categoriaId, setCategoriaId] = useState('');
-    const [precioVenta, setPrecioVenta] = useState(0);
-    const [stockMinimo, setStockMinimo] = useState(1);
+    const [nombre, setNombre] = useState(producto?.nombre || '');
+    const [codigo, setCodigo] = useState(producto?.codigoPrincipal || '');
+    const [categoriaId, setCategoriaId] = useState(producto?.categoriaId || '');
+    const [precioVenta, setPrecioVenta] = useState(producto?.precioVenta || 0);
+    const [stockMinimo, setStockMinimo] = useState(producto?.stockMinimo || 1);
+    const [unidadMedida, setUnidadMedida] = useState(producto?.unidadMedida || 'UND');
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const { parametros, cargarParametros } = useConfiguracion();
@@ -31,10 +34,11 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
         cargarParametros();
     }, []);
 
-    // Manejo de IVA con catálogos dinámicos
-    const { getCatalogo, loading: loadingCatalogos } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA']);
+    // Manejo de IVA y Unidades con catálogos dinámicos
+    const { getCatalogo, loading: loadingCatalogos } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA', 'SRI_UNIDAD_MEDIDA']);
     const tarifasIva = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
-    const [codigoTarifaIva, setCodigoTarifaIva] = useState('4'); // Por defecto 15% (código 4)
+    const unidadesMedida = getCatalogo('SRI_UNIDAD_MEDIDA');
+    const [codigoTarifaIva, setCodigoTarifaIva] = useState(producto?.codigoTarifaIva || '4'); // Por defecto 15% (código 4)
 
     // Seleccionar primera categoría cuando carguen
     useEffect(() => {
@@ -65,16 +69,18 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
         const grabaIva = !codigosNoGraban.includes(codigoTarifaIva);
 
         const resultado = await guardarProducto({
+            id: producto?.id, // Si existe, es edición
             empresaId,
             codigoPrincipal: codigo,
             codigoAuxiliar: '',
             nombre,
             categoriaId,
-            stockActual: 0,
-            costoPromedio: 0,
+            stockActual: producto?.stockActual || 0,
+            costoPromedio: producto?.costoPromedio || 0,
             precioVenta,
             grabaIva,
             codigoTarifaIva,
+            unidadMedida,
             stockMinimo,
             activo: true
         });
@@ -101,8 +107,8 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
         <Modal
             isOpen={true}
             onClose={onClose}
-            title="Registrar Nuevo Producto"
-            description="Complete la ficha técnica del artículo."
+            title={producto ? "Editar Producto" : "Registrar Nuevo Producto"}
+            description={producto ? `Actualizando: ${producto.nombre}` : "Complete la ficha técnica del artículo."}
             icon={<Package size={24} />}
             footer={footer}
             size="lg"
@@ -135,19 +141,26 @@ export const ProductoModal = ({ onClose, onSave, empresaId }: ProductoModalProps
                             type="text"
                             value={codigo}
                             onChange={(e) => setCodigo(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono"
+                            disabled={!!producto}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono disabled:opacity-50 disabled:cursor-not-allowed"
                         />
+                        {producto && <p className="text-[10px] text-slate-500 italic">El código no se puede modificar</p>}
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700">Unidad SRI</label>
                         <select
+                            value={unidadMedida}
+                            onChange={(e) => setUnidadMedida(e.target.value)}
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold"
+                            disabled={loadingCatalogos}
                         >
-                            <option value="UND">UNIDADES</option>
-                            <option value="KG">KILOGRAMOS</option>
-                            <option value="LT">LITROS</option>
-                            <option value="MT">METROS</option>
-                            <option value="SER">SERVICIO</option>
+                            {unidadesMedida.length > 0 ? (
+                                unidadesMedida.map(u => (
+                                    <option key={u.codigo} value={u.codigo}>{u.valor}</option>
+                                ))
+                            ) : (
+                                <option value="UND">UNIDAD</option>
+                            )}
                         </select>
                     </div>
                 </div>

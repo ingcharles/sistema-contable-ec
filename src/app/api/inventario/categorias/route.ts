@@ -13,23 +13,88 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const result = await db.query(
+        const { searchParams } = new URL(req.url);
+        const returnAll = searchParams.get('all') === 'true';
+        
+        // Si se piden todas, no hacemos paginación
+        if (returnAll) {
+            const result = await db.query(
+                {
+                    text: `
+                        SELECT 
+                            id, nombre, descripcion, 
+                            cuenta_inventario as "cuentaInventario", 
+                            cuenta_costo_venta as "cuentaCostoVenta", 
+                            cuenta_venta as "cuentaVenta",
+                            activa, created_at as "createdAt", updated_at as "updatedAt"
+                        FROM inventario.categorias_producto
+                        WHERE empresa_id = $1 AND activa = true
+                        ORDER BY nombre ASC
+                    `,
+                    values: [context.empresaId]
+                },
+                { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+            );
+
+            return NextResponse.json({
+                data: result.rows,
+                pagination: {
+                    page: 1,
+                    limit: result.rowCount,
+                    total: result.rowCount,
+                    totalPages: 1
+                }
+            });
+        }
+
+        const page = parseInt(searchParams.get('page') || '1', 10);
+        const limit = parseInt(searchParams.get('limit') || '10', 10);
+        const offset = (page - 1) * limit;
+
+        // Contar total
+        const countResult = await db.query(
             {
                 text: `
-                    SELECT 
-                        id, nombre, descripcion, 
-                        cuenta_inventario, cuenta_costo_venta, cuenta_venta,
-                        activa, created_at, updated_at
+                    SELECT COUNT(*) as total
                     FROM inventario.categorias_producto
                     WHERE empresa_id = $1 AND activa = true
-                    ORDER BY nombre ASC
                 `,
                 values: [context.empresaId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        return NextResponse.json(result.rows);
+        const total = parseInt(countResult.rows[0]?.total || '0', 10);
+
+        // Obtener datos paginados
+        const result = await db.query(
+            {
+                text: `
+                    SELECT 
+                        id, nombre, descripcion, 
+                        cuenta_inventario as "cuentaInventario", 
+                        cuenta_costo_venta as "cuentaCostoVenta", 
+                        cuenta_venta as "cuentaVenta",
+                        activa, created_at as "createdAt", updated_at as "updatedAt"
+                    FROM inventario.categorias_producto
+                    WHERE empresa_id = $1 AND activa = true
+                    ORDER BY nombre ASC
+                    LIMIT $2 OFFSET $3
+                `,
+                values: [context.empresaId, limit, offset]
+            },
+            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+        );
+
+        return NextResponse.json({
+            data: result.rows,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
     } catch (error: any) {
         console.error('Error al listar categorías:', error);
         return NextResponse.json(

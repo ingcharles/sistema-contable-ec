@@ -107,6 +107,8 @@ export interface CuentaContable {
     nivel: number;
     tipo: string;
     saldo: number;
+    aceptaMovimiento?: boolean;
+    activa?: boolean;
 }
 
 // Tipos de Facturación

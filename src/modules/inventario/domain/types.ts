@@ -1,13 +1,14 @@
 import { Auditable } from '@/shared/types';
 
 export enum TipoMovimientoInventario {
-    COMPRA = 'COMPRA',
-    VENTA = 'VENTA',
+    ENTRADA = 'ENTRADA',
+    SALIDA = 'SALIDA',
+    AJUSTE_POSITIVO = 'AJUSTE_POSITIVO',
+    AJUSTE_NEGATIVO = 'AJUSTE_NEGATIVO',
     DEVOLUCION_COMPRA = 'DEVOLUCION_COMPRA',
     DEVOLUCION_VENTA = 'DEVOLUCION_VENTA',
-    AJUSTE_INGRESO = 'AJUSTE_INGRESO',
-    AJUSTE_EGRESO = 'AJUSTE_EGRESO',
-    TRANSFERENCIA_BODEGA = 'TRANSFERENCIA_BODEGA'
+    TRANSFERENCIA_ENTRADA = 'TRANSFERENCIA_ENTRADA',
+    TRANSFERENCIA_SALIDA = 'TRANSFERENCIA_SALIDA'
 }
 
 export interface CategoriaProducto extends Auditable {
@@ -41,6 +42,8 @@ export interface Producto extends Auditable {
     costoPromedio: number;
     precioVenta: number; // Sin IVA
     grabaIva: boolean; // True 15%, False 0%
+    codigoTarifaIva?: string;
+    unidadMedida?: string;
     stockMinimo: number;
     bodegaPredeterminadaId?: string;
 }

@@ -33,9 +33,13 @@ export async function POST(req: NextRequest) {
         const userResult = await db.querySimple({
             text: `
                 SELECT 
-                    u.id, u.email, u.nombre, u.rol, u.activo
+                    u.id, u.email, u.nombre, u.activo,
+                    COALESCE(array_agg(r.nombre) FILTER (WHERE r.nombre IS NOT NULL), ARRAY[]::text[]) as roles
                 FROM seguridad.usuarios u
+                LEFT JOIN seguridad.usuarios_roles ur ON u.id = ur.usuario_id
+                LEFT JOIN seguridad.roles r ON ur.rol_id = r.id
                 WHERE u.id = $1
+                GROUP BY u.id
             `,
             values: [decoded.userId]
         });
@@ -74,7 +78,7 @@ export async function POST(req: NextRequest) {
             userId: user.id,
             empresaId,
             email: user.email,
-            rol: user.rol
+            roles: user.roles
         });
 
         return NextResponse.json({

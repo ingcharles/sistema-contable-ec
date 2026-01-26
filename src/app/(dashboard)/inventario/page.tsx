@@ -23,6 +23,7 @@ export default function InventarioPage() {
     const [bodegas, setBodegas] = useState<Bodega[]>([]);
 
     const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null);
+    const [productoEditar, setProductoEditar] = useState<Producto | null>(null);
     const [selectedCategoria, setSelectedCategoria] = useState<CategoriaProducto | null>(null);
     const [selectedBodega, setSelectedBodega] = useState<Bodega | null>(null);
     const [showModalProd, setShowModalProd] = useState(false);
@@ -32,13 +33,14 @@ export default function InventarioPage() {
     const loadData = async () => {
         if (!currentEmpresa) return;
         try {
-            const [dataProductos, dataCategorias, dataBodegas] = await Promise.all([
+            const [dataProductos, responseCategorias, dataBodegas] = await Promise.all([
                 InventarioUseCases.listarProductos(),
                 InventarioUseCases.listarCategorias(),
                 InventarioUseCases.listarBodegas()
             ]);
-            setProductos(dataProductos);
-            setCategorias(dataCategorias);
+            
+            setProductos(dataProductos.data || []);
+            setCategorias(responseCategorias.data || []);
             setBodegas(dataBodegas);
         } catch (error) {
             console.error('Error cargando inventario:', error);
@@ -139,12 +141,20 @@ export default function InventarioPage() {
             header: 'Acciones',
             className: 'text-center',
             cell: (row) => (
-                <button
-                    onClick={() => setSelectedProducto(row)}
-                    className="text-sri-blue hover:underline text-xs font-medium flex items-center justify-center gap-1 mx-auto"
-                >
-                    <History size={14} /> Kardex
-                </button>
+                <div className="flex items-center justify-center gap-3">
+                    <button
+                        onClick={() => { setProductoEditar(row); setShowModalProd(true); }}
+                        className="text-amber-600 hover:underline text-xs font-medium flex items-center gap-1"
+                    >
+                        <Package size={14} /> Editar
+                    </button>
+                    <button
+                        onClick={() => setSelectedProducto(row)}
+                        className="text-sri-blue hover:underline text-xs font-medium flex items-center gap-1"
+                    >
+                        <History size={14} /> Kardex
+                    </button>
+                </div>
             )
         }
     ];
@@ -244,46 +254,71 @@ export default function InventarioPage() {
 
                     <div className="col-span-3 bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-[400px]">
                         {subTabConfig === 'categorias' && (
-                            <>
-                                <div className="flex justify-between items-center mb-6">
-                                    <div>
-                                        <h3 className="font-bold text-slate-800">División de Artículos (Categorías)</h3>
-                                        <p className="text-xs text-slate-500">Definición de cuentas contables por línea de producto.</p>
-                                    </div>
+                            <DataTable
+                                data={categorias}
+                                columns={[
+                                    {
+                                        header: 'Nombre',
+                                        accessorKey: 'nombre',
+                                        cell: (row) => (
+                                            <div>
+                                                <div className="font-bold text-slate-700">{row.nombre}</div>
+                                                {(row as any).descripcion && (
+                                                    <div className="text-xs text-slate-500">{(row as any).descripcion}</div>
+                                                )}
+                                            </div>
+                                        )
+                                    },
+                                    {
+                                        header: 'Cuenta Inventario',
+                                        accessorKey: 'cuentaInventario',
+                                        cell: (row) => (
+                                            <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">
+                                                {row.cuentaInventario}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: 'Cuenta Costo Venta',
+                                        accessorKey: 'cuentaCostoVenta',
+                                        cell: (row) => (
+                                            <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">
+                                                {row.cuentaCostoVenta}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: 'Cuenta Venta',
+                                        accessorKey: 'cuentaVenta',
+                                        cell: (row) => (
+                                            <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">
+                                                {row.cuentaVenta}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        header: 'Acciones',
+                                        className: 'text-right',
+                                        cell: (row) => (
+                                            <button
+                                                onClick={() => { setSelectedCategoria(row); setShowModalCat(true); }}
+                                                className="text-xs text-sri-blue hover:underline"
+                                            >
+                                                Editar
+                                            </button>
+                                        )
+                                    }
+                                ]}
+                                itemsPerPage={5}
+                                searchable
+                                searchKeys={['nombre']}
+                                searchPlaceholder="Buscar categoría..."
+                                actions={
                                     <Button onClick={() => setShowModalCat(true)} className="text-xs px-3 py-1.5 flex items-center gap-1">
                                         <Plus size={14} /> Nueva Categoría
                                     </Button>
-                                </div>
-                                <div className="space-y-4">
-                                    {categorias.map(cat => (
-                                        <div key={cat.id} className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-slate-700">{cat.nombre}</h4>
-                                                <button
-                                                    onClick={() => { setSelectedCategoria(cat); setShowModalCat(true); }}
-                                                    className="text-xs text-sri-blue hover:underline"
-                                                >
-                                                    Editar
-                                                </button>
-                                            </div>
-                                            <div className="grid grid-cols-3 gap-2 text-xs">
-                                                <div className="bg-slate-100 p-2 rounded">
-                                                    <span className="block text-slate-400">Inventario</span>
-                                                    <span className="font-mono">{cat.cuentaInventario}</span>
-                                                </div>
-                                                <div className="bg-slate-100 p-2 rounded">
-                                                    <span className="block text-slate-400">Costo Venta</span>
-                                                    <span className="font-mono">{cat.cuentaCostoVenta}</span>
-                                                </div>
-                                                <div className="bg-slate-100 p-2 rounded">
-                                                    <span className="block text-slate-400">Venta</span>
-                                                    <span className="font-mono">{cat.cuentaVenta}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
+                                }
+                            />
                         )}
 
                         {subTabConfig === 'bodegas' && (
@@ -313,11 +348,13 @@ export default function InventarioPage() {
                     producto={selectedProducto}
                     onClose={() => setSelectedProducto(null)}
                     empresaId={empresaId}
+                    onRefresh={loadData}
                 />
             )}
             {showModalProd && (
                 <ProductoModal
-                    onClose={() => setShowModalProd(false)}
+                    producto={productoEditar || undefined}
+                    onClose={() => { setShowModalProd(false); setProductoEditar(null); }}
                     onSave={loadData}
                     empresaId={empresaId}
                 />

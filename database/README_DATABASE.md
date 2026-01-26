@@ -29,8 +29,8 @@ erDiagram
     COMPROBANTES_CAB ||--|{ COMPROBANTES_DET : "posee"
     TERCEROS ||--o{ COMPROBANTES_CAB : "beneficiario"
     
-    ASIENTOS_CAB ||--|{ ASIENTOS_DET : "contabiliza"
-    CUENTAS_CONTABLES ||--o{ ASIENTOS_DET : "afectada"
+    ASIENTOS ||--|{ ASIENTOS_DETALLES : "contabiliza"
+    CUENTAS_CONTABLES ||--o{ ASIENTOS_DETALLES : "afectada"
     
     AUDIT_LOG ||--o{ EMPRESAS : "monitorea"
 ```
@@ -57,7 +57,7 @@ Para inicializar la base de datos, ejecute el script:
 | :--- | :--- | :--- |
 | **Núcleo** | `empresas`, `sucursales`, `sri_configs` | Configuración multi-empresa y firma electrónica. |
 | **Directorio** | `terceros`, `transportistas` | Clientes, proveedores y logística. |
-| **Contabilidad** | `cuentas_contables`, `asientos_cab`, `asientos_det` | Motor contable y estados financieros. |
+| **Contabilidad** | `cuentas_contables`, `asientos`, `asientos_detalles` | Motor contable y estados financieros. |
 | **SRI / Facturación** | `comprobantes_cab`, `comprobantes_det`, `puntos_emision` | Ciclo de vida del documento electrónico. |
 | **Inventario** | `productos`, `kardex`, `categorias_producto` | Control de stock y costos (FIFO/Promedio). |
 | **Bancos** | `cuentas_bancarias`, `movimientos_bancarios` | Conciliación y flujo de caja. |

@@ -103,7 +103,8 @@ export async function POST(req: NextRequest) {
                 fechaEmision, fechaRegistro, sustento, descripcion,
                 subtotalIva, subtotal0, montoIva, total,
                 ordenCompraId, tieneRetencion = false,
-                nroRetencion = null, estadoRetencion = 'PENDIENTE'
+                nroRetencion = null, estadoRetencion = 'PENDIENTE',
+                detalles = [] // Array de items comprados
             } = body;
 
             const result = await db.transaction(async (client) => {
@@ -135,7 +136,84 @@ export async function POST(req: NextRequest) {
                     ordenCompraId, tieneRetencion, estadoRetencion, nroRetencion
                 ]);
 
-                // 2. Si viene de una OC, marcarla como FACTURADA
+                // 2. Procesar detalles de la compra y actualizar inventario
+                if (detalles && detalles.length > 0) {
+                    // Obtener bodega predeterminada
+                    const bodegaResult = await client.query(`
+                        SELECT id FROM inventario.bodegas 
+                        WHERE empresa_id = $1 
+                        ORDER BY created_at ASC 
+                        LIMIT 1
+                    `, [context.empresaId]);
+
+                    const bodegaId = bodegaResult.rows.length > 0 ? bodegaResult.rows[0].id : null;
+
+                    for (const detalle of detalles) {
+                        const { productoId, descripcion: desc, cantidad, precioUnitario, subtotal: subDet, porcentajeIva = 0, valorIva = 0, total: totDet } = detalle;
+
+                        // Insertar detalle de compra
+                        await client.query(`
+                            INSERT INTO compras.compras_detalle (
+                                id, compra_id, producto_id, descripcion, cantidad,
+                                precio_unitario, subtotal, porcentaje_iva, valor_iva, total, created_at
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+                        `, [crypto.randomUUID(), compraId, productoId || null, desc, cantidad, precioUnitario, subDet, porcentajeIva, valorIva, totDet]);
+
+                        // Si es un producto inventariable, actualizar stock y registrar en kardex
+                        if (productoId && bodegaId) {
+                            // Obtener stock actual del producto
+                            const prodResult = await client.query(`
+                                SELECT stock_actual, costo_promedio 
+                                FROM inventario.productos 
+                                WHERE id = $1 AND empresa_id = $2
+                            `, [productoId, context.empresaId]);
+
+                            if (prodResult.rows.length > 0) {
+                                const stockActual = parseFloat(prodResult.rows[0].stock_actual);
+                                const costoActual = parseFloat(prodResult.rows[0].costo_promedio);
+                                const nuevoStock = stockActual + cantidad;
+
+                                // Calcular nuevo costo promedio ponderado
+                                const costoTotalAnterior = stockActual * costoActual;
+                                const costoTotalNuevo = cantidad * precioUnitario;
+                                const nuevoCostoPromedio = (costoTotalAnterior + costoTotalNuevo) / nuevoStock;
+
+                                // Actualizar stock y costo promedio del producto
+                                await client.query(`
+                                    UPDATE inventario.productos 
+                                    SET stock_actual = $1, 
+                                        costo_promedio = $2,
+                                        updated_at = NOW()
+                                    WHERE id = $3 AND empresa_id = $4
+                                `, [nuevoStock, nuevoCostoPromedio, productoId, context.empresaId]);
+
+                                // Registrar movimiento en kardex
+                                await client.query(`
+                                    INSERT INTO inventario.kardex_movimientos 
+                                        (empresa_id, usuario_id, producto_id, bodega_id, tipo, cantidad, 
+                                         costo_unitario, stock_anterior, stock_resultante, referencia, observaciones, 
+                                         fecha, created_at)
+                                    VALUES 
+                                        ($1, $2, $3, $4, 'ENTRADA', $5, $6, $7, $8, $9, $10, $11, NOW())
+                                `, [
+                                    context.empresaId,
+                                    context.usuarioId,
+                                    productoId,
+                                    bodegaId,
+                                    cantidad,
+                                    precioUnitario,
+                                    stockActual,
+                                    nuevoStock,
+                                    `COMPRA-${secuencial}`,
+                                    `Compra a proveedor - Factura ${secuencial}`,
+                                    fechaEmision
+                                ]);
+                            }
+                        }
+                    }
+                }
+
+                // 3. Si viene de una OC, marcarla como FACTURADA
                 if (ordenCompraId) {
                     await client.query(`
                         UPDATE compras.ordenes 
@@ -144,7 +222,7 @@ export async function POST(req: NextRequest) {
                     `, [ordenCompraId, context.empresaId]);
                 }
 
-                // 3. Registrar en cartera como pendiente de pago
+                // 4. Registrar en cartera como pendiente de pago
                 await client.query(`
                     INSERT INTO cartera.documentos_pendientes (
                         id, empresa_id, tipo, tercero_id, nro_comprobante,
@@ -164,7 +242,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
                 success: true,
                 id: result.id,
-                mensaje: 'Compra registrada exitosamente'
+                mensaje: 'Compra registrada exitosamente. El inventario ha sido actualizado.'
             });
         }
     } catch (error: any) {

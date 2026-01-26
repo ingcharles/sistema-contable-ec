@@ -16,6 +16,7 @@ export const EditarCuentaModal = ({ cuenta, onClose, onSave }: EditarCuentaModal
     const [formData, setFormData] = useState({
         nombre: cuenta.nombre,
         saldo: cuenta.saldo,
+        aceptaMovimiento: cuenta.aceptaMovimiento || false
     });
     const [error, setError] = useState('');
 
@@ -31,6 +32,7 @@ export const EditarCuentaModal = ({ cuenta, onClose, onSave }: EditarCuentaModal
             ...cuenta,
             nombre: formData.nombre.toUpperCase(),
             saldo: formData.saldo,
+            aceptaMovimiento: formData.aceptaMovimiento
         };
 
         onSave(cuentaActualizada);
@@ -105,6 +107,19 @@ export const EditarCuentaModal = ({ cuenta, onClose, onSave }: EditarCuentaModal
                         onChange={(e) => setFormData({ ...formData, saldo: parseFloat(e.target.value) || 0 })}
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-mono font-bold text-right text-slate-600"
                     />
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                    <input
+                        type="checkbox"
+                        id="aceptaMovimiento"
+                        checked={formData.aceptaMovimiento}
+                        onChange={(e) => setFormData({ ...formData, aceptaMovimiento: e.target.checked })}
+                        className="w-5 h-5 rounded border-slate-300 text-sri-blue focus:ring-sri-blue/20"
+                    />
+                    <label htmlFor="aceptaMovimiento" className="text-sm font-bold text-slate-700 cursor-pointer">
+                        Esta cuenta permite registrar asientos (Nivel de Movimiento)
+                    </label>
                 </div>
 
                 <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50 flex items-start gap-4">

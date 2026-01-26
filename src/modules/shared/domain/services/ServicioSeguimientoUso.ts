@@ -51,14 +51,18 @@ export class ServicioSeguimientoUso {
             const resultadoConfig = await db.querySimple({
                 text: `
                     SELECT 
-                        pc.valor_numero as limite,
-                        tc.nombre as nombre_legible
+                        pc.valor_numero AS limite,
+                        ci.valor AS nombre_legible
                     FROM seguridad.usuarios u
-                    JOIN seguridad.planes p ON p.id = u.plan_id
-                    JOIN seguridad.plan_caracteristicas pc ON pc.plan_id = p.id
-                    LEFT JOIN facturacion.tipos_comprobante tc ON tc.codigo = $2
+                    JOIN seguridad.planes p 
+                        ON p.id = u.plan_id
+                    JOIN seguridad.plan_caracteristicas pc 
+                        ON pc.plan_id = p.id
+                    LEFT JOIN configuracion.catalogos_items ci 
+                        ON ci.codigo = $2 
+                    AND ci.catalogo_codigo = 'SRI_TIPO_COMPROBANTE'
                     WHERE u.id = $1 
-                    AND pc.tipo_documento = $2
+                    AND pc.tipo_documento = $2;
                 `,
                 values: [usuarioId, tipoDoc]
             });

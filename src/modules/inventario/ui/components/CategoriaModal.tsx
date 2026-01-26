@@ -6,7 +6,7 @@ import { Modal } from '@/shared/ui/Modal';
 import { CategoriaProducto } from '../../domain/types';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { useCuentasContables } from '@/modules/contabilidad/hooks/useContabilidad';
+import { useCuentasMovimiento } from '@/modules/contabilidad/hooks/useContabilidad';
 
 interface Props {
     onClose: () => void;
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const CategoriaModal: React.FC<Props> = ({ onClose, onSave, empresaId, categoriaEditar }) => {
-    const { cuentas: planCuentas, cargarCuentas } = useCuentasContables();
+    const { cuentas: planCuentas, cargarCuentasMovimiento } = useCuentasMovimiento();
     const [formData, setFormData] = useState<Partial<CategoriaProducto>>({
         nombre: '',
         cuentaInventario: '',
@@ -26,16 +26,16 @@ export const CategoriaModal: React.FC<Props> = ({ onClose, onSave, empresaId, ca
     const [guardando, setGuardando] = useState(false);
 
     useEffect(() => {
-        cargarCuentas();
-    }, [cargarCuentas]);
+        cargarCuentasMovimiento();
+    }, [cargarCuentasMovimiento]);
 
     useEffect(() => {
         if (categoriaEditar) {
             setFormData({
                 nombre: categoriaEditar.nombre,
-                cuentaInventario: categoriaEditar.cuentaInventario,
-                cuentaCostoVenta: categoriaEditar.cuentaCostoVenta,
-                cuentaVenta: categoriaEditar.cuentaVenta
+                cuentaInventario: categoriaEditar.cuentaInventario || '',
+                cuentaCostoVenta: categoriaEditar.cuentaCostoVenta || '',
+                cuentaVenta: categoriaEditar.cuentaVenta || ''
             });
         }
     }, [categoriaEditar]);

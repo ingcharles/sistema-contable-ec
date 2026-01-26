@@ -1,18 +1,20 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FileText, Plus, Edit2, Trash2 } from 'lucide-react';
 import { CuentaContable } from '@/shared/types';
-import { formatMoney } from '@/shared/utils/formatearDinero';
 import { NuevaCuentaModal } from './NuevaCuentaModal';
 import { EditarCuentaModal } from './EditarCuentaModal';
-import { useCuentasContables, useContabilidadMutations } from '../../hooks/useContabilidad';
+import { useTodasLasCuentas, useContabilidadMutations } from '../../hooks/useContabilidad';
+import { useToast } from '@/shared/context/ToastContext';
+import { formatMoney } from '@/shared/utils/formatearDinero';
 
 interface TreeNode extends CuentaContable {
     children: TreeNode[];
 }
 
 export const PlanCuentasTree = () => {
-    const { cuentas, cargarCuentas } = useCuentasContables();
+    const { cuentas, cargarTodasLasCuentas } = useTodasLasCuentas();
     const { guardarCuenta, eliminarCuenta } = useContabilidadMutations();
+    const { showToast } = useToast();
 
     const [expanded, setExpanded] = useState<Record<string, boolean>>({ '1': true, '2': true, '3': true });
     const [showNuevaCuenta, setShowNuevaCuenta] = useState(false);
@@ -22,8 +24,10 @@ export const PlanCuentasTree = () => {
 
 
     useEffect(() => {
-        cargarCuentas();
-    }, [cargarCuentas]);
+
+        cargarTodasLasCuentas();
+        // console.log('cuentas', cuentas);
+    }, [cargarTodasLasCuentas]);
 
     const treeData = useMemo(() => {
         const buildTree = (items: CuentaContable[]): TreeNode[] => {
@@ -77,22 +81,22 @@ export const PlanCuentasTree = () => {
     const handleSaveNuevaCuenta = async (cuenta: CuentaContable) => {
         try {
             await guardarCuenta(cuenta);
-            await cargarCuentas();
+            await cargarTodasLasCuentas();
             setShowNuevaCuenta(false);
-            alert(`Cuenta ${cuenta.codigo} - ${cuenta.nombre} creada exitosamente`);
+            showToast(`Cuenta ${cuenta.codigo} - ${cuenta.nombre} creada exitosamente`, 'success');
         } catch (error) {
-            alert('Error al crear la cuenta');
+            showToast('Error al crear la cuenta', 'error');
         }
     };
 
     const handleSaveEditarCuenta = async (cuenta: CuentaContable) => {
         try {
             await guardarCuenta(cuenta);
-            await cargarCuentas();
+            await cargarTodasLasCuentas();
             setShowEditarCuenta(false);
-            alert(`Cuenta ${cuenta.codigo} actualizada exitosamente`);
+            showToast(`Cuenta ${cuenta.codigo} actualizada exitosamente`, 'success');
         } catch (error) {
-            alert('Error al actualizar la cuenta');
+            showToast('Error al actualizar la cuenta', 'error');
         }
     };
 
@@ -100,10 +104,10 @@ export const PlanCuentasTree = () => {
         if (confirm(`¿Está seguro de eliminar la cuenta ${cuenta.codigo} - ${cuenta.nombre}?`)) {
             try {
                 await eliminarCuenta(cuenta.codigo);
-                await cargarCuentas();
-                alert(`Cuenta ${cuenta.codigo} eliminada exitosamente`);
+                await cargarTodasLasCuentas();
+                showToast(`Cuenta ${cuenta.codigo} eliminada exitosamente`, 'success');
             } catch (error) {
-                alert('Error al eliminar la cuenta');
+                showToast('Error al eliminar la cuenta', 'error');
             }
         }
     };
