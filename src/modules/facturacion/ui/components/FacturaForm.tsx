@@ -373,9 +373,9 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                 glosa: `P/R Venta Factura ${estab}-${ptoEmi}-${secuencial} - ${razonSocial}`,
                 tipo: 'INGRESO',
                 detalles: [
-                    { cuentaCodigo: '1.1.01.01', debe: totales.importeTotal, haber: 0 },
-                    { cuentaCodigo: '4.1.01.01', debe: 0, haber: totales.totalSinImpuestos },
-                    { cuentaCodigo: '2.1.05.01', debe: 0, haber: totales.totalIVA }
+                    { cuentaCodigo: parametros?.cuentaCxcClientes || parametros?.cuentaCaja || '1.1.01.01', debe: totales.importeTotal, haber: 0 },
+                    { cuentaCodigo: parametros?.cuentaVentas || '4.1.01.01', debe: 0, haber: totales.totalSinImpuestos },
+                    { cuentaCodigo: parametros?.cuentaIvaPorPagar || parametros?.cuentaIvaVentas || '2.1.05.01', debe: 0, haber: totales.totalIVA }
                 ]
             });
 

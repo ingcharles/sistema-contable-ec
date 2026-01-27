@@ -278,9 +278,24 @@ INSERT INTO contabilidad.plan_cuentas
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.03','CAJA CHICA','ACTIVO',4,200.00, true),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.04','CUENTAS POR COBRAR CLIENTES','ACTIVO',4,3500.00, true),
 
+-- Cuentas por Cobrar
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.02','CUENTAS POR COBRAR','ACTIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.02.01','CLIENTES','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.02.02','DOCUMENTOS POR COBRAR','ACTIVO',4,0, true),
+
+-- Inventarios
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03','INVENTARIOS','ACTIVO',3,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03.01','INVENTARIO DE MERCADERÍAS','ACTIVO',4,8000.00, true),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03.02','INVENTARIO DE MATERIA PRIMA','ACTIVO',4,2500.00, true),
+
+-- Anticipos Entregados
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.04','ANTICIPOS ENTREGADOS','ACTIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.04.01','ANTICIPOS A PROVEEDORES','ACTIVO',4,0, true),
+
+-- Impuestos Anticipados (Crédito Tributario)
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.05','IMPUESTOS ANTICIPADOS','ACTIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.05.01','IVA PAGADO EN COMPRAS','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.05.02','RETENCIONES QUE NOS EFECTÚAN','ACTIVO',4,0, true),
 
 -- Pasivo
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2','PASIVO','PASIVO',1,0, false),
@@ -289,19 +304,55 @@ INSERT INTO contabilidad.plan_cuentas
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.01.01','PROVEEDORES NACIONALES','PASIVO',4,4200.00, true),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.01.02','PROVEEDORES EXTRANJEROS','PASIVO',4,12000.00, true),
 
+-- Obligaciones Tributarias (IVA por Pagar)
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.02','OBLIGACIONES TRIBUTARIAS','PASIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.02.01','IVA POR PAGAR','PASIVO',4,0, true),
+
+-- Retenciones por Pagar
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.03','RETENCIONES POR PAGAR','PASIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.03.01','RETENCIÓN RENTA POR PAGAR','PASIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.03.02','RETENCIÓN IVA POR PAGAR','PASIVO',4,0, true),
+
+-- Anticipos Recibidos
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.04','ANTICIPOS RECIBIDOS','PASIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.04.01','ANTICIPOS DE CLIENTES','PASIVO',4,0, true),
+
+-- Otros Pasivos (IVA Cobrado en Ventas)
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.05','IVA EN VENTAS','PASIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.05.01','IVA COBRADO EN VENTAS','PASIVO',4,0, true),
+
 -- Ingresos
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4','INGRESOS','INGRESO',1,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1','INGRESOS OPERACIONALES','INGRESO',2,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01','VENTAS DE MERCADERÍAS','INGRESO',3,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.01','VENTAS LOCALES','INGRESO',4,25000.00, true),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.02','VENTAS EXPORTACIÓN','INGRESO',4,8000.00, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.02','DEVOLUCIÓN EN VENTAS','INGRESO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.03','DESCUENTO EN VENTAS','INGRESO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.04','VENTAS EXPORTACIÓN','INGRESO',4,8000.00, true),
 
 -- Gastos
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5','GASTOS','GASTO',1,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1','GASTOS OPERACIONALES','GASTO',2,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01','COSTO DE VENTAS','GASTO',3,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01.01','COSTO DE MERCADERÍAS VENDIDAS','GASTO',4,12000.00, true),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01.02','COSTO DE PRODUCCIÓN / SERVICIOS','GASTO',4,6000.00, true);
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01.02','COSTO DE PRODUCCIÓN / SERVICIOS','GASTO',4,6000.00, true),
+
+-- Gastos Administrativos
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2','GASTOS ADMINISTRATIVOS','GASTO',2,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01','GASTOS GENERALES','GASTO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01.01','SERVICIOS BÁSICOS','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01.02','SUMINISTROS DE OFICINA','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01.03','OTROS GASTOS ADMINISTRATIVOS','GASTO',4,0, true),
+
+-- Patrimonio
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3','PATRIMONIO','PATRIMONIO',1,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3.1','CAPITAL','PATRIMONIO',2,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3.1.01','CAPITAL SOCIAL','PATRIMONIO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3.1.01.01','CAPITAL PAGADO','PATRIMONIO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3.2','RESULTADOS','PATRIMONIO',2,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3.2.01','RESULTADOS ACUMULADOS','PATRIMONIO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3.2.01.01','UTILIDAD DEL EJERCICIO','PATRIMONIO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3.2.01.02','PÉRDIDA DEL EJERCICIO','PATRIMONIO',4,0, true);
 
 -- 6. BODEGA PRINCIPAL
 INSERT INTO inventario.bodegas (id, empresa_id, codigo, nombre, responsable, ubicacion)
@@ -548,3 +599,67 @@ VALUES (
 
 
 
+
+-- ============================================================================
+-- 13. CÓDIGOS DE RETENCIÓN (RENTA E IVA)
+-- ============================================================================
+
+-- A. SRI_IMPUESTO_RETENCION (Catálogo para UI)
+INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor, descripcion) VALUES
+('SRI_IMPUESTO_RETENCION', '303', 'HONORARIOS PROFESIONALES (10%)', 'Honorarios profesionales y demás pagos por servicios relacionados con el título profesional'),
+('SRI_IMPUESTO_RETENCION', '304', 'SERVICIOS INTELECTO (10%)', 'Servicios donde predomina el intelecto no relacionados con el título profesional'),
+('SRI_IMPUESTO_RETENCION', '307', 'SERVICIOS MANO DE OBRA (2%)', 'Servicios donde predomina la mano de obra'),
+('SRI_IMPUESTO_RETENCION', '308', 'UTILIZACIÓN IMAGEN (10%)', 'Utilización o aprovechamiento de la imagen o renombre'),
+('SRI_IMPUESTO_RETENCION', '309', 'SERVICIOS PUBLICIDAD (1.75%)', 'Servicios prestados por medios de comunicación y agencias de publicidad'),
+('SRI_IMPUESTO_RETENCION', '310', 'TRANSPORTE (1%)', 'Transporte privado de pasajeros o transporte público o privado de carga'),
+('SRI_IMPUESTO_RETENCION', '312', 'TRANSFERENCIA BIENES (1.75%)', 'Transferencia de bienes muebles de naturaleza corporal'),
+('SRI_IMPUESTO_RETENCION', '312A', 'COMPRA BIENES AGRICOLAS (1%)', 'Compra de bienes de origen agrícola, avícola, pecuario, apícola, bioacuáticos, forestal y carnes en estado natural'),
+('SRI_IMPUESTO_RETENCION', '314A', 'REGALÍAS FRANQUICIAS (8%)', 'Regalías por concepto de franquicias'),
+('SRI_IMPUESTO_RETENCION', '314B', 'CÁNONES, DERECHOS AUTOR (8%)', 'Cánones, derechos de autor, marcas, patentes y similares'),
+('SRI_IMPUESTO_RETENCION', '319', 'ARRENDAMIENTO INMUEBLES SOC (8%)', 'Arrendamiento de bienes inmuebles (Sociedades)'),
+('SRI_IMPUESTO_RETENCION', '320', 'ARRENDAMIENTO INMUEBLES PN (10%)', 'Arrendamiento de bienes inmuebles (Personas Naturales)'),
+('SRI_IMPUESTO_RETENCION', '322', 'SEGUROS Y REASEGUROS (1.75%)', 'Seguros y reaseguros (Primas y cesiones)'),
+('SRI_IMPUESTO_RETENCION', '332', 'NOTARIOS Y REGISTRADORES (10%)', 'Pagos a notarios y registradores de la propiedad y mercantil'),
+('SRI_IMPUESTO_RETENCION', '343', 'INTERESES Y COMISIONES (0%)', 'Intereses y comisiones en operaciones de crédito (Bancos y Seguros)'),
+('SRI_IMPUESTO_RETENCION', '3440', 'DIVIDENDOS DISTRIBUIDOS', 'Dividendos distribuidos'),
+('SRI_IMPUESTO_RETENCION', '346', 'OTROS CONCEPTOS (2.75%)', 'Otros conceptos no contemplados en los anteriores'),
+('SRI_IMPUESTO_RETENCION', '351', 'RIMPE EMPRENDEDORES (1%)', 'Adquisición de bienes y servicios a contribuyentes RIMPE Emprendedores'),
+-- IVA Codes (Added to this catalog for UI selection if needed, though usually separate)
+('SRI_IMPUESTO_RETENCION', '9', 'IVA 10% (Bienes)', 'Retención de IVA 10% en adquisición de bienes'),
+('SRI_IMPUESTO_RETENCION', '1', 'IVA 30% (Bienes)', 'Retención de IVA 30% en adquisición de bienes'),
+('SRI_IMPUESTO_RETENCION', '2', 'IVA 70% (Servicios)', 'Retención de IVA 70% en prestación de servicios'),
+('SRI_IMPUESTO_RETENCION', '3', 'IVA 100%', 'Retención de IVA 100% (Profesionales, Arriendo, Liq. Compra)'),
+('SRI_IMPUESTO_RETENCION', '7', 'IVA 0%', 'Retención de IVA 0%'),
+('SRI_IMPUESTO_RETENCION', '8', 'IVA 20%', 'Retención de IVA 20%')
+ON CONFLICT (catalogo_codigo, codigo) DO UPDATE SET valor = EXCLUDED.valor, descripcion = EXCLUDED.descripcion;
+
+-- B. CONFIGURACION.CODIGOS_RETENCION (Tabla lógica para cálculos)
+-- Empresa Demo: a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11
+INSERT INTO configuracion.codigos_retencion (empresa_id, codigo, concepto, porcentaje, tipo) VALUES
+-- RENTA
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '303', 'Honorarios profesionales y demás pagos por servicios relacionados con el título profesional', 10.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '304', 'Servicios donde predomina el intelecto no relacionados con el título profesional', 10.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '307', 'Servicios donde predomina la mano de obra', 2.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '308', 'Utilización o aprovechamiento de la imagen o renombre', 10.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '309', 'Servicios prestados por medios de comunicación y agencias de publicidad', 1.75, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '310', 'Transporte privado de pasajeros o transporte público o privado de carga', 1.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '312', 'Transferencia de bienes muebles de naturaleza corporal', 1.75, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '312A', 'Compra de bienes de origen agrícola, avícola, pecuario, apícola, bioacuáticos, forestal y carnes en estado natural', 1.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '314A', 'Regalías por concepto de franquicias', 8.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '314B', 'Cánones, derechos de autor, marcas, patentes y similares', 8.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '319', 'Arrendamiento de bienes inmuebles (Sociedades)', 8.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '320', 'Arrendamiento de bienes inmuebles (Personas Naturales)', 10.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '322', 'Seguros y reaseguros (Primas y cesiones)', 1.75, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '332', 'Pagos a notarios y registradores de la propiedad y mercantil', 10.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '343', 'Intereses y comisiones en operaciones de crédito (Bancos y Seguros)', 0.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '3440', 'Dividendos distribuidos', 0.00, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '346', 'Otros conceptos no contemplados en los anteriores', 2.75, 'RENTA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '351', 'Adquisición de bienes y servicios a contribuyentes RIMPE Emprendedores', 1.00, 'RENTA'),
+-- IVA
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '9', 'Retención de IVA 10% (Bienes)', 10.00, 'IVA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '1', 'Retención de IVA 30% (Bienes)', 30.00, 'IVA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '2', 'Retención de IVA 70% (Servicios)', 70.00, 'IVA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '3', 'Retención de IVA 100%', 100.00, 'IVA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '7', 'Retención de IVA 0%', 0.00, 'IVA'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '8', 'Retención de IVA 20%', 20.00, 'IVA')
+ON CONFLICT (empresa_id, codigo, tipo) DO UPDATE SET porcentaje = EXCLUDED.porcentaje, concepto = EXCLUDED.concepto;

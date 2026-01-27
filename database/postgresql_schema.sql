@@ -43,7 +43,7 @@ CREATE TYPE tipo_contrato AS ENUM ('INDEFINIDO', 'PLAZO_FIJO', 'TEMPORAL', 'PROY
 CREATE TYPE estado_rol_pago AS ENUM ('BORRADOR', 'PENDIENTE', 'PAGADO', 'ANULADO');
 CREATE TYPE tipo_cartera AS ENUM ('CXC', 'CXP');
 CREATE TYPE tipo_comprobante_sri AS ENUM ('01', '03', '04', '05', '06', '07');
-CREATE TYPE estado_comprobante AS ENUM ('BORRADOR', 'PENDIENTE', 'AUTORIZADO', 'RECHAZADO', 'ANULADO');
+CREATE TYPE estado_comprobante AS ENUM ('BORRADOR', 'PENDIENTE', 'AUTORIZADO', 'RECHAZADO', 'ANULADO','ERROR');
 CREATE TYPE severidad_log AS ENUM ('INFO', 'WARNING', 'ERROR', 'CRITICAL');
 
 -- ============================================================================
@@ -755,7 +755,7 @@ COMMENT ON COLUMN cartera.cartera_anticipos.created_at IS 'Fecha de creación';
 
 -- Tipos ENUM del módulo facturacion
 CREATE TYPE facturacion.tipo_comprobante_sri AS ENUM ('01', '03', '04', '05', '06', '07');
-CREATE TYPE facturacion.estado_comprobante AS ENUM ('BORRADOR', 'PENDIENTE', 'AUTORIZADO', 'RECHAZADO', 'ANULADO');
+CREATE TYPE facturacion.estado_comprobante AS ENUM ('BORRADOR', 'PENDIENTE', 'AUTORIZADO', 'RECHAZADO', 'ANULADO','ERROR');
 
 -- Tabla: facturacion.comprobantes_electronicos
 CREATE TABLE facturacion.comprobantes_electronicos (
@@ -1002,6 +1002,9 @@ CREATE TABLE configuracion.puntos_emision_secuenciales (
     punto_emision_id UUID NOT NULL REFERENCES configuracion.puntos_emision(id) ON DELETE CASCADE,
     tipo_comprobante facturacion.tipo_comprobante_sri NOT NULL,
     secuencial_actual INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    created_by UUID REFERENCES seguridad.usuarios(id),
     UNIQUE(punto_emision_id, tipo_comprobante)
 );
 
@@ -1062,28 +1065,71 @@ COMMENT ON COLUMN configuracion.parametros.cuenta_cxc_clientes IS 'Cuenta contab
 COMMENT ON COLUMN configuracion.parametros.cuenta_cxp_proveedores IS 'Cuenta contable general de CxP Proveedores';
 COMMENT ON COLUMN configuracion.parametros.fecha_cierre IS 'Fecha del último cierre contable realizado';
 
+-- Tabla: configuracion.sri_ambiente
+CREATE TABLE configuracion.sri_ambiente (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    codigo VARCHAR(20) NOT NULL UNIQUE CHECK (codigo IN ('PRUEBAS','PRODUCCION')),
+    nombre VARCHAR(50) NOT NULL,
+    url_recepcion TEXT NOT NULL,
+    url_autorizacion TEXT NOT NULL,
+    descripcion TEXT,
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+COMMENT ON TABLE configuracion.sri_ambiente IS 'Catálogo de ambientes del SRI (PRUEBAS/PRODUCCION) con sus URLs de servicios web';
+COMMENT ON COLUMN configuracion.sri_ambiente.id IS 'Identificador único UUID del ambiente';
+COMMENT ON COLUMN configuracion.sri_ambiente.codigo IS 'Código del ambiente: PRUEBAS o PRODUCCION';
+COMMENT ON COLUMN configuracion.sri_ambiente.nombre IS 'Nombre descriptivo del ambiente';
+COMMENT ON COLUMN configuracion.sri_ambiente.url_recepcion IS 'URL del servicio web de recepción de comprobantes';
+COMMENT ON COLUMN configuracion.sri_ambiente.url_autorizacion IS 'URL del servicio web de autorización de comprobantes';
+COMMENT ON COLUMN configuracion.sri_ambiente.descripcion IS 'Descripción adicional del ambiente';
+COMMENT ON COLUMN configuracion.sri_ambiente.activo IS 'Estado del ambiente';
+
+-- Insertar los ambientes estándar del SRI
+INSERT INTO configuracion.sri_ambiente (codigo, nombre, url_recepcion, url_autorizacion, descripcion) VALUES
+('PRUEBAS', 'Ambiente de Pruebas', 
+ 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
+ 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
+ 'Ambiente de certificación y pruebas del SRI'),
+('PRODUCCION', 'Ambiente de Producción',
+ 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
+ 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
+ 'Ambiente productivo del SRI');
+
 -- Tabla: configuracion.sri_certificados
 CREATE TABLE configuracion.sri_certificados (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
-    ambiente VARCHAR(20) NOT NULL CHECK (ambiente IN ('PRUEBAS','PRODUCCION')),
-    p12_certificado BYTEA, -- Digital certificate file stored as binary
-    clave_certificado VARCHAR(255), -- Certificate password (encrypt in production)
-    url_recepcion TEXT,
-    url_autorizacion TEXT,
+    sri_ambiente_id UUID NOT NULL REFERENCES configuracion.sri_ambiente(id) ON DELETE RESTRICT,
+    cert_p12_certificado BYTEA, -- Digital certificate file stored as binary
+    cert_clave_certificado VARCHAR(255), -- Certificate password (encrypt in production)
+    cert_fecha_emision TIMESTAMP,
+    cert_fecha_expiracion TIMESTAMP,
+    cert_sujeto TEXT,
+    cert_emisor TEXT,
+    cert_numero_serie VARCHAR(100),
     activo BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     created_by UUID REFERENCES seguridad.usuarios(id),
     updated_by UUID REFERENCES seguridad.usuarios(id),
     -- Only one active config per empresa+ambiente
-    UNIQUE(empresa_id, ambiente, activo)
+    UNIQUE(empresa_id, sri_ambiente_id, activo)
 );
 
-COMMENT ON TABLE configuracion.sri_certificados IS 'Almacena certificados digitales P12 y configuración de endpoints del SRI para facturación electrónica';
-COMMENT ON COLUMN configuracion.sri_certificados.ambiente IS 'Ambiente SRI: PRUEBAS o PRODUCCION';
-COMMENT ON COLUMN configuracion.sri_certificados.p12_certificado IS 'Certificado digital P12 almacenado como BYTEA';
-COMMENT ON COLUMN configuracion.sri_certificados.clave_certificado IS 'Contraseña del certificado (debe encriptarse en producción)';
+COMMENT ON TABLE configuracion.sri_certificados IS 'Almacena certificados digitales P12 por empresa y ambiente SRI para facturación electrónica';
+COMMENT ON COLUMN configuracion.sri_certificados.id IS 'Identificador único del certificado';
+COMMENT ON COLUMN configuracion.sri_certificados.empresa_id IS 'Empresa propietaria del certificado';
+COMMENT ON COLUMN configuracion.sri_certificados.sri_ambiente_id IS 'Referencia al ambiente SRI (PRUEBAS o PRODUCCION)';
+COMMENT ON COLUMN configuracion.sri_certificados.cert_p12_certificado IS 'Certificado digital P12 almacenado como BYTEA';
+COMMENT ON COLUMN configuracion.sri_certificados.cert_clave_certificado IS 'Contraseña del certificado (debe encriptarse en producción)';
+COMMENT ON COLUMN configuracion.sri_certificados.cert_fecha_emision IS 'Fecha de emisión del certificado (notBefore)';
+COMMENT ON COLUMN configuracion.sri_certificados.cert_fecha_expiracion IS 'Fecha de expiración del certificado (notAfter)';
+COMMENT ON COLUMN configuracion.sri_certificados.cert_sujeto IS 'Sujeto del certificado (Subject DN)';
+COMMENT ON COLUMN configuracion.sri_certificados.cert_emisor IS 'Emisor del certificado (Issuer DN)';
+COMMENT ON COLUMN configuracion.sri_certificados.cert_numero_serie IS 'Número de serie del certificado';
 
 
 
@@ -1696,6 +1742,7 @@ CREATE TRIGGER audit_transportistas AFTER INSERT OR UPDATE OR DELETE ON facturac
 CREATE TRIGGER audit_sucursales AFTER INSERT OR UPDATE OR DELETE ON configuracion.sucursales FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 CREATE TRIGGER audit_puntos_emision AFTER INSERT OR UPDATE OR DELETE ON configuracion.puntos_emision FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 CREATE TRIGGER audit_codigos_retencion AFTER INSERT OR UPDATE OR DELETE ON configuracion.codigos_retencion FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
+CREATE TRIGGER audit_sri_ambiente AFTER INSERT OR UPDATE OR DELETE ON configuracion.sri_ambiente FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 CREATE TRIGGER audit_sri_certificados AFTER INSERT OR UPDATE OR DELETE ON configuracion.sri_certificados FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
 -- Caja Chica
@@ -1718,6 +1765,79 @@ CREATE TRIGGER audit_ordenes_compra AFTER INSERT OR UPDATE OR DELETE ON compras.
 CREATE TRIGGER audit_comprobantes_recibidos AFTER INSERT OR UPDATE OR DELETE ON buzon.comprobantes_recibidos FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
 
+-- ============================================================================
+-- FUNCIONES DE UTILIDAD PARA CERTIFICADOS DIGITALES
+-- ============================================================================
+
+-- Función: Verificar si un certificado está vigente
+CREATE OR REPLACE FUNCTION configuracion.es_certificado_vigente(fecha_expiracion TIMESTAMP)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF fecha_expiracion IS NULL THEN
+        RETURN NULL; -- Unknown status if no expiration date
+    END IF;
+    RETURN NOW() < fecha_expiracion;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+COMMENT ON FUNCTION configuracion.es_certificado_vigente(TIMESTAMP) IS 
+    'Verifica si un certificado está vigente comparando la fecha de expiración con la fecha actual';
+
+-- Función: Calcular días hasta la expiración
+CREATE OR REPLACE FUNCTION configuracion.dias_hasta_expiracion(fecha_expiracion TIMESTAMP)
+RETURNS INTEGER AS $$
+BEGIN
+    IF fecha_expiracion IS NULL THEN
+        RETURN NULL;
+    END IF;
+    RETURN EXTRACT(DAY FROM (fecha_expiracion - NOW()))::INTEGER;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+COMMENT ON FUNCTION configuracion.dias_hasta_expiracion(TIMESTAMP) IS 
+    'Calcula días restantes hasta la expiración del certificado. Retorna número negativo si ya expiró';
+
+-- Función: Obtener metadatos completos del certificado
+CREATE OR REPLACE FUNCTION configuracion.obtener_metadata_certificado(
+    p_empresa_id UUID,
+    p_ambiente_codigo VARCHAR
+)
+RETURNS TABLE (
+    certificado_id UUID,
+    ambiente VARCHAR,
+    fecha_emision TIMESTAMP,
+    fecha_expiracion TIMESTAMP,
+    sujeto TEXT,
+    emisor TEXT,
+    numero_serie VARCHAR,
+    es_vigente BOOLEAN,
+    dias_restantes INTEGER,
+    tiene_certificado BOOLEAN
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        sc.id,
+        sa.codigo,
+        sc.cert_fecha_emision,
+        sc.cert_fecha_expiracion,
+        sc.cert_sujeto,
+        sc.cert_emisor,
+        sc.cert_numero_serie,
+        configuracion.es_certificado_vigente(sc.cert_fecha_expiracion) as es_vigente,
+        configuracion.dias_hasta_expiracion(sc.cert_fecha_expiracion) as dias_restantes,
+        (sc.cert_p12_certificado IS NOT NULL) as tiene_certificado
+    FROM configuracion.sri_certificados sc
+    INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
+    WHERE sc.empresa_id = p_empresa_id 
+      AND sa.codigo = p_ambiente_codigo
+      AND sc.activo = TRUE
+    LIMIT 1;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION configuracion.obtener_metadata_certificado(UUID, VARCHAR) IS 
+    'Obtiene los metadatos completos del certificado digital activo para una empresa y ambiente, incluyendo estado de vigencia';
 
 
 -- FIN DEL SCHEMA

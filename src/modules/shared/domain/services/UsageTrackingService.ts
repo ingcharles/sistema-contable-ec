@@ -53,11 +53,11 @@ export class UsageTrackingService {
             // Obtener el límite del plan del usuario
             const limitResult = await db.querySimple({
                 text: `
-                    SELECT pf.value_number as limite
+                    SELECT pf.valor_numero as limite
                     FROM seguridad.usuarios u
                     JOIN seguridad.planes p ON p.id = u.plan_id
-                    JOIN seguridad.plan_features pf ON pf.plan_id = p.id
-                    WHERE u.id = $1 AND pf.feature_key = $2
+                    JOIN seguridad.plan_caracteristicas pf ON pf.plan_id = p.id
+                    WHERE u.id = $1 AND pf.clave_caracteristica = $2
                 `,
                 values: [usuarioId, featureKey]
             });
@@ -147,7 +147,7 @@ export class UsageTrackingService {
                         COALESCE(us.cantidad, 0) as cantidad
                     FROM seguridad.usuarios u
                     JOIN seguridad.planes p ON p.id = u.plan_id
-                    JOIN seguridad.plan_features pf ON pf.plan_id = p.id
+                    JOIN seguridad.plan_caracteristicas pf ON pf.plan_id = p.id
                     LEFT JOIN seguridad.usuario_usage_stats us ON 
                         us.usuario_id = u.id AND 
                         us.periodo = $2 AND
@@ -158,13 +158,13 @@ export class UsageTrackingService {
                             WHEN 'MAX_GUIAS_MES' THEN 'GUIA_REMISION'
                         END
                     WHERE u.id = $1 
-                        AND pf.feature_key IN ('MAX_FACTURAS_MES', 'MAX_RETENCIONES_MES', 'MAX_NOTAS_CREDITO_MES', 'MAX_GUIAS_MES')
+                        AND pf.clave_caracteristica IN ('MAX_FACTURAS_MES', 'MAX_RETENCIONES_MES', 'MAX_NOTAS_CREDITO_MES', 'MAX_GUIAS_MES')
                 `,
                 values: [usuarioId, targetPeriod]
             });
 
             return result.rows.map((row: any) => {
-                const tipoDoc = row.feature_key.replace('MAX_', '').replace('_MES', '').replace('FACTURAS', 'FACTURA').replace('RETENCIONES', 'RETENCION').replace('NOTAS_CREDITO', 'NOTA_CREDITO').replace('GUIAS', 'GUIA_REMISION') as TipoDocumento;
+                const tipoDoc = row.clave_caracteristica.replace('MAX_', '').replace('_MES', '').replace('FACTURAS', 'FACTURA').replace('RETENCIONES', 'RETENCION').replace('NOTAS_CREDITO', 'NOTA_CREDITO').replace('GUIAS', 'GUIA_REMISION') as TipoDocumento;
 
                 return {
                     tipo_documento: tipoDoc,

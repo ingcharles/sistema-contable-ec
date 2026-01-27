@@ -111,18 +111,18 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
 
             // 2. Preparar datos para SRI usando el secuencial generado por backend
             const dataGuia = {
-                ambiente: currentEmpresa.ambienteSri || AMBIENTE.PRUEBAS,
+                ambiente: currentEmpresa.ambienteSri,
                 tipoEmision: TIPO_EMISION.NORMAL,
                 razonSocial: currentEmpresa.razonSocial,
                 nombreComercial: currentEmpresa.nombreComercial,
                 ruc: currentEmpresa.ruc,
-                estab: puntoEmi?.sucursalCodigo || '001',
-                ptoEmi: puntoEmi?.codigo || '001',
-                secuencial: savedGuiaResponse.secuencial, // USAR SECUENCIAL REAL
-                dirMatriz: currentEmpresa.direccionMatriz || 'Quito',
+                estab: puntoEmi?.sucursalCodigo,
+                ptoEmi: puntoEmi?.codigo,
+                secuencial: savedGuiaResponse.secuencial,
+                dirMatriz: currentEmpresa.direccionMatriz,
                 dirPartida: puntoPartida,
                 razonSocialTransportista: transportista.razonSocial,
-                tipoIdentificacionTransportista: transportista.tipoIdentificacion || '04',
+                tipoIdentificacionTransportista: transportista.tipoIdentificacion,
                 rucTransportista: transportista.ruc || transportista.identificacion,
                 obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
                 contribuyenteEspecial: currentEmpresa.contribuyenteEspecial,

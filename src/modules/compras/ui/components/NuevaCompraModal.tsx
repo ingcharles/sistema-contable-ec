@@ -27,6 +27,8 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     const { parametros, cargarParametros } = useConfiguracion();
     const [proveedorCompleto, setProveedorCompleto] = useState<Tercero | null>(null);
     const [retencionesDisponibles, setRetencionesDisponibles] = useState<CodigoRetencion[]>([]);
+    const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
+    const [puntoEmisionId, setPuntoEmisionId] = useState('');
 
     const [proveedorNombre, setProveedorNombre] = useState(ordenPrevia?.proveedor.razonSocial || '');
     const [proveedorRuc, setProveedorRuc] = useState(ordenPrevia?.proveedor.ruc || '');
@@ -80,6 +82,16 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
             if (defaultIva) setCodRetIva(defaultIva.codigo);
         });
 
+        const cargarPuntos = async () => {
+            try {
+                const puntos = await FacturacionUseCases.listarPuntosEmision();
+                setPuntosEmision(puntos);
+                if (puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+            } catch (e) {
+                console.error('Error al cargar puntos de emisión:', e);
+            }
+        };
+        cargarPuntos();
         cargarCentros();
     }, [cargarCentros]);
 
@@ -101,6 +113,10 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
             setErrorValidacion('El RUC del proveedor y el número de comprobante son obligatorios.');
             return;
         }
+        if (!proveedorCompleto?.id) {
+            setErrorValidacion('Debe buscar el proveedor usando el botón de búsqueda para validar que existe en el directorio.');
+            return;
+        }
 
         setGuardando(true);
         setErrorValidacion(null);
@@ -110,6 +126,21 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
 
             // 1. Emitir Retención Electrónica si aplica
             if (aplicaRetencion && currentEmpresa && (codRetRenta || codRetIva)) {
+                const puntoEmi = puntosEmision.find(p => p.id === puntoEmisionId);
+                if (!puntoEmi) {
+                    throw new Error('Debe seleccionar un punto de emisión válido');
+                }
+
+                // Obtener el siguiente secuencial para retención
+                const secuencialResponse = await FacturacionUseCases.obtenerSiguienteSecuencial(
+                    puntoEmisionId,
+                    '07' // Tipo comprobante: Retención
+                );
+
+                if (!secuencialResponse.success) {
+                    throw new Error(secuencialResponse.error || 'Error al obtener secuencial de retención');
+                }
+
                 const impuestos = [];
                 if (codRetRenta && valorRetRenta > 0) {
                     impuestos.push({
@@ -137,16 +168,17 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                 }
 
                 if (impuestos.length > 0) {
+                    nroRetencionGenerado = `${puntoEmi.sucursalCodigo}-${puntoEmi.codigo}-${secuencialResponse.secuencial}`;
                     const dataRetencion = {
                         ambiente: AMBIENTE.PRUEBAS,
                         tipoEmision: TIPO_EMISION.NORMAL,
                         razonSocial: currentEmpresa.razonSocial,
                         nombreComercial: currentEmpresa.nombreComercial,
                         ruc: currentEmpresa.ruc,
-                        estab: '001',
-                        ptoEmi: '001',
-                        secuencial: Math.floor(Math.random() * 999999999).toString().padStart(9, '0'),
-                        dirMatriz: currentEmpresa.direccionMatriz || 'Quito',
+                        estab: puntoEmi.sucursalCodigo,
+                        ptoEmi: puntoEmi.codigo,
+                        secuencial: secuencialResponse.secuencial,
+                        dirMatriz: currentEmpresa.direccionMatriz,
                         fechaEmision,
                         obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
                         tipoIdentificacionSujetoRetenido: proveedorCompleto?.tipoIdentificacion || (proveedorRuc.length === 13 ? '04' : '05'),
@@ -155,21 +187,18 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                         periodoFiscal: fechaEmision.substring(5, 7) + '/' + fechaEmision.substring(0, 4),
                         impuestos
                     };
-
+                    console.log('Data Retencion:', dataRetencion);
                     const retStandard = SriStandardizer.standardizeRetencion(dataRetencion);
                     try {
                         resSri = await FacturacionUseCases.emitirFactura(retStandard);
-                        if (resSri.estado === 'AUTORIZADO') {
-                            nroRetencionGenerado = `001-001-${dataRetencion.secuencial}`;
-                        }
                     } catch (e) {
                         console.error('Error SRI Retención:', e);
                     }
 
                     await FacturacionUseCases.registrarComprobante({
-                        tipoComprobante: 'COMPROBANTE_RETENCION',
+                        tipoComprobante: '07', //COMPROBANTE_RETENCION
                         fechaEmision,
-                        clienteId: proveedorRuc,
+                        clienteId: proveedorCompleto.id,
                         clienteNombre: proveedorNombre,
                         clienteIdentificacion: proveedorRuc,
                         subtotal: 0,
@@ -191,8 +220,12 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
             }
 
             // 2. Registrar Compra en Backend
+            if (!proveedorCompleto?.id) {
+                throw new Error('Debe buscar y seleccionar un proveedor válido del directorio');
+            }
+
             await ComprasUseCases.registrarCompra({
-                proveedorId: proveedorRuc,
+                proveedorId: proveedorCompleto.id,
                 tipoComprobante: secuencial.startsWith('00') ? '01' : '03',
                 secuencial,
                 autorizacion,
@@ -221,15 +254,15 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                 tipo: 'EGRESO',
                 detalles: [
                     {
-                        cuentaCodigo: '1.1.03.01',
+                        cuentaCodigo: parametros?.cuentaInventario || parametros?.cuentaCompras || '1.1.03.01',
                         debe: subtotalIva + subtotal0,
                         haber: 0,
                         centroCostoId: centroCostoId || undefined
                     },
-                    { cuentaCodigo: '1.1.05.01', debe: montoIva, haber: 0 },
-                    { cuentaCodigo: '2.1.01.01', debe: 0, haber: totalPagar },
-                    { cuentaCodigo: '2.1.03.01', debe: 0, haber: valorRetRenta },
-                    { cuentaCodigo: '2.1.03.02', debe: 0, haber: valorRetIva }
+                    { cuentaCodigo: parametros?.cuentaIvaCompras || '1.1.05.01', debe: montoIva, haber: 0 },
+                    { cuentaCodigo: parametros?.cuentaCxpProveedores || '2.1.01.01', debe: 0, haber: totalPagar },
+                    { cuentaCodigo: parametros?.cuentaRetRentaPorPagar || '2.1.03.01', debe: 0, haber: valorRetRenta },
+                    { cuentaCodigo: parametros?.cuentaRetIvaPorPagar || '2.1.03.02', debe: 0, haber: valorRetIva }
                 ].filter(d => d.debe > 0 || d.haber > 0)
             });
 
@@ -248,7 +281,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
             onCancel={onClose}
             onSubmit={handleGuardar}
             isLoading={guardando}
-            isDisabled={!proveedorRuc || !secuencial || totalFactura === 0}
+            isDisabled={!proveedorCompleto?.id || !secuencial || totalFactura === 0}
             submitLabel="Guardar Compra"
             submitIcon={<Save size={20} />}
             submitVariant="outline"

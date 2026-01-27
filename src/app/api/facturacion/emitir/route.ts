@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 import { SignatureService } from '@/modules/facturacion/domain/services/SignatureService';
-import { SriWebService, SriEnvironment } from '@/modules/facturacion/domain/services/SriWebService';
+import { SriWebService } from '@/modules/facturacion/domain/services/SriWebService';
+import { SriEnvironment } from '@/shared/sri-constants';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { XsdValidator } from '@/modules/facturacion/domain/services/XsdValidator';
@@ -25,17 +26,19 @@ export async function POST(req: NextRequest) {
 
     try {
         const data = await req.json();
+        console.log('Iniciando proceso de emisión con data:', data);
         const { ambiente = 'PRUEBAS' } = data;
-
+        console.log('Iniciando proceso de emisión para ambiente:', ambiente);
         // 1. Obtener configuración SRI desde la base de datos
         const configResult = await db.query(
             {
                 text: `
                     SELECT 
-                        p12_certificado, clave_certificado,
-                        url_recepcion, url_autorizacion
-                    FROM configuracion.sri_certificados
-                    WHERE empresa_id = $1 AND ambiente = $2 AND activo = TRUE
+                        sc.cert_p12_certificado, sc.cert_clave_certificado,
+                        sa.url_recepcion, sa.url_autorizacion
+                    FROM configuracion.sri_certificados sc
+                    INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
+                    WHERE sc.empresa_id = $1 AND sa.codigo = $2 AND sc.activo = TRUE
                     LIMIT 1
                 `,
                 values: [context.empresaId, ambiente]
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
         }
 
         const config = configResult.rows[0];
-        const p12Base64 = config.p12_certificado?.toString('base64');
+        const p12Base64 = config.cert_p12_certificado?.toString('base64');
 
         // 2. Generar XML estructurado según el tipo de comprobante
         const accessKey = XmlGenerator.generateAccessKey(data);
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest) {
 
         let rawXml;
         const codDoc = data.infoTributaria.codDoc;
-
+        console.log('Generating XML for codDoc:', codDoc);
         switch (codDoc) {
             case '01':
                 rawXml = XmlGenerator.generateFacturaXml(data);
@@ -99,11 +102,11 @@ export async function POST(req: NextRequest) {
         // 3. Firma Electrónica (Proceso Seguro en Backend)
         const signedXml = await SignatureService.signXml(rawXml, {
             p12Base64: p12Base64,
-            passwordP12: config.clave_certificado
+            passwordP12: config.cert_clave_certificado
         });
 
         const sriEnv = ambiente === 'PRODUCCION' ? SriEnvironment.PRODUCCION : SriEnvironment.PRUEBAS;
-
+        console.log(`XML firmado. Enviando al SRI en ambiente ${sriEnv}...`);
         // 4. Envío al SRI - Fase Recepción
         const recepcionResult = await SriWebService.enviarComprobante(signedXml, sriEnv);
 

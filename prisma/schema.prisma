@@ -598,6 +598,6 @@ model PlanFeature {
   // Relaciones
   plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
 
-  @@map("plan_features")
+  @@map("plan_caracteristicas")
 }
 

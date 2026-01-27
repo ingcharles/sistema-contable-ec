@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
                         pe.nombre, 
                         pe.activo,
                         s.nombre as "sucursalNombre",
+                        s.codigo as "sucursalCodigo",
                         COALESCE(
                             (SELECT json_agg(json_build_object('tipoComprobante', pes.tipo_comprobante, 'secuencialActual', pes.secuencial_actual))
                              FROM configuracion.puntos_emision_secuenciales pes 

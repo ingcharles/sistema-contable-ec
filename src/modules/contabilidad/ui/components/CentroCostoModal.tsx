@@ -1,33 +1,68 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, Target, Hash, Type, Layers } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
+import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { CentroCosto } from '@/modules/contabilidad/domain/types';
 
 interface Props {
     onClose: () => void;
     onSave: () => void;
     empresaId: string;
+    centroCosto?: CentroCosto | null;
 }
 
-export const CentroCostoModal: React.FC<Props> = ({ onClose, onSave, empresaId: _empresaId }) => {
+export const CentroCostoModal: React.FC<Props> = ({ onClose, onSave, empresaId, centroCosto }) => {
     const [nombre, setNombre] = useState('');
     const [codigo, setCodigo] = useState('');
     const [nivel, setNivel] = useState(1);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (centroCosto) {
+            setNombre(centroCosto.nombre);
+            setCodigo(centroCosto.codigo);
+            setNivel(centroCosto.nivel);
+        } else {
+            setNombre('');
+            setCodigo('');
+            setNivel(1);
+        }
+    }, [centroCosto]);
 
     const handleSave = async () => {
         if (!nombre || !codigo) return;
-        onSave();
-        onClose();
+        setLoading(true);
+        try {
+            const data = {
+                id: centroCosto?.id,
+                empresaId,
+                codigo,
+                nombre,
+                nivel,
+                activo: true
+            };
+
+            if (centroCosto) {
+                await ContabilidadUseCases.actualizarCentroCosto(data);
+            } else {
+                await ContabilidadUseCases.guardarCentroCosto(data);
+            }
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error('Error al guardar centro de costo:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const footer = (
         <ModalFooter
             onCancel={onClose}
             onSubmit={handleSave}
-            isDisabled={!nombre || !codigo}
-            submitLabel="Guardar Centro"
+            isDisabled={!nombre || !codigo || loading}
+            submitLabel={centroCosto ? "Actualizar Centro" : "Guardar Centro"}
             submitIcon={<Save size={18} />}
         />
     );
@@ -36,8 +71,8 @@ export const CentroCostoModal: React.FC<Props> = ({ onClose, onSave, empresaId: 
         <Modal
             isOpen={true}
             onClose={onClose}
-            title="Nuevo Centro de Costo"
-            description="Cree unidades de negocio para segmentar gastos e ingresos."
+            title={centroCosto ? "Editar Centro de Costo" : "Nuevo Centro de Costo"}
+            description="Gestione las unidades de negocio para segmentar gastos e ingresos."
             icon={<Target size={24} />}
             footer={footer}
             size="sm"

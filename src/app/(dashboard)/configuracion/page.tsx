@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Settings, Building2, Monitor, Users, Database, Save, Plus, Edit2, Trash2, Shield, Key, CalendarOff, Upload, CheckCircle2, Eye, EyeOff, AlertTriangle, Lock } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
+import { useAuth } from '@/shared/context/AuthContext';
+import type { CertificadoMetadata } from '@/shared/types/certificado.types';
 import { Sucursal, UsuarioSistema, PuntoEmision, CodigoRetencion } from '@/modules/configuracion/domain/types';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { ContabilidadUseCases, ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -17,6 +19,7 @@ import { useToast } from '@/shared/context/ToastContext';
 
 export default function ConfiguracionPage() {
     const { currentEmpresa } = useEmpresa();
+    const { user } = useAuth();
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'empresa' | 'sucursales' | 'puntos' | 'usuarios' | 'parametros' | 'firma' | 'impuestos' | 'cierre'>('empresa');
 
@@ -30,7 +33,7 @@ export default function ConfiguracionPage() {
 
     // Otros estados
     const [usuarios] = useState<UsuarioSistema[]>([]);
-    const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
+    const [planCuentasMovimiento, setPlanCuentasMovimiento] = useState<CuentaContable[]>([]);
     const [fechaCierre, setFechaCierre] = useState('');
 
     // Firma States
@@ -38,7 +41,18 @@ export default function ConfiguracionPage() {
     const [firmaPassword, setFirmaPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [ambienteSRI, setAmbienteSRI] = useState<'1' | '2'>('1');
-    const [firmaVigencia, setFirmaVigencia] = useState<string | null>('2024-12-31');
+    const [firmaVigencia, setFirmaVigencia] = useState<string | null>(null);
+    
+    // Estado único para metadatos del certificado (mejor práctica: agrupar datos relacionados)
+    const [certificadoInfo, setCertificadoInfo] = useState<CertificadoMetadata>({
+        fechaEmision: null,
+        fechaExpiracion: null,
+        sujeto: null,
+        emisor: null,
+        numeroSerie: null,
+        diasRestantes: null,
+        estado: 'SIN_CERTIFICADO'
+    });
 
     // Modals
     const [showModalRet, setShowModalRet] = useState(false);
@@ -56,7 +70,10 @@ export default function ConfiguracionPage() {
                 await Promise.all([
                     cargarSucursales(),
                     cargarParametros(),
-                    ContabilidadUseCases.listarCuentas().then(setPlanCuentas)
+                    ContabilidadUseCases.listarCuentasMovimiento().then(data => {
+                        console.log('Cuentas de Movimiento cargadas:', data.data);
+                        setPlanCuentasMovimiento(data.data);
+                    })
                 ]);
             }
 
@@ -76,28 +93,62 @@ export default function ConfiguracionPage() {
     // Load existing SRI configuration
     useEffect(() => {
         const loadSRIConfig = async () => {
-            if (!currentEmpresa || activeTab !== 'firma') return;
+            if (!currentEmpresa || !user || activeTab !== 'firma') return;
             try {
                 const ambiente = ambienteSRI === '1' ? 'PRUEBAS' : 'PRODUCCION';
-                const response = await fetch(`/api/configuracion/sri?ambiente=${ambiente}`);
+                const response = await fetch(`/api/configuracion/sri/metadata?ambiente=${ambiente}`, {
+                    headers: {
+                        'x-empresa-id': currentEmpresa.id,
+                        'x-usuario-id': user.id
+                    }
+                });
                 if (response.ok) {
-                    const config = await response.json();
-                    setFirmaVigencia(config.created_at?.split('T')[0] || null);
+                    const metadata = await response.json();
+                    
+                    // Actualizar todos los metadatos del certificado en un solo setState
+                    setCertificadoInfo({
+                        fechaEmision: metadata.fechaEmision?.split('T')[0] || null,
+                        fechaExpiracion: metadata.fechaExpiracion?.split('T')[0] || null,
+                        sujeto: metadata.sujeto || null,
+                        emisor: metadata.emisor || null,
+                        numeroSerie: metadata.numeroSerie || null,
+                        diasRestantes: metadata.diasRestantes,
+                        estado: metadata.tieneCertificado ? (metadata.estado || 'VIGENTE') : 'SIN_CERTIFICADO'
+                    });
+                    setFirmaVigencia(metadata.fechaExpiracion?.split('T')[0] || null);
+                } else {
+                    // Resetear todos los estados en una sola operación
+                    setCertificadoInfo({
+                        fechaEmision: null,
+                        fechaExpiracion: null,
+                        sujeto: null,
+                        emisor: null,
+                        numeroSerie: null,
+                        diasRestantes: null,
+                        estado: 'SIN_CERTIFICADO'
+                    });
+                    setFirmaVigencia(null);
                 }
             } catch (error) {
                 console.log('No existing SRI config found');
+                setCertificadoInfo(prev => ({ ...prev, estado: 'SIN_CERTIFICADO' }));
             }
         };
         loadSRIConfig();
-    }, [currentEmpresa?.id, activeTab, ambienteSRI]);
+    }, [currentEmpresa?.id, user?.id, activeTab, ambienteSRI]);
 
     const handleGuardarFirma = async () => {
         if (!firmaFile && !firmaPassword) {
-            alert('Por favor seleccione un archivo .p12 y su contraseña');
+            showToast('Por favor seleccione un archivo .p12 y su contraseña', 'warning');
             return;
         }
         if (!firmaPassword) {
-            alert('Por favor ingrese la contraseña del certificado');
+            showToast('Por favor ingrese la contraseña del certificado', 'warning');
+            return;
+        }
+
+        if (!currentEmpresa || !user) {
+            showToast('Error: No hay sesión activa o empresa seleccionada', 'error');
             return;
         }
 
@@ -107,7 +158,11 @@ export default function ConfiguracionPage() {
 
             const response = await fetch('/api/configuracion/sri', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-empresa-id': currentEmpresa.id,
+                    'x-usuario-id': user.id
+                },
                 body: JSON.stringify({
                     ambiente,
                     p12Base64,
@@ -116,8 +171,42 @@ export default function ConfiguracionPage() {
             });
 
             if (response.ok) {
-                showToast(`Configuración de firma guardada exitosamente.\nAmbiente: ${ambiente}`, 'success');
-                setFirmaVigencia(new Date().toISOString().split('T')[0]);
+                const data = await response.json();
+                
+                // Mostrar mensaje con advertencia si el certificado está próximo a vencer
+                let mensaje = `Configuración de firma guardada exitosamente.\nAmbiente: ${ambiente}`;
+                if (data.advertencia) {
+                    mensaje += `\n⚠️ ${data.advertencia}`;
+                }
+                
+                showToast(mensaje, data.advertencia ? 'warning' : 'success');
+                
+                // Recargar metadatos completos del certificado
+                try {
+                    const metadataResponse = await fetch(`/api/configuracion/sri/metadata?ambiente=${ambiente}`, {
+                        headers: {
+                            'x-empresa-id': currentEmpresa.id,
+                            'x-usuario-id': user.id
+                        }
+                    });
+                    
+                    if (metadataResponse.ok) {
+                        const metadata = await metadataResponse.json();
+                        setCertificadoInfo({
+                            fechaEmision: metadata.fechaEmision?.split('T')[0] || null,
+                            fechaExpiracion: metadata.fechaExpiracion?.split('T')[0] || null,
+                            sujeto: metadata.sujeto || null,
+                            emisor: metadata.emisor || null,
+                            numeroSerie: metadata.numeroSerie || null,
+                            diasRestantes: metadata.diasRestantes,
+                            estado: metadata.estado || 'VIGENTE'
+                        });
+                        setFirmaVigencia(metadata.fechaExpiracion?.split('T')[0] || null);
+                    }
+                } catch (metaError) {
+                    console.error('Error al cargar metadatos:', metaError);
+                }
+                
                 setFirmaFile(null);
                 setFirmaPassword('');
             } else {
@@ -473,23 +562,84 @@ export default function ConfiguracionPage() {
                                 </div>
                                 <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
                                     <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                                        <Shield size={18} className={firmaVigencia ? 'text-green-600' : 'text-slate-400'} /> Estado del Certificado
+                                        <Shield size={18} className={certificadoInfo.estado === 'VIGENTE' ? 'text-green-600' : certificadoInfo.estado === 'PROXIMO_A_VENCER' ? 'text-yellow-600' : certificadoInfo.estado === 'EXPIRADO' ? 'text-red-600' : 'text-slate-400'} /> 
+                                        Información del Certificado Digital
                                     </h4>
-                                    {firmaVigencia ? (
-                                        <div className="space-y-4">
+                                    {certificadoInfo.estado !== 'SIN_CERTIFICADO' ? (
+                                        <div className="space-y-3">
+                                            {/* Estado */}
                                             <div className="flex justify-between items-center py-2 border-b border-slate-200">
                                                 <span className="text-sm text-slate-500">Estado</span>
-                                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">VIGENTE</span>
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                    certificadoInfo.estado === 'VIGENTE' ? 'bg-green-100 text-green-700' :
+                                                    certificadoInfo.estado === 'PROXIMO_A_VENCER' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
+                                                }`}>
+                                                    {certificadoInfo.estado === 'VIGENTE' ? 'VIGENTE' : 
+                                                     certificadoInfo.estado === 'PROXIMO_A_VENCER' ? 'PRÓXIMO A VENCER' : 
+                                                     'EXPIRADO'}
+                                                </span>
                                             </div>
-                                            <div className="flex justify-between items-center py-2 border-b border-slate-200">
-                                                <span className="text-sm text-slate-500">Fecha Expiración</span>
-                                                <span className="text-sm font-mono font-medium">{firmaVigencia}</span>
-                                            </div>
+                                            
+                                            {/* Días Restantes */}
+                                            {certificadoInfo.diasRestantes !== null && certificadoInfo.diasRestantes >= 0 && (
+                                                <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                                                    <span className="text-sm text-slate-500">Días Restantes</span>
+                                                    <span className={`text-sm font-bold ${
+                                                        certificadoInfo.diasRestantes > 30 ? 'text-green-600' :
+                                                        certificadoInfo.diasRestantes > 7 ? 'text-yellow-600' :
+                                                        'text-red-600'
+                                                    }`}>
+                                                        {certificadoInfo.diasRestantes} días
+                                                    </span>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Fecha Emisión */}
+                                            {certificadoInfo.fechaEmision && (
+                                                <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                                                    <span className="text-sm text-slate-500">Fecha Emisión</span>
+                                                    <span className="text-sm font-mono font-medium">{certificadoInfo.fechaEmision}</span>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Fecha Expiración */}
+                                            {certificadoInfo.fechaExpiracion && (
+                                                <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                                                    <span className="text-sm text-slate-500">Fecha Expiración</span>
+                                                    <span className="text-sm font-mono font-medium">{certificadoInfo.fechaExpiracion}</span>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Número de Serie */}
+                                            {certificadoInfo.numeroSerie && (
+                                                <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                                                    <span className="text-sm text-slate-500">Número de Serie</span>
+                                                    <span className="text-xs font-mono text-slate-600 break-all">{certificadoInfo.numeroSerie}</span>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Sujeto */}
+                                            {certificadoInfo.sujeto && (
+                                                <div className="py-2 border-b border-slate-200">
+                                                    <span className="text-sm text-slate-500 block mb-1">Sujeto (Subject DN)</span>
+                                                    <span className="text-xs font-mono text-slate-600 break-all">{certificadoInfo.sujeto}</span>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Emisor */}
+                                            {certificadoInfo.emisor && (
+                                                <div className="py-2">
+                                                    <span className="text-sm text-slate-500 block mb-1">Emisor (Issuer DN)</span>
+                                                    <span className="text-xs font-mono text-slate-600 break-all">{certificadoInfo.emisor}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="text-center text-slate-400 py-8">
                                             <AlertTriangle size={32} className="mx-auto mb-2 opacity-50" />
-                                            <p className="text-sm">No se ha configurado ninguna firma válida.</p>
+                                            <p className="text-sm">No se ha configurado ningún certificado digital.</p>
+                                            <p className="text-xs mt-2">Suba un archivo .p12 para configurar la firma electrónica.</p>
                                         </div>
                                     )}
                                 </div>
@@ -550,136 +700,292 @@ export default function ConfiguracionPage() {
                     {activeTab === 'parametros' && parametros && (
                         <div className="space-y-8 animate-in fade-in duration-300">
                             <h3 className="text-lg font-bold text-slate-800 border-b pb-2">Configuración Contable y Tributaria</h3>
-                            <div className="grid grid-cols-2 gap-8">
-                                <div className="space-y-4">
+                            
+                            {/* Valores de Referencia */}
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="space-y-4 col-span-3">
                                     <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Valores de Referencia</h4>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">SBU Vigente ($)</label>
-                                        <input
-                                            type="number"
-                                            value={parametros.sbu}
-                                            onChange={e => setParametros({ ...parametros, sbu: Number(e.target.value) })}
-                                            className="w-full border rounded-lg p-2.5 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">IVA General (%)</label>
-                                        <input
-                                            type="number"
-                                            value={parametros.iva}
-                                            onChange={e => setParametros({ ...parametros, iva: Number(e.target.value) })}
-                                            className="w-full border rounded-lg p-2.5 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Máximo Consumidor Final ($)</label>
-                                        <input
-                                            type="number"
-                                            value={parametros.maxConsumidorFinal}
-                                            onChange={e => setParametros({ ...parametros, maxConsumidorFinal: Number(e.target.value) })}
-                                            className="w-full border rounded-lg p-2.5 text-sm"
-                                        />
-                                    </div>
                                 </div>
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas Predeterminadas</h4>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta Caja</label>
-                                        <select
-                                            value={parametros.cuentaCaja}
-                                            onChange={e => setParametros({ ...parametros, cuentaCaja: e.target.value })}
-                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
-                                        >
-                                            <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.01')).map(c => (
-                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta IVA Ventas</label>
-                                        <select
-                                            value={parametros.cuentaIvaVentas}
-                                            onChange={e => setParametros({ ...parametros, cuentaIvaVentas: e.target.value })}
-                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
-                                        >
-                                            <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1.02')).map(c => (
-                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta IVA Compras</label>
-                                        <select
-                                            value={parametros.cuentaIvaCompras}
-                                            onChange={e => setParametros({ ...parametros, cuentaIvaCompras: e.target.value })}
-                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
-                                        >
-                                            <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.04')).map(c => (
-                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">SBU Vigente ($)</label>
+                                    <input
+                                        type="number"
+                                        value={parametros.sbu}
+                                        onChange={e => setParametros({ ...parametros, sbu: Number(e.target.value) })}
+                                        className="w-full border rounded-lg p-2.5 text-sm"
+                                    />
                                 </div>
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Cartera</h4>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">CXC Clientes</label>
-                                        <select
-                                            value={parametros.cuentaCxcClientes}
-                                            onChange={e => setParametros({ ...parametros, cuentaCxcClientes: e.target.value })}
-                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
-                                        >
-                                            <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => (
-                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Anticipo Clientes</label>
-                                        <select
-                                            value={parametros.cuentaAnticipoClientes}
-                                            onChange={e => setParametros({ ...parametros, cuentaAnticipoClientes: e.target.value })}
-                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
-                                        >
-                                            <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => (
-                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">CXP Proveedores</label>
-                                        <select
-                                            value={parametros.cuentaCxpProveedores}
-                                            onChange={e => setParametros({ ...parametros, cuentaCxpProveedores: e.target.value })}
-                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
-                                        >
-                                            <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && (c.codigo.startsWith('2.1'))).map(c => (
-                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Anticipo Proveedores</label>
-                                        <select
-                                            value={parametros.cuentaAnticipoProveedores}
-                                            onChange={e => setParametros({ ...parametros, cuentaAnticipoProveedores: e.target.value })}
-                                            className="w-full border rounded-lg p-2.5 text-sm font-mono"
-                                        >
-                                            <option value="">Seleccione una cuenta...</option>
-                                            {planCuentas.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => (
-                                                <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">IVA General (%)</label>
+                                    <input
+                                        type="number"
+                                        value={parametros.iva}
+                                        onChange={e => setParametros({ ...parametros, iva: Number(e.target.value) })}
+                                        className="w-full border rounded-lg p-2.5 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Máximo Consumidor Final ($)</label>
+                                    <input
+                                        type="number"
+                                        value={parametros.maxConsumidorFinal}
+                                        onChange={e => setParametros({ ...parametros, maxConsumidorFinal: Number(e.target.value) })}
+                                        className="w-full border rounded-lg p-2.5 text-sm"
+                                    />
                                 </div>
                             </div>
-                            <div className="flex justify-end pt-4">
+
+                            {/* Cuentas de Efectivo */}
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="space-y-4 col-span-3">
+                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Efectivo</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Cuenta Caja</label>
+                                    <select
+                                        value={parametros.cuentaCaja || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaCaja: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.01')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Cuentas de Cartera */}
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="space-y-4 col-span-3">
+                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Cartera</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">CXC Clientes</label>
+                                    <select
+                                        value={parametros.cuentaCxcClientes || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaCxcClientes: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Anticipo Clientes</label>
+                                    <select
+                                        value={parametros.cuentaAnticipoClientes || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaAnticipoClientes: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">CXP Proveedores</label>
+                                    <select
+                                        value={parametros.cuentaCxpProveedores || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaCxpProveedores: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Anticipo Proveedores</label>
+                                    <select
+                                        value={parametros.cuentaAnticipoProveedores || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaAnticipoProveedores: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Cuentas de Ventas */}
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="space-y-4 col-span-3">
+                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Ventas</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Ventas / Ingresos</label>
+                                    <select
+                                        value={parametros.cuentaVentas || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaVentas: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('4.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Devolución en Ventas</label>
+                                    <select
+                                        value={parametros.cuentaDevolucionVentas || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaDevolucionVentas: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('4.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Descuento en Ventas</label>
+                                    <select
+                                        value={parametros.cuentaDescuentoVentas || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaDescuentoVentas: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('4.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Costo de Ventas</label>
+                                    <select
+                                        value={parametros.cuentaCostoVentas || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaCostoVentas: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('5.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Cuentas de Compras */}
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="space-y-4 col-span-3">
+                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Compras / Inventario</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Compras / Gastos Generales</label>
+                                    <select
+                                        value={parametros.cuentaCompras || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaCompras: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && (c.codigo.startsWith('5.') || c.codigo.startsWith('6.'))).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Inventario / Mercadería</label>
+                                    <select
+                                        value={parametros.cuentaInventario || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaInventario: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1.03')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Cuentas de IVA */}
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="space-y-4 col-span-3">
+                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de IVA</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">IVA en Ventas (Crédito Tributario)</label>
+                                    <select
+                                        value={parametros.cuentaIvaVentas || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaIvaVentas: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">IVA en Compras (Activo)</label>
+                                    <select
+                                        value={parametros.cuentaIvaCompras || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaIvaCompras: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">IVA por Pagar</label>
+                                    <select
+                                        value={parametros.cuentaIvaPorPagar || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaIvaPorPagar: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Cuentas de Retenciones */}
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="space-y-4 col-span-3">
+                                    <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Retenciones</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Ret. Renta por Pagar (Pasivo)</label>
+                                    <select
+                                        value={parametros.cuentaRetRentaPorPagar || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaRetRentaPorPagar: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Ret. IVA por Pagar (Pasivo)</label>
+                                    <select
+                                        value={parametros.cuentaRetIvaPorPagar || ''}
+                                        onChange={e => setParametros({ ...parametros, cuentaRetIvaPorPagar: e.target.value })}
+                                        className="w-full border rounded-lg p-2.5 text-sm font-mono"
+                                    >
+                                        <option value="">Seleccione una cuenta...</option>
+                                        {Array.isArray(planCuentasMovimiento) && planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.')).map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end pt-4 border-t">
                                 <Button onClick={handleGuardarParametros} className="flex items-center gap-2">
                                     <Save size={18} /> Guardar Parámetros
                                 </Button>

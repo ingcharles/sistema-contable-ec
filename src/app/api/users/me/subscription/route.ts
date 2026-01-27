@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     try {
         // Obtenemos los datos del Usuario, incluyendo su plan ID (Esquema seguridad)
         const userResult = await db.querySimple({
-            text: `SELECT u.id, u.plan_id, u.plan_status, u.plan_start_date, u.plan_end_date 
+            text: `SELECT u.id, u.plan_id, u.estado_plan, u.fecha_inicio_plan, u.fecha_fin_plan 
                    FROM seguridad.usuarios u WHERE u.id = $1`,
             values: [context.usuarioId]
         });
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
         // Construimos objeto parcial de respuesta
         const response: Partial<Usuario> = {
-            planStatus: userRow.plan_status,
+            planStatus: userRow.estado_plan,
             planId: userRow.plan_id,
             // Simular stats por ahora
             usageStats: {
@@ -57,17 +57,17 @@ export async function GET(req: NextRequest) {
 
                 // Cargar features
                 const featuresResult = await db.querySimple({
-                    text: 'SELECT * FROM seguridad.plan_features WHERE plan_id = $1',
+                    text: 'SELECT * FROM seguridad.plan_caracteristicas WHERE plan_id = $1',
                     values: [plan.id]
                 });
 
                 plan.features = featuresResult.rows.map((f: any) => ({
                     id: f.id,
                     planId: f.plan_id,
-                    featureKey: f.feature_key,
-                    valueType: f.value_type,
-                    valueNumber: f.value_number,
-                    valueBool: f.value_bool
+                    featureKey: f.clave_caracteristica,
+                    valueType: f.tipo_valor,
+                    valueNumber: f.valor_numero,
+                    valueBool: f.valor_booleano
                 }));
 
                 response.plan = plan;

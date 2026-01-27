@@ -42,7 +42,10 @@ erDiagram
     - Se implementó un esquema de auditoría basado en la tabla `audit_log`.
     - Un **Trigger centralizado** captura cambios (OLD/NEW data) en formato JSONB.
     - Campos `created_at` y `updated_at` con TimeZone para trazabilidad temporal.
-3.  **Parametrización SRI**: La tabla `sri_configs` permite gestionar múltiples ambientes (Pruebas/Producción) y almacenar certificados electrónicos (.p12) de forma independiente por empresa.
+3.  **Parametrización SRI**: 
+    - La tabla `sri_ambiente` almacena los catálogos de ambientes (PRUEBAS/PRODUCCION) con sus URLs de servicios web.
+    - La tabla `sri_certificados` gestiona certificados electrónicos (.p12) de forma independiente por empresa y ambiente.
+    - Diseño normalizado que facilita la actualización de URLs del SRI sin modificar certificados individuales.
 4.  **Integridad mediante ENUMs**: Se utilizan tipos enumerados para estados de comprobantes, tipos de cuenta y regímenes impositivos, evitando inconsistencias de strings.
 5.  **Optimización**: Índices B-Tree creados estratégicamente en fechas, claves de acceso y campos de búsqueda frecuente (`identificacion`).
 

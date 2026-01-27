@@ -14,12 +14,15 @@ import { CuentaRow } from '@/modules/contabilidad/ui/components/CuentaRow';
 import { Button } from '@/shared/ui/Button';
 import { CuentaContable } from '@/shared/types';
 
+import { DataTable } from '@/shared/ui/DataTable';
+
 export default function ContabilidadPage() {
     const { currentEmpresa } = useEmpresa();
     const [activeTab, setActiveTab] = useState<'plan' | 'diario' | 'mayor' | 'comprobacion' | 'balance' | 'resultados' | 'costos'>('diario');
     const [asientos, setAsientos] = useState<AsientoContable[]>([]);
     const [centros, setCentros] = useState<CentroCosto[]>([]);
     const [showModalCentro, setShowModalCentro] = useState(false);
+    const [centroSeleccionado, setCentroSeleccionado] = useState<CentroCosto | null>(null);
     const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
     const [loading, setLoading] = useState(true);
     const [mounted, setMounted] = useState(false);
@@ -315,48 +318,91 @@ export default function ContabilidadPage() {
                             <h3 className="font-bold text-slate-800">Centros de Costos y Proyectos</h3>
                             <p className="text-xs text-slate-500">Estructura para distribución de gastos e ingresos.</p>
                         </div>
-                        <Button onClick={() => setShowModalCentro(true)} className="flex items-center gap-2">
+                        <Button onClick={() => {
+                            setCentroSeleccionado(null);
+                            setShowModalCentro(true);
+                        }} className="flex items-center gap-2">
                             <Plus size={16} /> Nuevo Centro
                         </Button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-white text-slate-600 font-semibold border-b border-slate-200">
-                                <tr>
-                                    <th className="px-6 py-3 w-32">Código</th>
-                                    <th className="px-6 py-3">Nombre del Centro / Proyecto</th>
-                                    <th className="px-6 py-3 text-center">Nivel</th>
-                                    <th className="px-6 py-3 text-center">Estado</th>
-                                    <th className="px-6 py-3 text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {centros.map((centro) => (
-                                    <tr key={centro.id} className="hover:bg-slate-50">
-                                        <td className="px-6 py-3 font-mono font-bold text-slate-700">{centro.codigo}</td>
-                                        <td className="px-6 py-3">
-                                            <div className="flex items-center gap-2">
-                                                {centro.nivel > 1 && <div className="w-4 border-l-2 border-b-2 border-slate-300 h-4 rounded-bl-md ml-2"></div>}
-                                                <span className={centro.nivel === 1 ? 'font-bold text-slate-800' : 'text-slate-600'}>{centro.nombre}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-3 text-center text-xs bg-slate-50 rounded-lg">{centro.nivel}</td>
-                                        <td className="px-6 py-3 text-center">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${centro.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                {centro.activo ? 'ACTIVO' : 'INACTIVO'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-3 text-center">
-                                            <div className="flex justify-center gap-2">
-                                                <button className="p-1.5 text-slate-500 hover:text-sri-blue hover:bg-blue-50 rounded transition-colors"><Edit2 size={16} /></button>
-                                                <button className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <DataTable
+                        data={centros}
+                        columns={[
+                            {
+                                header: 'Código',
+                                accessorKey: 'codigo',
+                                sortable: true,
+                                className: 'font-mono font-bold text-slate-700'
+                            },
+                            {
+                                header: 'Nombre del Centro / Proyecto',
+                                accessorKey: 'nombre',
+                                sortable: true,
+                                cell: (row) => (
+                                    <div className="flex items-center gap-2">
+                                        {row.nivel > 1 && <div className="w-4 border-l-2 border-b-2 border-slate-300 h-4 rounded-bl-md ml-2"></div>}
+                                        <span className={row.nivel === 1 ? 'font-bold text-slate-800' : 'text-slate-600'}>{row.nombre}</span>
+                                    </div>
+                                )
+                            },
+                            {
+                                header: 'Nivel',
+                                accessorKey: 'nivel',
+                                sortable: true,
+                                className: 'text-center',
+                                cell: (row) => <span className="text-xs bg-slate-50 rounded-lg px-2 py-1">{row.nivel}</span>
+                            },
+                            {
+                                header: 'Estado',
+                                accessorKey: 'activo',
+                                className: 'text-center',
+                                cell: (row) => (
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${row.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {row.activo ? 'ACTIVO' : 'INACTIVO'}
+                                    </span>
+                                )
+                            },
+                            {
+                                header: 'Acciones',
+                                className: 'text-center',
+                                cell: (row) => (
+                                    <div className="flex justify-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setCentroSeleccionado(row);
+                                                setShowModalCentro(true);
+                                            }}
+                                            className="p-1.5 text-slate-500 hover:text-sri-blue hover:bg-blue-50 rounded transition-colors"
+                                            title="Editar"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                if (confirm('¿Está seguro de eliminar este centro de costo?')) {
+                                                    try {
+                                                        await ContabilidadUseCases.eliminarCentroCosto(row.id);
+                                                        loadData();
+                                                    } catch (error) {
+                                                        console.error('Error al eliminar:', error);
+                                                        alert('No se pudo eliminar el centro de costo');
+                                                    }
+                                                }
+                                            }}
+                                            className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                )
+                            }
+                        ]}
+                        itemsPerPage={10}
+                        searchable={true}
+                        searchKeys={['codigo', 'nombre']}
+                        searchPlaceholder="Buscar por código o nombre..."
+                    />
                 </div>
             )}
 
@@ -544,6 +590,7 @@ export default function ContabilidadPage() {
                     onClose={() => setShowModalCentro(false)}
                     onSave={loadData}
                     empresaId={empresaId}
+                    centroCosto={centroSeleccionado}
                 />
             )}
         </div>

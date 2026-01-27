@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Usuario } from '@/shared/types';
+import { UsuariosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 
 interface AuthContextType {
     user: Usuario | null;
@@ -39,18 +40,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchSubscription = async (userId: string) => {
         try {
-            const res = await fetch('/api/users/me/subscription', {
-                headers: { 'x-usuario-id': userId }
+            // Asegurar que los IDs estén en localStorage antes de hacer la petición
+            localStorage.setItem('current_usuario_id', userId);
+            
+            const subscriptionData = await UsuariosUseCases.obtenerSuscripcion();
+            setUser(prev => {
+                if (!prev) return null;
+                const updatedUser = { ...prev, ...subscriptionData };
+                localStorage.setItem('ecu_user', JSON.stringify(updatedUser)); // Actualizar cache
+                return updatedUser;
             });
-            if (res.ok) {
-                const subscriptionData = await res.json();
-                setUser(prev => {
-                    if (!prev) return null;
-                    const updatedUser = { ...prev, ...subscriptionData };
-                    localStorage.setItem('ecu_user', JSON.stringify(updatedUser)); // Actualizar cache
-                    return updatedUser;
-                });
-            }
         } catch (error) {
             console.error('Error loading subscription:', error);
         }

@@ -26,6 +26,8 @@ interface NotaDebitoModalProps {
 export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalProps) {
     const { currentEmpresa } = useEmpresa();
     const { parametros, cargarParametros } = useConfiguracion();
+    const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
+    const [puntoEmisionId, setPuntoEmisionId] = useState('');
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
@@ -35,6 +37,16 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
 
     useEffect(() => {
         cargarParametros();
+        const cargarPuntos = async () => {
+            try {
+                const puntos = await FacturacionUseCases.listarPuntosEmision();
+                setPuntosEmision(puntos);
+                if (puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+            } catch (e) {
+                console.error('Error al cargar puntos de emisión:', e);
+            }
+        };
+        cargarPuntos();
     }, [cargarParametros]);
 
     const agregarMotivo = () => setMotivos([...motivos, { razon: '', valor: 0 }]);
@@ -53,23 +65,38 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
 
     const handleEmitirND = async () => {
         if (!currentEmpresa) return;
-        if (total === 0 || !secuencial || motivos.some(m => !m.razon || m.valor <= 0)) {
-            setErrorValidacion("Complete todos los motivos, valores y el secuencial.");
+        if (total === 0 || !puntoEmisionId || motivos.some(m => !m.razon || m.valor <= 0)) {
+            setErrorValidacion("Complete todos los motivos, valores y seleccione punto de emisión.");
             return;
         }
 
         setGuardando(true);
         setErrorValidacion(null);
         try {
+            const puntoEmi = puntosEmision.find(p => p.id === puntoEmisionId);
+            if (!puntoEmi) {
+                throw new Error('Debe seleccionar un punto de emisión válido');
+            }
+
+            // Obtener el siguiente secuencial para ND
+            const secuencialResponse = await FacturacionUseCases.obtenerSiguienteSecuencial(
+                puntoEmisionId,
+                '05' // Tipo comprobante: Nota de Débito
+            );
+
+            if (!secuencialResponse.success) {
+                throw new Error(secuencialResponse.error || 'Error al obtener secuencial');
+            }
+
             const dataND = {
                 ambiente: AMBIENTE.PRUEBAS,
                 tipoEmision: TIPO_EMISION.NORMAL,
                 razonSocial: currentEmpresa.razonSocial,
                 nombreComercial: currentEmpresa.nombreComercial,
                 ruc: currentEmpresa.ruc,
-                estab: '001',
-                ptoEmi: '001',
-                secuencial: secuencial,
+                estab: puntoEmi.sucursalCodigo,
+                ptoEmi: puntoEmi.codigo,
+                secuencial: secuencialResponse.secuencial,
                 dirMatriz: currentEmpresa.direccionMatriz,
                 fechaEmision,
                 obligadoContabilidad: 'SI',
@@ -119,21 +146,22 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
                 iva: iva,
                 total: total,
                 detalles: motivos.map(m => ({ descripcion: m.razon, total: m.valor })),
-                secuencial: parseInt(secuencial),
+                secuencial: parseInt(secuencialResponse.secuencial),
+                puntoEmisionId: puntoEmisionId,
                 claveAcceso: sriResult.claveAcceso,
                 numeroAutorizacion: sriResult.numeroAutorizacion,
                 estado: sriResult.status
             });
 
             await ContabilidadUseCases.registrarAsiento({
-                numero: `AS-ND-${secuencial}`,
+                numero: `AS-ND-${secuencialResponse.secuencial}`,
                 fecha: fechaEmision,
-                glosa: `P/R Nota de Débito ${secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialAdquirente}`,
+                glosa: `P/R Nota de Débito ${secuencialResponse.secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialAdquirente}`,
                 tipo: 'INGRESO',
                 detalles: [
-                    { cuentaCodigo: '1.1.02.01', debe: total, haber: 0 },
-                    { cuentaCodigo: '4.1.01.01', debe: 0, haber: subtotal },
-                    { cuentaCodigo: '2.1.05.01', debe: 0, haber: iva }
+                    { cuentaCodigo: parametros?.cuentaCxcClientes || '1.1.02.01', debe: total, haber: 0 },
+                    { cuentaCodigo: parametros?.cuentaVentas || '4.1.01.01', debe: 0, haber: subtotal },
+                    { cuentaCodigo: parametros?.cuentaIvaPorPagar || parametros?.cuentaIvaVentas || '2.1.05.01', debe: 0, haber: iva }
                 ]
             });
 

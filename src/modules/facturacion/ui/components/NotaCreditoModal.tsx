@@ -30,9 +30,21 @@ interface NotaCreditoModalProps {
 export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalProps) {
     const { currentEmpresa } = useEmpresa();
     const { parametros, cargarParametros } = useConfiguracion();
+    const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
+    const [puntoEmisionId, setPuntoEmisionId] = useState('');
 
     useEffect(() => {
         cargarParametros();
+        const cargarPuntos = async () => {
+            try {
+                const puntos = await FacturacionUseCases.listarPuntosEmision();
+                setPuntosEmision(puntos);
+                if (puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+            } catch (e) {
+                console.error('Error al cargar puntos de emisión:', e);
+            }
+        };
+        cargarPuntos();
     }, []);
 
     const [motivo, setMotivo] = useState('');
@@ -68,23 +80,38 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
 
     const handleEmitirNC = async () => {
         if (!currentEmpresa) return;
-        if (!motivo || totalDevolucion === 0 || !secuencial) {
-            setErrorValidacion("Debe ingresar un motivo, secuencial y devolver al menos un ítem.");
+        if (!motivo || totalDevolucion === 0 || !puntoEmisionId) {
+            setErrorValidacion("Debe ingresar un motivo, seleccionar punto de emisión y devolver al menos un ítem.");
             return;
         }
 
         setGuardando(true);
         setErrorValidacion(null);
         try {
+            const puntoEmi = puntosEmision.find(p => p.id === puntoEmisionId);
+            if (!puntoEmi) {
+                throw new Error('Debe seleccionar un punto de emisión válido');
+            }
+
+            // Obtener el siguiente secuencial para NC
+            const secuencialResponse = await FacturacionUseCases.obtenerSiguienteSecuencial(
+                puntoEmisionId,
+                '04' // Tipo comprobante: Nota de Crédito
+            );
+
+            if (!secuencialResponse.success) {
+                throw new Error(secuencialResponse.error || 'Error al obtener secuencial');
+            }
+
             const dataNC = {
                 ambiente: AMBIENTE.PRUEBAS,
                 tipoEmision: TIPO_EMISION.NORMAL,
                 razonSocial: currentEmpresa.razonSocial,
                 nombreComercial: currentEmpresa.nombreComercial,
                 ruc: currentEmpresa.ruc,
-                estab: '001',
-                ptoEmi: '001',
-                secuencial: secuencial,
+                estab: puntoEmi.sucursalCodigo,
+                ptoEmi: puntoEmi.codigo,
+                secuencial: secuencialResponse.secuencial,
                 dirMatriz: currentEmpresa.direccionMatriz,
                 fechaEmision,
                 tipoIdentificacionAdquirente: factura.tipoIdentificacionAdquirente,
@@ -140,21 +167,22 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                 iva: ivaDevolucion,
                 total: totalDevolucion,
                 detalles: dataNC.detalles,
-                secuencial: parseInt(secuencial),
+                secuencial: parseInt(secuencialResponse.secuencial),
+                puntoEmisionId: puntoEmisionId,
                 claveAcceso: sriResult.claveAcceso,
                 numeroAutorizacion: sriResult.numeroAutorizacion,
                 estado: sriResult.status
             });
 
             await ContabilidadUseCases.registrarAsiento({
-                numero: `AS-NC-${secuencial}`,
+                numero: `AS-NC-${secuencialResponse.secuencial}`,
                 fecha: fechaEmision,
-                glosa: `P/R Nota de Crédito ${secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialAdquirente}`,
+                glosa: `P/R Nota de Crédito ${secuencialResponse.secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialAdquirente}`,
                 tipo: 'EGRESO',
                 detalles: [
-                    { cuentaCodigo: '4.1.01.02', debe: subtotalDevolucion, haber: 0 },
-                    { cuentaCodigo: '2.1.05.01', debe: ivaDevolucion, haber: 0 },
-                    { cuentaCodigo: '1.1.02.01', debe: 0, haber: totalDevolucion }
+                    { cuentaCodigo: parametros?.cuentaDevolucionVentas || '4.1.01.02', debe: subtotalDevolucion, haber: 0 },
+                    { cuentaCodigo: parametros?.cuentaIvaPorPagar || parametros?.cuentaIvaVentas || '2.1.05.01', debe: ivaDevolucion, haber: 0 },
+                    { cuentaCodigo: parametros?.cuentaCxcClientes || '1.1.02.01', debe: 0, haber: totalDevolucion }
                 ]
             });
 

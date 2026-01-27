@@ -445,6 +445,10 @@ export class FacturacionUseCases extends BaseUseCase {
     static async listarPuntosEmision() {
         return ConfiguracionUseCases.listarPuntosEmision();
     }
+
+    static async obtenerSiguienteSecuencial(puntoEmisionId: string, tipoComprobante: string) {
+        return this.request(`/api/facturacion/secuencial?puntoEmisionId=${puntoEmisionId}&tipoComprobante=${tipoComprobante}`);
+    }
 }
 
 /**
@@ -578,5 +582,19 @@ export class ImpuestosUseCases extends BaseUseCase {
             method: 'POST',
             body: JSON.stringify({ action: 'generar', tipo, periodo })
         });
+    }
+}
+
+/**
+ * MÓDULO: USUARIOS Y SUSCRIPCIONES
+ */
+export class UsuariosUseCases extends BaseUseCase {
+    static async obtenerSuscripcion() {
+        return this.request('/api/users/me/subscription');
+    }
+
+    static async obtenerEstadisticasUso(periodo?: string) {
+        const query = periodo ? `?periodo=${periodo}` : '';
+        return this.request(`/api/users/me/usage${query}`);
     }
 }
