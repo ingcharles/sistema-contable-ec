@@ -71,7 +71,8 @@ export class RetencionService {
             porcentajeRetener: d.porcentajeRetener,
             valorRetenido: d.valorRetenido,
             codDocSustento: d.codDocSustento || data.sustento || '01',
-            numDocSustento: (d.numDocSustento || data.secuencial || '').replace(/-/g, ''),
+            // numDocSustento debe ser EXACTAMENTE 15 dígitos sin guiones (XSD v2.0.0)
+            numDocSustento: this.formatNumDocSustento(d.numDocSustento || data.secuencial || ''),
             fechaEmisionDocSustento: this.fmtDate(data.fecha_emision)
         }));
 
@@ -178,6 +179,38 @@ export class RetencionService {
     private static mapTipoId(t: string) {
         const m: any = { 'RUC': '01', 'CEDULA': '02', 'PASAPORTE': '03' };
         return m[t] || '01';
+    }
+
+    /**
+     * Formatea numDocSustento a 15 dígitos sin guiones (requerido por XSD v2.0.0)
+     * Formato esperado: EEEPPPSSSSSSSSS (3 estab + 3 pto + 9 secuencial)
+     * Ejemplo: "001-001-000000456" -> "001001000000456"
+     */
+    private static formatNumDocSustento(numDoc: string): string {
+        // Quitar guiones y espacios
+        const cleaned = numDoc.replace(/[-\s]/g, '');
+        
+        // Si ya tiene 15 dígitos, retornar
+        if (cleaned.length === 15 && /^\d+$/.test(cleaned)) {
+            return cleaned;
+        }
+        
+        // Si tiene formato con guiones (XXX-XXX-XXXXXXXXX)
+        const partes = numDoc.split('-');
+        if (partes.length === 3) {
+            const estab = partes[0].padStart(3, '0');
+            const pto = partes[1].padStart(3, '0');
+            const sec = partes[2].padStart(9, '0');
+            return estab + pto + sec;
+        }
+        
+        // Si es solo números, asumimos que es el secuencial y usamos 001-001
+        if (/^\d+$/.test(cleaned)) {
+            return '001001' + cleaned.padStart(9, '0');
+        }
+        
+        // Fallback: rellenar con ceros a la izquierda hasta 15 dígitos
+        return cleaned.padStart(15, '0');
     }
 
     private static extractClaveAcceso(xml: string): string {

@@ -57,11 +57,11 @@ export async function POST(req: NextRequest) {
             proveedorId, secuencial, fechaEmision, fechaEntrega,
             observacion, subtotal, iva, total, detalles
         } = body;
-
+        console.log('Registrando orden de compra con data:', proveedorId);
         const result = await db.transaction(async (client) => {
             // 0. Resolver proveedorId (RUC) a UUID
             const tercero = await client.query({
-                text: 'SELECT id FROM directorio.terceros WHERE identificacion = $1 AND empresa_id = $2',
+                text: 'SELECT id FROM directorio.terceros WHERE id = $1 AND empresa_id = $2',
                 values: [proveedorId, context.empresaId]
             });
             const tId = tercero.rows[0]?.id;

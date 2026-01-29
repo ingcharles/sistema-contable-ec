@@ -39,46 +39,30 @@ export async function GET(request: NextRequest) {
 
         if (result.rowCount === 0) {
             return NextResponse.json(
-                { 
+                {
                     success: false,
-                    error: `No se encontró configuración de secuencial para el tipo de comprobante ${tipoComprobante}` 
+                    error: `No se encontró configuración de secuencial para el tipo de comprobante ${tipoComprobante}`
                 },
                 { status: 404 }
             );
         }
 
         const secuencial = result.rows[0];
-
-        // Incrementar el secuencial
-        const nuevoSecuencial = secuencial.secuencial_actual + 1;
-        const secuencialFormateado = nuevoSecuencial.toString().padStart(9, '0');
-
-        // Actualizar en la base de datos
-        await db.query(
-            {
-                text: `
-                    UPDATE configuracion.puntos_emision_secuenciales 
-                    SET secuencial_actual = $1, updated_at = NOW() 
-                    WHERE id = $2
-                `,
-                values: [nuevoSecuencial, secuencial.id]
-            },
-            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
-        );
+        const secuencialFormateado = secuencial.secuencial_actual.toString().padStart(9, '0');
 
         return NextResponse.json({
             success: true,
             secuencial: secuencialFormateado,
-            secuencialNumero: nuevoSecuencial,
+            secuencialNumero: secuencial.secuencial_actual,
             tipoComprobante: tipoComprobante
         });
 
     } catch (error: any) {
         console.error('Error al obtener siguiente secuencial:', error);
         return NextResponse.json(
-            { 
+            {
                 success: false,
-                error: error.message || 'Error al obtener siguiente secuencial' 
+                error: error.message || 'Error al obtener siguiente secuencial'
             },
             { status: 500 }
         );

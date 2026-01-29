@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Calculator, Search, Receipt, AlertCircle } from 'lucide-react';
+import { useToast } from '@/shared/context/ToastContext';
+import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { SustentoTributario, OrdenCompra } from '../../domain/types';
 import { CodigoRetencion } from '@/modules/configuracion/domain/types';
-import { ComprasUseCases, ConfiguracionUseCases, ContabilidadUseCases, FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { ComprasUseCases, ConfiguracionUseCases, FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useCentrosCostos } from '@/modules/contabilidad/hooks/useContabilidad';
 import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
@@ -11,8 +13,13 @@ import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
 import { AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
+import { obtenerPeriodoFiscal } from '@/shared/utils/dateUtils';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Modal } from '@/shared/ui/Modal';
+import { Trash2, Plus } from 'lucide-react';
+import { InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Producto } from '@/modules/inventario/domain/types';
+
 
 interface Props {
     onClose: () => void;
@@ -22,25 +29,32 @@ interface Props {
 
 export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia }) => {
     const { currentEmpresa } = useEmpresa();
+    const { showToast } = useToast();
+    const { puntoActivo, puntosDisponibles, cambiarPuntoActivo } = usePuntoEmision();
     const { centros: centrosCostos, cargarCentros } = useCentrosCostos();
     const { cargarTerceros } = useTerceros();
     const { parametros, cargarParametros } = useConfiguracion();
     const [proveedorCompleto, setProveedorCompleto] = useState<Tercero | null>(null);
     const [retencionesDisponibles, setRetencionesDisponibles] = useState<CodigoRetencion[]>([]);
-    const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
-    const [puntoEmisionId, setPuntoEmisionId] = useState('');
 
     const [proveedorNombre, setProveedorNombre] = useState(ordenPrevia?.proveedor.razonSocial || '');
     const [proveedorRuc, setProveedorRuc] = useState(ordenPrevia?.proveedor.ruc || '');
-    const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
+
+    // Obtener fecha actual en zona horaria local (no UTC)
+    const getFechaLocal = () => {
+        const hoy = new Date();
+        const dia = String(hoy.getDate()).padStart(2, '0');
+        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+        const anio = hoy.getFullYear();
+        return `${anio}-${mes}-${dia}`;
+    };
+
+    const [fechaEmision, setFechaEmision] = useState(getFechaLocal());
     const [secuencial, setSecuencial] = useState('');
     const [autorizacion, setAutorizacion] = useState('');
     const [sustento, setSustento] = useState<SustentoTributario>(SustentoTributario.CREDITO_TRIBUTARIO);
 
     const [centroCostoId, setCentroCostoId] = useState('');
-
-    const [subtotalIva, setsubtotalIva] = useState(ordenPrevia ? ordenPrevia.detalles.filter(d => d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0) : 0);
-    const [subtotal0, setSubtotal0] = useState(ordenPrevia ? ordenPrevia.detalles.filter(d => !d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0) : 0);
 
     const [aplicaRetencion, setAplicaRetencion] = useState(true);
     const [codRetRenta, setCodRetRenta] = useState('');
@@ -48,6 +62,11 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
 
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
+
+    const [productos, setProductos] = useState<Producto[]>([]);
+    const [periodoFiscal, setPeriodoFiscal] = useState(fechaEmision.substring(5, 7) + '/' + fechaEmision.substring(0, 4));
+
+    const [detalles, setDetalles] = useState<any[]>([]);
 
     const buscarProveedor = async () => {
         if (!proveedorRuc) return;
@@ -70,8 +89,40 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     useEffect(() => {
         if (ordenPrevia) {
             buscarProveedor();
+            const ivaVal = parametros?.iva || 15;
+            const nuevosDetalles = ordenPrevia.detalles.map(d => {
+                const sub = d.cantidad * d.precioUnitario;
+                const vIva = d.grabaIva ? (sub * ivaVal / 100) : 0;
+                return {
+                    productoId: '',
+                    descripcion: d.producto,
+                    cantidad: d.cantidad,
+                    precioUnitario: d.precioUnitario,
+                    subtotal: sub,
+                    porcentajeIva: d.grabaIva ? ivaVal : 0,
+                    valorIva: vIva,
+                    total: sub + vIva
+                };
+            });
+            setDetalles(nuevosDetalles);
         }
-    }, [ordenPrevia]);
+    }, [ordenPrevia, parametros?.iva]);
+
+    useEffect(() => {
+        const loadProductos = async () => {
+            try {
+                const res = await InventarioUseCases.listarProductos('?limit=1000');
+                setProductos(res.data || []);
+            } catch (e) {
+                console.error('Error cargando productos:', e);
+            }
+        };
+        loadProductos();
+    }, []);
+
+    useEffect(() => {
+        setPeriodoFiscal(fechaEmision.substring(5, 7) + '/' + fechaEmision.substring(0, 4));
+    }, [fechaEmision]);
 
     useEffect(() => {
         ConfiguracionUseCases.listarRetenciones().then(data => {
@@ -82,22 +133,53 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
             if (defaultIva) setCodRetIva(defaultIva.codigo);
         });
 
-        const cargarPuntos = async () => {
-            try {
-                const puntos = await FacturacionUseCases.listarPuntosEmision();
-                setPuntosEmision(puntos);
-                if (puntos.length > 0) setPuntoEmisionId(puntos[0].id);
-            } catch (e) {
-                console.error('Error al cargar puntos de emisión:', e);
-            }
-        };
-        cargarPuntos();
         cargarCentros();
     }, [cargarCentros]);
 
-    const ivaPorcentaje = (parametros?.iva || 15) / 100;
-    const montoIva = Number((subtotalIva * ivaPorcentaje).toFixed(2));
+
+    // Calcular totales desde los detalles
+    const subtotalIva = detalles.reduce((acc, d) => acc + (d.porcentajeIva > 0 ? d.subtotal : 0), 0);
+    const subtotal0 = detalles.reduce((acc, d) => acc + (d.porcentajeIva === 0 ? d.subtotal : 0), 0);
+    const montoIva = detalles.reduce((acc, d) => acc + d.valorIva, 0);
     const totalFactura = subtotalIva + subtotal0 + montoIva;
+
+    const agregarDetalle = () => {
+        setDetalles([...detalles, {
+            productoId: '',
+            descripcion: '',
+            cantidad: 1,
+            precioUnitario: 0,
+            subtotal: 0,
+            porcentajeIva: parametros?.iva || 15,
+            valorIva: 0,
+            total: 0
+        }]);
+    };
+
+    const eliminarDetalle = (index: number) => {
+        setDetalles(detalles.filter((_, i) => i !== index));
+    };
+
+    const actualizarDetalle = (index: number, campo: string, valor: any) => {
+        const nuevos = [...detalles];
+        const d = { ...nuevos[index], [campo]: valor };
+
+        if (campo === 'productoId') {
+            const p = productos.find(prod => prod.id === valor);
+            if (p) {
+                d.descripcion = p.nombre;
+                d.precioUnitario = p.costoPromedio || p.precioVenta;
+                d.porcentajeIva = p.grabaIva ? (parametros?.iva || 15) : 0;
+            }
+        }
+
+        d.subtotal = Number((d.cantidad * d.precioUnitario).toFixed(2));
+        d.valorIva = Number((d.subtotal * (d.porcentajeIva / 100)).toFixed(2));
+        d.total = Number((d.subtotal + d.valorIva).toFixed(2));
+
+        nuevos[index] = d;
+        setDetalles(nuevos);
+    };
 
     const selectedRetRenta = retencionesDisponibles.find(c => c.codigo === codRetRenta && c.tipo === 'RENTA');
     const selectedRetIva = retencionesDisponibles.find(c => c.codigo === codRetIva && c.tipo === 'IVA');
@@ -120,20 +202,19 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
 
         setGuardando(true);
         setErrorValidacion(null);
-        try {
-            let resSri = null;
-            let nroRetencionGenerado = '';
 
-            // 1. Emitir Retención Electrónica si aplica
+        try {
+            // Preparar datos de retención si aplica
+            let datosRetencion = null;
+
             if (aplicaRetencion && currentEmpresa && (codRetRenta || codRetIva)) {
-                const puntoEmi = puntosEmision.find(p => p.id === puntoEmisionId);
-                if (!puntoEmi) {
-                    throw new Error('Debe seleccionar un punto de emisión válido');
+                if (!puntoActivo) {
+                    throw new Error('Debe tener un punto de emisión asignado y activo para emitir retenciones');
                 }
 
                 // Obtener el siguiente secuencial para retención
                 const secuencialResponse = await FacturacionUseCases.obtenerSiguienteSecuencial(
-                    puntoEmisionId,
+                    puntoActivo.puntoEmisionId,
                     '07' // Tipo comprobante: Retención
                 );
 
@@ -141,90 +222,118 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                     throw new Error(secuencialResponse.error || 'Error al obtener secuencial de retención');
                 }
 
+                // Formatear numDocSustento: debe ser 15 dígitos sin guiones (ej: 001001000000123)
+                const numDocSustentoLimpio = secuencial.replace(/-/g, '');
+                if (numDocSustentoLimpio.length !== 15) {
+                    setErrorValidacion('El número de comprobante debe tener formato 001-001-000000001 (15 dígitos).');
+                    setGuardando(false);
+                    return;
+                }
+                const numDocSustentoFormateado = numDocSustentoLimpio;
+
+                // Determinar el código de IVA según el porcentaje configurado
+                const getCodigoIva = (porcentaje: number): string => {
+                    if (porcentaje === 0) return '0';
+                    if (porcentaje === 12) return '2';
+                    if (porcentaje === 14) return '3';
+                    if (porcentaje === 15) return '4';
+                    if (porcentaje === 5) return '5';
+                    return '0';
+                };
+
+                const ivaPorcentajeActual = parametros?.iva || 15;
+                const tieneIva = subtotalIva > 0 && montoIva > 0;
+                const codigoIvaDocSustento = tieneIva ? getCodigoIva(ivaPorcentajeActual) : '0';
+                const tarifaIvaDocSustento = tieneIva ? ivaPorcentajeActual.toString() : '0';
+                const baseImponibleIvaDocSustento = tieneIva ? subtotalIva : (subtotalIva + subtotal0);
+
                 const impuestos = [];
+                const codDocSustento = secuencial.startsWith('00') ? '01' : '03';
+                if (codDocSustento === '01') {
+                    const authLen = autorizacion?.length || 0;
+                    if (![10, 49].includes(authLen)) {
+                        setErrorValidacion('La autorización del documento sustento es obligatoria (10 o 49 dígitos) para facturas electrónicas.');
+                        setGuardando(false);
+                        return;
+                    }
+                }
+
                 if (codRetRenta && valorRetRenta > 0) {
                     impuestos.push({
                         codigo: '1', // RENTA
                         codigoRetencion: codRetRenta,
                         baseImponible: baseImponibleRenta,
-                        porcentajeRetener: selectedRetRenta?.porcentaje || 0,
+                        porcentajeRetener: Number(selectedRetRenta?.porcentaje || 0),
                         valorRetenido: valorRetRenta,
-                        codDocSustento: secuencial.startsWith('00') ? '01' : '03',
-                        numDocSustento: secuencial,
-                        fechaEmisionDocSustento: fechaEmision
+                        codDocSustento: codDocSustento,
+                        codSustento: sustento.substring(0, 2) || '01',
+                        numDocSustento: numDocSustentoFormateado,
+                        fechaEmisionDocSustento: fechaEmision,
+                        numAutDocSustento: autorizacion,
+                        totalSinImpuestosDocSustento: subtotalIva + subtotal0,
+                        baseImponibleIvaDocSustento: baseImponibleIvaDocSustento,
+                        importeTotalDocSustento: subtotalIva + subtotal0 + montoIva,
+                        codigoPorcentajeIva: codigoIvaDocSustento,
+                        tarifaIva: tarifaIvaDocSustento,
+                        ivaDocSustento: montoIva
                     });
                 }
+
                 if (codRetIva && valorRetIva > 0) {
                     impuestos.push({
                         codigo: '2', // IVA
                         codigoRetencion: codRetIva,
                         baseImponible: montoIva,
-                        porcentajeRetener: selectedRetIva?.porcentaje || 0,
+                        porcentajeRetener: Number(selectedRetIva?.porcentaje || 0),
                         valorRetenido: valorRetIva,
-                        codDocSustento: secuencial.startsWith('00') ? '01' : '03',
-                        numDocSustento: secuencial,
-                        fechaEmisionDocSustento: fechaEmision
+                        codDocSustento: codDocSustento,
+                        codSustento: sustento.substring(0, 2) || '01',
+                        numDocSustento: numDocSustentoFormateado,
+                        fechaEmisionDocSustento: fechaEmision,
+                        numAutDocSustento: autorizacion,
+                        totalSinImpuestosDocSustento: subtotalIva + subtotal0,
+                        baseImponibleIvaDocSustento: baseImponibleIvaDocSustento,
+                        importeTotalDocSustento: subtotalIva + subtotal0 + montoIva,
+                        codigoPorcentajeIva: codigoIvaDocSustento,
+                        tarifaIva: tarifaIvaDocSustento,
+                        ivaDocSustento: montoIva
                     });
                 }
 
                 if (impuestos.length > 0) {
-                    nroRetencionGenerado = `${puntoEmi.sucursalCodigo}-${puntoEmi.codigo}-${secuencialResponse.secuencial}`;
-                    const dataRetencion = {
+                    const tipoIdSujetoRetenido = proveedorCompleto?.tipoIdentificacion || '05';
+                    const esParteRelacionada = proveedorCompleto?.parteRelacionada ? 'SI' : 'NO';
+
+                    datosRetencion = SriStandardizer.standardizeRetencion({
                         ambiente: AMBIENTE.PRUEBAS,
                         tipoEmision: TIPO_EMISION.NORMAL,
                         razonSocial: currentEmpresa.razonSocial,
                         nombreComercial: currentEmpresa.nombreComercial,
                         ruc: currentEmpresa.ruc,
-                        estab: puntoEmi.sucursalCodigo,
-                        ptoEmi: puntoEmi.codigo,
+                        estab: puntoActivo.codigoEstablecimiento,
+                        ptoEmi: puntoActivo.codigoPunto,
                         secuencial: secuencialResponse.secuencial,
                         dirMatriz: currentEmpresa.direccionMatriz,
                         fechaEmision,
                         obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
-                        tipoIdentificacionSujetoRetenido: proveedorCompleto?.tipoIdentificacion || (proveedorRuc.length === 13 ? '04' : '05'),
+                        tipoIdentificacionSujetoRetenido: tipoIdSujetoRetenido,
+                        parteRel: esParteRelacionada,
                         razonSocialSujetoRetenido: proveedorNombre,
                         identificacionSujetoRetenido: proveedorRuc,
-                        periodoFiscal: fechaEmision.substring(5, 7) + '/' + fechaEmision.substring(0, 4),
+                        periodoFiscal: obtenerPeriodoFiscal(new Date(fechaEmision + 'T00:00:00')),
                         impuestos
-                    };
-                    console.log('Data Retencion:', dataRetencion);
-                    const retStandard = SriStandardizer.standardizeRetencion(dataRetencion);
-                    try {
-                        resSri = await FacturacionUseCases.emitirFactura(retStandard);
-                    } catch (e) {
-                        console.error('Error SRI Retención:', e);
-                    }
-
-                    await FacturacionUseCases.registrarComprobante({
-                        tipoComprobante: '07', //COMPROBANTE_RETENCION
-                        fechaEmision,
-                        clienteId: proveedorCompleto.id,
-                        clienteNombre: proveedorNombre,
-                        clienteIdentificacion: proveedorRuc,
-                        subtotal: 0,
-                        iva: 0,
-                        total: totalRetenido,
-                        secuencial: dataRetencion.secuencial,
-                        claveAcceso: resSri?.claveAcceso,
-                        numeroAutorizacion: resSri?.numeroAutorizacion,
-                        estado: resSri?.estado || 'ERROR',
-                        detalles: impuestos.map(imp => ({
-                            codigoPrincipal: imp.codigoRetencion,
-                            descripcion: `Retención ${imp.codigo === '1' ? 'Renta' : 'IVA'} ${imp.codigoRetencion}`,
-                            cantidad: 1,
-                            precioUnitario: imp.valorRetenido,
-                            total: imp.valorRetenido
-                        }))
                     });
                 }
             }
 
-            // 2. Registrar Compra en Backend
-            if (!proveedorCompleto?.id) {
-                throw new Error('Debe buscar y seleccionar un proveedor válido del directorio');
-            }
+            // Preparar datos del asiento contable
+            const selectedCentro = centrosCostos.find(c => c.id === centroCostoId);
+            const numeroAsiento = `CC-${crypto.randomUUID().slice(0, 8)}`;
+            const glosaAsiento = `P/R Compra Fac/${secuencial} - ${proveedorNombre} ${selectedCentro ? `(${selectedCentro.nombre})` : ''}`;
 
-            await ComprasUseCases.registrarCompra({
+            // LLAMADA ÚNICA AL ENDPOINT CONSOLIDADO usando ComprasUseCases
+            const result = await ComprasUseCases.registrarCompraConRetencion({
+                // Datos de la compra
                 proveedorId: proveedorCompleto.id,
                 tipoComprobante: secuencial.startsWith('00') ? '01' : '03',
                 secuencial,
@@ -238,38 +347,36 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                 montoIva,
                 total: totalFactura,
                 ordenCompraId: ordenPrevia?.id,
-                tieneRetencion: aplicaRetencion,
-                nroRetencion: nroRetencionGenerado,
-                estadoRetencion: resSri?.estado || (aplicaRetencion ? 'PENDIENTE' : 'N/A')
+                detalles,
+
+                // Datos del asiento contable
+                centroCostoId: centroCostoId || null,
+                numeroAsiento,
+                glosaAsiento,
+                parametros,
+
+                // Datos de retención
+                aplicaRetencion,
+                datosRetencion,
+                puntoEmisionId: puntoActivo?.puntoEmisionId || null
             });
 
-            // 3. Registrar Asiento Contable
-            const selectedCentro = centrosCostos.find(c => c.id === centroCostoId);
-            const numeroAsiento = `CC-${crypto.randomUUID().slice(0, 8)}`;
-
-            await ContabilidadUseCases.registrarAsiento({
-                numero: numeroAsiento,
-                fecha: fechaEmision,
-                glosa: `P/R Compra Fac/${secuencial} - ${proveedorNombre} ${selectedCentro ? `(${selectedCentro.nombre})` : ''}`,
-                tipo: 'EGRESO',
-                detalles: [
-                    {
-                        cuentaCodigo: parametros?.cuentaInventario || parametros?.cuentaCompras || '1.1.03.01',
-                        debe: subtotalIva + subtotal0,
-                        haber: 0,
-                        centroCostoId: centroCostoId || undefined
-                    },
-                    { cuentaCodigo: parametros?.cuentaIvaCompras || '1.1.05.01', debe: montoIva, haber: 0 },
-                    { cuentaCodigo: parametros?.cuentaCxpProveedores || '2.1.01.01', debe: 0, haber: totalPagar },
-                    { cuentaCodigo: parametros?.cuentaRetRentaPorPagar || '2.1.03.01', debe: 0, haber: valorRetRenta },
-                    { cuentaCodigo: parametros?.cuentaRetIvaPorPagar || '2.1.03.02', debe: 0, haber: valorRetIva }
-                ].filter(d => d.debe > 0 || d.haber > 0)
-            });
-
-            onSave();
-            onClose();
+            // Mostrar resultado
+            if (result.success) {
+                // Si hubo advertencia en la retención, mostrarla
+                if (aplicaRetencion && result.retencionSri && !result.retencionSri.success) {
+                    showToast(
+                        `Compra registrada exitosamente. Advertencia en retención: ${result.retencionSri.error}`,
+                        'warning'
+                    );
+                } else {
+                    showToast('Compra registrada exitosamente', 'success');
+                }
+                onSave();
+                onClose();
+            }
         } catch (error: any) {
-            console.error(error);
+            console.error('Error en NuevaCompraModal:', error);
             setErrorValidacion(error.message || 'Error al registrar la compra');
         } finally {
             setGuardando(false);
@@ -360,7 +467,11 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                             <label className="block text-xs font-bold text-slate-600 mb-1.5">Autorización (10 o 49 dígitos)</label>
                             <input type="text" value={autorizacion} onChange={e => setAutorizacion(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium text-sm font-mono" placeholder="0000000000" />
                         </div>
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Periodo Fiscal (MM/YYYY)</label>
+                            <input type="text" value={periodoFiscal} onChange={e => setPeriodoFiscal(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium text-sm font-mono" placeholder="01/2026" />
+                        </div>
+                        <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-slate-600 mb-1.5">Sustento Tributario</label>
                             <select value={sustento} onChange={e => setSustento(e.target.value as SustentoTributario)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-medium text-sm">
                                 {Object.values(SustentoTributario).map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
@@ -369,32 +480,114 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                     </div>
                 </section>
 
-                <section className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                    <h3 className="text-sm font-bold text-sri-blue uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <Calculator size={16} /> 2. Bases Imponibles
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Subtotal {parametros?.iva || 15}%</label>
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                                <input type="number" value={subtotalIva} onChange={e => setsubtotalIva(Number(e.target.value))} className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all text-sm text-right font-mono font-bold" />
-                            </div>
+                <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-sri-blue uppercase tracking-wider flex items-center gap-2">
+                            <Calculator size={16} /> 2. Detalle de Productos / Servicios
+                        </h3>
+                        <button
+                            onClick={agregarDetalle}
+                            className="flex items-center gap-2 px-4 py-2 bg-sri-blue text-white rounded-xl hover:bg-sri-blue/90 transition-all text-xs font-bold shadow-sm"
+                        >
+                            <Plus size={14} /> Agregar Ítem
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-slate-100 mb-6">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                                <tr>
+                                    <th className="px-4 py-3">Producto / Descripción</th>
+                                    <th className="px-4 py-3 w-24 text-center">Cant.</th>
+                                    <th className="px-4 py-3 w-32 text-right">P. Unit</th>
+                                    <th className="px-4 py-3 w-24 text-center">IVA</th>
+                                    <th className="px-4 py-3 w-32 text-right">Total</th>
+                                    <th className="px-4 py-3 w-12"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {detalles.map((d, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-4 py-2">
+                                            <select
+                                                value={d.productoId}
+                                                onChange={e => actualizarDetalle(idx, 'productoId', e.target.value)}
+                                                className="w-full bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-700 mb-1"
+                                            >
+                                                <option value="">-- Seleccionar Producto --</option>
+                                                {productos.map(p => <option key={p.id} value={p.id}>{p.nombre} ({p.codigoPrincipal})</option>)}
+                                            </select>
+                                            <input
+                                                type="text"
+                                                value={d.descripcion}
+                                                onChange={e => actualizarDetalle(idx, 'descripcion', e.target.value)}
+                                                placeholder="Descripción detallada..."
+                                                className="w-full bg-transparent border-none focus:ring-0 text-xs text-slate-500 italic"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <input
+                                                type="number"
+                                                value={d.cantidad}
+                                                onChange={e => actualizarDetalle(idx, 'cantidad', Number(e.target.value))}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-center font-bold text-xs outline-none focus:ring-2 focus:ring-sri-blue/10"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <input
+                                                type="number"
+                                                value={d.precioUnitario}
+                                                onChange={e => actualizarDetalle(idx, 'precioUnitario', Number(e.target.value))}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-right font-bold text-xs outline-none focus:ring-2 focus:ring-sri-blue/10"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <select
+                                                value={d.porcentajeIva}
+                                                onChange={e => actualizarDetalle(idx, 'porcentajeIva', Number(e.target.value))}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-center text-[10px] font-bold outline-none focus:ring-2 focus:ring-sri-blue/10"
+                                            >
+                                                <option value="0">0%</option>
+                                                <option value={parametros?.iva || 15}>{parametros?.iva || 15}%</option>
+                                            </select>
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-bold text-slate-900 text-xs">
+                                            {formatMoney(d.total)}
+                                        </td>
+                                        <td className="px-4 py-2 text-center">
+                                            <button onClick={() => eliminarDetalle(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {detalles.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic text-xs">
+                                            No hay ítems agregados. Haga clic en "Agregar Ítem" para comenzar.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Subtotal {parametros?.iva || 15}%</p>
+                            <p className="text-sm font-mono font-bold text-slate-700">{formatMoney(subtotalIva)}</p>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Subtotal 0%</label>
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                                <input type="number" value={subtotal0} onChange={e => setSubtotal0(Number(e.target.value))} className="w-full pl-7 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all text-sm text-right font-mono font-bold" />
-                            </div>
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Subtotal 0%</p>
+                            <p className="text-sm font-mono font-bold text-slate-700">{formatMoney(subtotal0)}</p>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Monto IVA ({parametros?.iva || 15}%)</label>
-                            <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-right font-mono font-bold text-slate-600">{formatMoney(montoIva)}</div>
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">IVA ({parametros?.iva || 15}%)</p>
+                            <p className="text-sm font-mono font-bold text-slate-700">{formatMoney(montoIva)}</p>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-900 mb-1.5">TOTAL FACTURA</label>
-                            <div className="w-full px-4 py-2.5 bg-slate-800 border border-slate-800 rounded-xl text-sm text-right font-mono text-white font-bold shadow-md">{formatMoney(totalFactura)}</div>
+                        <div className="bg-slate-900 p-3 rounded-xl shadow-lg">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Total Factura</p>
+                            <p className="text-lg font-mono font-bold text-emerald-400">{formatMoney(totalFactura)}</p>
                         </div>
                     </div>
                 </section>
@@ -407,6 +600,29 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                             <input type="checkbox" checked={aplicaRetencion} onChange={e => setAplicaRetencion(e.target.checked)} className="h-5 w-5 text-sri-blue rounded-lg border-slate-300 focus:ring-sri-blue/20" />
                         </label>
                     </div>
+
+                    {aplicaRetencion && puntosDisponibles.length > 1 && (
+                        <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                            <label className="block text-xs font-bold text-blue-900 mb-2">Punto de Emisión para Retención</label>
+                            <select
+                                value={puntoActivo?.id || ''}
+                                onChange={async (e) => {
+                                    const success = await cambiarPuntoActivo(e.target.value);
+                                    if (!success) {
+                                        showToast('Error al cambiar punto de emisión', 'error');
+                                    }
+                                }}
+                                className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                                {puntosDisponibles.map(punto => (
+                                    <option key={punto.id} value={punto.id}>
+                                        {punto.codigoCompleto} - {punto.nombrePunto} ({punto.nombreSucursal})
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-blue-700 mt-2">Punto activo: <span className="font-bold">{puntoActivo?.codigoCompleto}</span></p>
+                        </div>
+                    )}
 
                     {aplicaRetencion ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-top-2 duration-300">

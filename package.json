@@ -12,6 +12,7 @@
     "build:vite": "vite build"
   },
   "dependencies": {
+    "@peculiar/webcrypto": "^1.5.0",
     "@prisma/client": "5.22.0",
     "@xmldom/xmldom": "^0.8.11",
     "jsonwebtoken": "^9.0.3",
@@ -25,7 +26,12 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.12.0",
-    "recharts": "^3.6.0"
+    "recharts": "^3.6.0",
+    "xadesjs": "^2.6.5",
+    "xml-core": "^1.2.5",
+    "xml-crypto": "^6.1.2",
+    "xmldsigjs": "^2.8.5",
+    "xsd-schema-validator": "^0.11.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",

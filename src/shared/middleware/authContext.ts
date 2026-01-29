@@ -5,6 +5,7 @@ export interface SecurityContext {
     isValid: boolean;
     empresaId?: string;
     usuarioId?: string;
+    roles?: string[];
     error?: string;
 }
 
@@ -23,7 +24,8 @@ export function validateContext(req: NextRequest): SecurityContext {
             return {
                 isValid: true,
                 empresaId: payload.empresaId,
-                usuarioId: payload.userId
+                usuarioId: payload.userId,
+                roles: payload.roles
             };
         } catch (error) {
             return {

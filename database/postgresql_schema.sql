@@ -3,7 +3,7 @@
 -- ============================================================================
 -- Versión: 4.1 (Full Comments)
 -- Fecha: 2024-01-20
--- Arquitectura: Multi-Tenant + Auditoría Completa + JWT
+-- Arquitectura: Multi-Tenant + Auditorí­a Completa + JWT
 -- Descripción: Esquema completo con documentación detallada de cada campo.
 -- ============================================================================
 
@@ -69,9 +69,9 @@ CREATE TABLE seguridad.empresas (
 
 COMMENT ON TABLE seguridad.empresas IS 'Empresas del sistema (multi-tenant). Cada empresa es un tenant aislado.';
 COMMENT ON COLUMN seguridad.empresas.id IS 'Identificador único (UUID) de la empresa';
-COMMENT ON COLUMN seguridad.empresas.ruc IS 'Registro Único de Contribuyentes (13 dígitos). Debe ser único en el sistema';
+COMMENT ON COLUMN seguridad.empresas.ruc IS 'Registro íšnico de Contribuyentes (13 dí­gitos). Debe ser único en el sistema';
 COMMENT ON COLUMN seguridad.empresas.razon_social IS 'Razón social legal de la empresa según el RUC';
-COMMENT ON COLUMN seguridad.empresas.nombre_comercial IS 'Nombre comercial o de fantasía de la empresa';
+COMMENT ON COLUMN seguridad.empresas.nombre_comercial IS 'Nombre comercial o de fantasí­a de la empresa';
 COMMENT ON COLUMN seguridad.empresas.direccion IS 'Dirección matriz de la empresa';
 COMMENT ON COLUMN seguridad.empresas.telefono IS 'Teléfono de contacto principal';
 COMMENT ON COLUMN seguridad.empresas.email IS 'Correo electrónico para notificaciones del sistema';
@@ -123,7 +123,7 @@ COMMENT ON TABLE seguridad.usuarios_empresas IS 'Relación Many-to-Many entre Us
 COMMENT ON COLUMN seguridad.usuarios_empresas.id IS 'Identificador único de la relación';
 COMMENT ON COLUMN seguridad.usuarios_empresas.usuario_id IS 'Referencia al usuario';
 COMMENT ON COLUMN seguridad.usuarios_empresas.empresa_id IS 'Referencia a la empresa a la que tiene acceso';
-COMMENT ON COLUMN seguridad.usuarios_empresas.activo IS 'Permite deshabilitar el acceso a una empresa específica sin desactivar el usuario global';
+COMMENT ON COLUMN seguridad.usuarios_empresas.activo IS 'Permite deshabilitar el acceso a una empresa especí­fica sin desactivar el usuario global';
 COMMENT ON COLUMN seguridad.usuarios_empresas.created_at IS 'Fecha de asignación del permiso';
 
 -- ============================================================================
@@ -156,7 +156,7 @@ COMMENT ON TABLE contabilidad.plan_cuentas IS 'Plan de cuentas contables. Estruc
 COMMENT ON COLUMN contabilidad.plan_cuentas.id IS 'Identificador único de la cuenta contable';
 COMMENT ON COLUMN contabilidad.plan_cuentas.empresa_id IS 'Empresa a la que pertenece la cuenta (tenant)';
 COMMENT ON COLUMN contabilidad.plan_cuentas.usuario_id IS 'Usuario que creó o modificó la cuenta por última vez';
-COMMENT ON COLUMN contabilidad.plan_cuentas.codigo IS 'Código contable jerárquico (ej: 1.1.01). Único por empresa';
+COMMENT ON COLUMN contabilidad.plan_cuentas.codigo IS 'Código contable jerárquico (ej: 1.1.01). íšnico por empresa';
 COMMENT ON COLUMN contabilidad.plan_cuentas.nombre IS 'Nombre descriptivo de la cuenta';
 COMMENT ON COLUMN contabilidad.plan_cuentas.tipo IS 'Clasificación: ACTIVO, PASIVO, PATRIMONIO, INGRESO, GASTO';
 COMMENT ON COLUMN contabilidad.plan_cuentas.nivel IS 'Profundidad en el árbol jerárquico (calculado por puntos + 1)';
@@ -178,7 +178,7 @@ CREATE TABLE contabilidad.centros_costos (
     UNIQUE(empresa_id, codigo)
 );
 
-COMMENT ON TABLE contabilidad.centros_costos IS 'Centros de costos para contabilidad analítica / distribución de gastos.';
+COMMENT ON TABLE contabilidad.centros_costos IS 'Centros de costos para contabilidad analí­tica / distribución de gastos.';
 COMMENT ON COLUMN contabilidad.centros_costos.id IS 'Identificador único del centro de costos';
 COMMENT ON COLUMN contabilidad.centros_costos.empresa_id IS 'Empresa propietaria del centro de costos';
 COMMENT ON COLUMN contabilidad.centros_costos.codigo IS 'Código identificador (ej: CC-01-02)';
@@ -207,7 +207,7 @@ COMMENT ON TABLE contabilidad.asientos IS 'Cabecera de los asientos contables (D
 COMMENT ON COLUMN contabilidad.asientos.id IS 'Identificador único del asiento';
 COMMENT ON COLUMN contabilidad.asientos.empresa_id IS 'Empresa a la que pertenece el asiento';
 COMMENT ON COLUMN contabilidad.asientos.usuario_id IS 'Usuario que creó el asiento';
-COMMENT ON COLUMN contabilidad.asientos.numero IS 'Número secuencial o código del asiento. Único por empresa';
+COMMENT ON COLUMN contabilidad.asientos.numero IS 'Número secuencial o código del asiento. íšnico por empresa';
 COMMENT ON COLUMN contabilidad.asientos.fecha IS 'Fecha contable del registro';
 COMMENT ON COLUMN contabilidad.asientos.glosa IS 'Descripción o detalle general del asiento';
 COMMENT ON COLUMN contabilidad.asientos.tipo IS 'Tipo de asiento: DIARIO, INGRESO, EGRESO, AJUSTE, CIERRE';
@@ -226,13 +226,13 @@ CREATE TABLE contabilidad.asientos_detalles (
     concepto TEXT
 );
 
-COMMENT ON TABLE contabilidad.asientos_detalles IS 'Detalle de líneas del asiento contable (Movimientos).';
-COMMENT ON COLUMN contabilidad.asientos_detalles.id IS 'Identificador único de la línea de detalle';
+COMMENT ON TABLE contabilidad.asientos_detalles IS 'Detalle de lí­neas del asiento contable (Movimientos).';
+COMMENT ON COLUMN contabilidad.asientos_detalles.id IS 'Identificador único de la lí­nea de detalle';
 COMMENT ON COLUMN contabilidad.asientos_detalles.asiento_id IS 'Referencia al asiento cabecera';
 COMMENT ON COLUMN contabilidad.asientos_detalles.cuenta_codigo IS 'Código de la cuenta contable afectada (Desnormalizado para eficiencia histórica)';
 COMMENT ON COLUMN contabilidad.asientos_detalles.debe IS 'Monto en la columna del DEBE (Débito)';
 COMMENT ON COLUMN contabilidad.asientos_detalles.haber IS 'Monto en la columna del HABER (Crédito)';
-COMMENT ON COLUMN contabilidad.asientos_detalles.concepto IS 'Descripción específica de la línea (opcional)';
+COMMENT ON COLUMN contabilidad.asientos_detalles.concepto IS 'Descripción especí­fica de la lí­nea (opcional)';
 
 -- ============================================================================
 -- 3. MÓDULO: DIRECTORIO (TERCEROS)
@@ -277,7 +277,7 @@ CREATE TABLE directorio.terceros (
     -- Estado
     activo BOOLEAN DEFAULT TRUE,
     
-    -- Auditoría
+    -- Auditorí­a
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     created_by UUID REFERENCES seguridad.usuarios(id),
@@ -293,9 +293,9 @@ COMMENT ON TABLE directorio.terceros IS 'Catálogo unificado de terceros: client
 COMMENT ON COLUMN directorio.terceros.id IS 'Identificador único (UUID) del tercero';
 COMMENT ON COLUMN directorio.terceros.empresa_id IS 'Empresa a la que pertenece el tercero (tenant)';
 COMMENT ON COLUMN directorio.terceros.tipo_identificacion IS 'Código SRI del tipo de identificación: 04=RUC, 05=Cédula, 06=Pasaporte, 07=Consumidor Final, 08=Exterior';
-COMMENT ON COLUMN directorio.terceros.identificacion IS 'Número de identificación (RUC, cédula, pasaporte, etc.). Único por empresa';
+COMMENT ON COLUMN directorio.terceros.identificacion IS 'Número de identificación (RUC, cédula, pasaporte, etc.). íšnico por empresa';
 COMMENT ON COLUMN directorio.terceros.razon_social IS 'Razón social o nombre legal completo del tercero';
-COMMENT ON COLUMN directorio.terceros.nombre_comercial IS 'Nombre comercial o de fantasía (opcional)';
+COMMENT ON COLUMN directorio.terceros.nombre_comercial IS 'Nombre comercial o de fantasí­a (opcional)';
 COMMENT ON COLUMN directorio.terceros.tipo_tercero IS 'Clasificación del tercero: CLIENTE, PROVEEDOR, AMBOS (cliente y proveedor), EMPLEADO, OTRO';
 COMMENT ON COLUMN directorio.terceros.es_contribuyente_especial IS 'Indica si el tercero es contribuyente especial según el SRI (aplica descuentos adicionales)';
 COMMENT ON COLUMN directorio.terceros.es_obligado_contabilidad IS 'Indica si el tercero está obligado a llevar contabilidad';
@@ -307,7 +307,7 @@ COMMENT ON COLUMN directorio.terceros.provincia IS 'Provincia de ubicación';
 COMMENT ON COLUMN directorio.terceros.ciudad IS 'Ciudad de ubicación';
 COMMENT ON COLUMN directorio.terceros.codigo_postal IS 'Código postal';
 COMMENT ON COLUMN directorio.terceros.limite_credito IS 'Monto máximo de crédito permitido para el tercero (si es cliente)';
-COMMENT ON COLUMN directorio.terceros.dias_credito IS 'Plazo de pago en días otorgado al tercero';
+COMMENT ON COLUMN directorio.terceros.dias_credito IS 'Plazo de pago en dí­as otorgado al tercero';
 COMMENT ON COLUMN directorio.terceros.descuento_porcentaje IS 'Porcentaje de descuento comercial aplicable automáticamente';
 COMMENT ON COLUMN directorio.terceros.cuenta_contable_cxc IS 'Código de cuenta contable de Cuentas por Cobrar (si es cliente)';
 COMMENT ON COLUMN directorio.terceros.cuenta_contable_cxp IS 'Código de cuenta contable de Cuentas por Pagar (si es proveedor)';
@@ -337,7 +337,8 @@ CREATE TRIGGER trigger_terceros_updated_at
 -- ============================================================================
 
 -- Tipos ENUM del módulo inventario
-CREATE TYPE inventario.tipo_movimiento_kardex AS ENUM ('ENTRADA', 'SALIDA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO');
+CREATE TYPE inventario.tipo_movimiento_kardex AS ENUM ('ENTRADA', 'SALIDA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO',
+'DEVOLUCION_COMPRA','DEVOLUCION_VENTA','TRANSFERENCIA_ENTRADA','TRANSFERENCIA_SALIDA');
 
 -- Tabla: inventario.categorias_producto
 CREATE TABLE inventario.categorias_producto (
@@ -354,14 +355,14 @@ CREATE TABLE inventario.categorias_producto (
 );
 
 COMMENT ON TABLE inventario.categorias_producto IS 'Categorización de productos para organización y configuración contable automática.';
-COMMENT ON COLUMN inventario.categorias_producto.id IS 'Identificador único de la categoría';
+COMMENT ON COLUMN inventario.categorias_producto.id IS 'Identificador único de la categorí­a';
 COMMENT ON COLUMN inventario.categorias_producto.empresa_id IS 'Empresa propietaria';
-COMMENT ON COLUMN inventario.categorias_producto.nombre IS 'Nombre de la categoría';
+COMMENT ON COLUMN inventario.categorias_producto.nombre IS 'Nombre de la categorí­a';
 COMMENT ON COLUMN inventario.categorias_producto.descripcion IS 'Descripción adicional';
 COMMENT ON COLUMN inventario.categorias_producto.cuenta_inventario IS 'Código cuenta contable de activo (Inventario) por defecto';
 COMMENT ON COLUMN inventario.categorias_producto.cuenta_costo_venta IS 'Código cuenta contable de costo (Costo de Venta) por defecto';
 COMMENT ON COLUMN inventario.categorias_producto.cuenta_venta IS 'Código cuenta contable de ingreso (Ventas) por defecto';
-COMMENT ON COLUMN inventario.categorias_producto.activa IS 'Estado de la categoría';
+COMMENT ON COLUMN inventario.categorias_producto.activa IS 'Estado de la categorí­a';
 COMMENT ON COLUMN inventario.categorias_producto.created_at IS 'Fecha de creación';
 COMMENT ON COLUMN inventario.categorias_producto.updated_at IS 'Fecha de última actualización';
 
@@ -380,14 +381,14 @@ CREATE TABLE inventario.bodegas (
     UNIQUE(empresa_id, codigo)
 );
 
-COMMENT ON TABLE inventario.bodegas IS 'Almacenes físicos o lógicos donde se guardan productos.';
+COMMENT ON TABLE inventario.bodegas IS 'Almacenes fí­sicos o lógicos donde se guardan productos.';
 COMMENT ON COLUMN inventario.bodegas.id IS 'Identificador único de la bodega';
 COMMENT ON COLUMN inventario.bodegas.empresa_id IS 'Empresa propietaria';
 COMMENT ON COLUMN inventario.bodegas.codigo IS 'Código interno de la bodega (ej: BOD-01)';
 COMMENT ON COLUMN inventario.bodegas.nombre IS 'Nombre descriptivo de la bodega';
 COMMENT ON COLUMN inventario.bodegas.descripcion IS 'Descripción adicional de la bodega';
 COMMENT ON COLUMN inventario.bodegas.responsable IS 'Nombre de la persona responsable del almacén';
-COMMENT ON COLUMN inventario.bodegas.ubicacion IS 'Dirección física o referencia de ubicación';
+COMMENT ON COLUMN inventario.bodegas.ubicacion IS 'Dirección fí­sica o referencia de ubicación';
 COMMENT ON COLUMN inventario.bodegas.activa IS 'Estado de la bodega. FALSE impide nuevos movimientos';
 COMMENT ON COLUMN inventario.bodegas.created_at IS 'Fecha de creación';
 COMMENT ON COLUMN inventario.bodegas.updated_at IS 'Fecha de última actualización';
@@ -424,12 +425,12 @@ COMMENT ON COLUMN inventario.productos.codigo_auxiliar IS 'Código secundario o 
 COMMENT ON COLUMN inventario.productos.nombre IS 'Nombre comercial del producto';
 COMMENT ON COLUMN inventario.productos.descripcion IS 'Descripción detallada del producto';
 COMMENT ON COLUMN inventario.productos.stock_actual IS 'Cantidad actual en existencia (suma de todas las bodegas)';
-COMMENT ON COLUMN inventario.productos.stock_minimo IS 'Cantidad mínima para alertas de reabastecimiento';
+COMMENT ON COLUMN inventario.productos.stock_minimo IS 'Cantidad mí­nima para alertas de reabastecimiento';
 COMMENT ON COLUMN inventario.productos.costo_promedio IS 'Costo unitario promedio ponderado. Se actualiza en cada entrada';
 COMMENT ON COLUMN inventario.productos.precio_venta IS 'Precio de venta al público base (antes de impuestos)';
 COMMENT ON COLUMN inventario.productos.graba_iva IS 'Indica si el producto grava IVA (TRUE) o es tarifa 0% (FALSE)';
 COMMENT ON COLUMN inventario.productos.codigo_tarifa_iva IS 'Código SRI de tarifa IVA (2: 12%, 4: 15%, 0: 0%)';
-COMMENT ON COLUMN inventario.productos.categoria_id IS 'Referencia a la categoría del producto';
+COMMENT ON COLUMN inventario.productos.categoria_id IS 'Referencia a la categorí­a del producto';
 COMMENT ON COLUMN inventario.productos.activo IS 'Estado del producto';
 COMMENT ON COLUMN inventario.productos.created_at IS 'Fecha de creación';
 COMMENT ON COLUMN inventario.productos.updated_at IS 'Fecha de última actualización';
@@ -461,7 +462,7 @@ COMMENT ON COLUMN inventario.kardex_movimientos.bodega_id IS 'Bodega donde se re
 COMMENT ON COLUMN inventario.kardex_movimientos.tipo IS 'Tipo: ENTRADA, SALIDA, AJUSTE_POSITIVO, AJUSTE_NEGATIVO';
 COMMENT ON COLUMN inventario.kardex_movimientos.cantidad IS 'Cantidad movida (siempre positiva)';
 COMMENT ON COLUMN inventario.kardex_movimientos.costo_unitario IS 'Costo unitario del producto en el momento del movimiento';
-COMMENT ON COLUMN inventario.kardex_movimientos.stock_anterior IS 'Stock que tenía el producto antes de este movimiento';
+COMMENT ON COLUMN inventario.kardex_movimientos.stock_anterior IS 'Stock que tení­a el producto antes de este movimiento';
 COMMENT ON COLUMN inventario.kardex_movimientos.stock_resultante IS 'Stock que quedó después de este movimiento';
 COMMENT ON COLUMN inventario.kardex_movimientos.referencia IS 'Documento de respaldo (Numero factura, etc.)';
 COMMENT ON COLUMN inventario.kardex_movimientos.observaciones IS 'Notas adicionales sobre el movimiento';
@@ -668,10 +669,10 @@ FOREIGN KEY (conciliacion_id) REFERENCES bancos.bancos_conciliaciones(id) ON DEL
 
 
 
--- Trigger de auditoría
+-- Trigger de auditorí­a
 CREATE TRIGGER audit_bancos_conciliaciones AFTER INSERT OR UPDATE OR DELETE ON bancos.bancos_conciliaciones FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
-COMMENT ON TRIGGER audit_bancos_conciliaciones ON bancos.bancos_conciliaciones IS 'Auditoría automática de cambios en conciliaciones bancarias';
+COMMENT ON TRIGGER audit_bancos_conciliaciones ON bancos.bancos_conciliaciones IS 'Auditorí­a automática de cambios en conciliaciones bancarias';
 
 
 -- ============================================================================
@@ -706,11 +707,11 @@ COMMENT ON COLUMN cartera.cartera_documentos.empresa_id IS 'Empresa propietaria'
 COMMENT ON COLUMN cartera.cartera_documentos.usuario_id IS 'Usuario que registró el documento';
 COMMENT ON COLUMN cartera.cartera_documentos.tipo_cartera IS 'CXC (Clientes) o CXP (Proveedores)';
 COMMENT ON COLUMN cartera.cartera_documentos.tipo_documento IS 'Tipo de documento (FACTURA, NOTA_CREDITO, etc.)';
-COMMENT ON COLUMN cartera.cartera_documentos.nro_comprobante IS 'Número de factura o documento físico';
+COMMENT ON COLUMN cartera.cartera_documentos.nro_comprobante IS 'Número de factura o documento fí­sico';
 COMMENT ON COLUMN cartera.cartera_documentos.tercero_id IS 'ID del cliente o proveedor asociado';
 COMMENT ON COLUMN cartera.cartera_documentos.tercero_nombre IS 'Nombre del tercero (desnormalizado)';
 COMMENT ON COLUMN cartera.cartera_documentos.fecha_emision IS 'Fecha de emisión del documento';
-COMMENT ON COLUMN cartera.cartera_documentos.fecha_vencimiento IS 'Fecha límite de pago (para cálculo de aging)';
+COMMENT ON COLUMN cartera.cartera_documentos.fecha_vencimiento IS 'Fecha lí­mite de pago (para cálculo de aging)';
 COMMENT ON COLUMN cartera.cartera_documentos.monto_total IS 'Valor total del documento';
 COMMENT ON COLUMN cartera.cartera_documentos.saldo_pendiente IS 'Valor pendiente de cobro/pago (monto_total - abonos)';
 COMMENT ON COLUMN cartera.cartera_documentos.moneda IS 'Código de moneda (USD, EUR, etc.)';
@@ -755,7 +756,7 @@ COMMENT ON COLUMN cartera.cartera_anticipos.created_at IS 'Fecha de creación';
 
 -- Tipos ENUM del módulo facturacion
 CREATE TYPE facturacion.tipo_comprobante_sri AS ENUM ('01', '03', '04', '05', '06', '07');
-CREATE TYPE facturacion.estado_comprobante AS ENUM ('BORRADOR', 'PENDIENTE', 'AUTORIZADO', 'RECHAZADO', 'ANULADO','ERROR');
+CREATE TYPE facturacion.estado_comprobante AS ENUM ('BORRADOR', 'DEVUELTA', 'AUTORIZADO', 'RECHAZADO', 'ANULADO','ERROR','NO AUTORIZADO');
 
 -- Tabla: facturacion.comprobantes_electronicos
 CREATE TABLE facturacion.comprobantes_electronicos (
@@ -763,6 +764,7 @@ CREATE TABLE facturacion.comprobantes_electronicos (
     empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
     usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id),
     tipo_comprobante facturacion.tipo_comprobante_sri NOT NULL,
+    punto_emision_id UUID REFERENCES configuracion.puntos_emision(id),
     secuencial INTEGER NOT NULL,
     clave_acceso VARCHAR(49) UNIQUE,
     numero_autorizacion VARCHAR(49),
@@ -772,11 +774,12 @@ CREATE TABLE facturacion.comprobantes_electronicos (
     cliente_nombre VARCHAR(255) NOT NULL,
     cliente_identificacion VARCHAR(20) NOT NULL,
     subtotal NUMERIC(18,2) NOT NULL,
-    iva NUMERIC(18,2) DEFAULT 0,
+    iva NUMERIC(18,2) NOT NULL,
     total NUMERIC(18,2) NOT NULL,
     estado facturacion.estado_comprobante DEFAULT 'BORRADOR',
-    ambiente_sri INTEGER DEFAULT 1,
-    tipo_emision_sri INTEGER DEFAULT 1,
+    mensajes_sri JSONB DEFAULT NULL,
+    ambiente_sri INTEGER,
+    tipo_emision_sri INTEGER,
     direccion_partida TEXT,
     direccion_destino TEXT,
     transportista_nombre VARCHAR(255),
@@ -784,7 +787,7 @@ CREATE TABLE facturacion.comprobantes_electronicos (
     xml_firmado TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(empresa_id, tipo_comprobante, secuencial)
+    UNIQUE(empresa_id, tipo_comprobante, punto_emision_id, secuencial)
 );
 
 COMMENT ON TABLE facturacion.comprobantes_electronicos IS 'Comprobantes electrónicos (Facturación SRI).';
@@ -793,7 +796,7 @@ COMMENT ON COLUMN facturacion.comprobantes_electronicos.empresa_id IS 'Empresa e
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.usuario_id IS 'Usuario que generó el comprobante';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.tipo_comprobante IS 'Tipo: 01=FACTURA, 03=LIQUIDACION, 04=NOTA_CREDITO, 05=NOTA_DEBITO, 06=GUIA_REMISION, 07=RETENCION';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.secuencial IS 'Número secuencial del comprobante (incremental por tipo y empresa)';
-COMMENT ON COLUMN facturacion.comprobantes_electronicos.clave_acceso IS 'Clave de acceso de 49 dígitos (SRI)';
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.clave_acceso IS 'Clave de acceso de 49 dí­gitos (SRI)';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.numero_autorizacion IS 'Número de autorización otorgado por el SRI';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.fecha_emision IS 'Fecha de emisión del comprobante';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.fecha_autorizacion IS 'Fecha y hora de autorización por el SRI';
@@ -804,12 +807,13 @@ COMMENT ON COLUMN facturacion.comprobantes_electronicos.subtotal IS 'Subtotal an
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.iva IS 'Valor del IVA';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.total IS 'Total del comprobante';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.estado IS 'Estado del proceso: BORRADOR -> PENDIENTE -> AUTORIZADO/RECHAZADO/ANULADO';
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.mensajes_sri IS 'Mensajes devueltos por el SRI (recepción/autorización) en formato JSON';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.ambiente_sri IS 'Ambiente SRI: 1=PRUEBAS, 2=PRODUCCION';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.tipo_emision_sri IS 'Tipo de emisión: 1=NORMAL, 2=CONTINGENCIA';
-COMMENT ON COLUMN facturacion.comprobantes_electronicos.direccion_partida IS 'Dirección de origen (para guías de remisión)';
-COMMENT ON COLUMN facturacion.comprobantes_electronicos.direccion_destino IS 'Dirección de destino (para guías de remisión)';
-COMMENT ON COLUMN facturacion.comprobantes_electronicos.transportista_nombre IS 'Nombre del transportista (para guías)';
-COMMENT ON COLUMN facturacion.comprobantes_electronicos.placa_vehiculo IS 'Placa del vehículo (para guías)';
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.direccion_partida IS 'Dirección de origen (para guí­as de remisión)';
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.direccion_destino IS 'Dirección de destino (para guí­as de remisión)';
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.transportista_nombre IS 'Nombre del transportista (para guí­as)';
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.placa_vehiculo IS 'Placa del vehí­culo (para guí­as)';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.xml_firmado IS 'Contenido XML firmado (Base64 o texto raw)';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.created_at IS 'Fecha de creación';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.updated_at IS 'Fecha de última actualización';
@@ -822,19 +826,19 @@ CREATE TABLE facturacion.comprobantes_detalles (
     descripcion VARCHAR(255) NOT NULL,
     cantidad NUMERIC(18,4) NOT NULL,
     precio_unitario NUMERIC(18,6) NOT NULL,
-    descuento NUMERIC(18,2) DEFAULT 0,
+    descuento NUMERIC(18,2) NOT NULL,
     total NUMERIC(18,2) NOT NULL
 );
 
-COMMENT ON TABLE facturacion.comprobantes_detalles IS 'Detalle de líneas de los comprobantes electrónicos.';
-COMMENT ON COLUMN facturacion.comprobantes_detalles.id IS 'Identificador único de la línea de detalle';
+COMMENT ON TABLE facturacion.comprobantes_detalles IS 'Detalle de lí­neas de los comprobantes electrónicos.';
+COMMENT ON COLUMN facturacion.comprobantes_detalles.id IS 'Identificador único de la lí­nea de detalle';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.comprobante_id IS 'Referencia al comprobante cabecera';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.codigo_principal IS 'Código del producto o servicio';
-COMMENT ON COLUMN facturacion.comprobantes_detalles.descripcion IS 'Descripción del ítem';
+COMMENT ON COLUMN facturacion.comprobantes_detalles.descripcion IS 'Descripción del í­tem';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.cantidad IS 'Cantidad vendida';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.precio_unitario IS 'Precio unitario antes de impuestos';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.descuento IS 'Descuento aplicado';
-COMMENT ON COLUMN facturacion.comprobantes_detalles.total IS 'Subtotal de línea (Cantidad * Precio - Descuento)';
+COMMENT ON COLUMN facturacion.comprobantes_detalles.total IS 'Subtotal de lí­nea (Cantidad * Precio - Descuento)';
 
 -- Tabla: facturacion.transportistas
 CREATE TABLE facturacion.transportistas (
@@ -852,19 +856,19 @@ CREATE TABLE facturacion.transportistas (
     UNIQUE(empresa_id, identificacion)
 );
 
-COMMENT ON TABLE facturacion.transportistas IS 'Catálogo de transportistas para guías de remisión.';
+COMMENT ON TABLE facturacion.transportistas IS 'Catálogo de transportistas para guí­as de remisión.';
 COMMENT ON COLUMN facturacion.transportistas.id IS 'Identificador único del transportista';
 COMMENT ON COLUMN facturacion.transportistas.empresa_id IS 'Empresa propietaria';
 COMMENT ON COLUMN facturacion.transportistas.usuario_id IS 'Usuario que registró el transportista';
 COMMENT ON COLUMN facturacion.transportistas.identificacion IS 'RUC o cédula del transportista';
 COMMENT ON COLUMN facturacion.transportistas.razon_social IS 'Nombre o razón social del transportista';
-COMMENT ON COLUMN facturacion.transportistas.placa IS 'Placa del vehículo';
+COMMENT ON COLUMN facturacion.transportistas.placa IS 'Placa del vehí­culo';
 COMMENT ON COLUMN facturacion.transportistas.email IS 'Correo electrónico de contacto';
 COMMENT ON COLUMN facturacion.transportistas.telefono IS 'Teléfono de contacto';
 COMMENT ON COLUMN facturacion.transportistas.activo IS 'Estado del transportista';
 
 -- ============================================================================
--- 8. MÓDULO: AUDITORÍA
+-- 8. MÓDULO: AUDITORí�A
 -- ============================================================================
 
 -- Tipos ENUM del módulo auditoria
@@ -903,10 +907,10 @@ COMMENT ON COLUMN auditoria.auditoria_logs.datos_despues IS 'Snapshot de los dat
 COMMENT ON COLUMN auditoria.auditoria_logs.created_at IS 'Fecha y hora del evento';
 
 -- ============================================================================
--- TRIGGERS DE AUDITORÍA AUTOMÁTICA
+-- TRIGGERS DE AUDITORí�A AUTOMí�TICA
 -- ============================================================================
 
--- Función genérica para auditoría
+-- Función genérica para auditorí­a
 CREATE OR REPLACE FUNCTION audit_trigger_function()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -949,7 +953,7 @@ COMMENT ON FUNCTION audit_trigger_function() IS 'Trigger function genérica. Cap
 COMMENT ON DATABASE ecucontabledb IS 'Base de datos del sistema EcuContable Pro - Sistema contable multi-tenant para Ecuador.';
 
 -- ============================================================================
--- 9. MÓDULO: CONFIGURACIÓN Y PARÁMETROS
+-- 9. MÓDULO: CONFIGURACIÓN Y PARí�METROS
 -- ============================================================================
 
 -- Tabla: configuracion.sucursales
@@ -970,7 +974,7 @@ CREATE TABLE configuracion.sucursales (
 COMMENT ON TABLE configuracion.sucursales IS 'Sucursales o establecimientos de la empresa.';
 COMMENT ON COLUMN configuracion.sucursales.id IS 'Identificador único de la sucursal';
 COMMENT ON COLUMN configuracion.sucursales.empresa_id IS 'Empresa a la que pertenece la sucursal';
-COMMENT ON COLUMN configuracion.sucursales.codigo IS 'Código del establecimiento (3 dígitos, ej: 001) según el SRI';
+COMMENT ON COLUMN configuracion.sucursales.codigo IS 'Código del establecimiento (3 dí­gitos, ej: 001) según el SRI';
 COMMENT ON COLUMN configuracion.sucursales.nombre IS 'Nombre descriptivo de la sucursal';
 COMMENT ON COLUMN configuracion.sucursales.es_matriz IS 'Indica si es la oficina matriz de la empresa';
 COMMENT ON COLUMN configuracion.sucursales.activa IS 'Estado de la sucursal';
@@ -982,6 +986,9 @@ CREATE TABLE configuracion.puntos_emision (
     codigo VARCHAR(3) NOT NULL,
     nombre VARCHAR(255) NOT NULL,
     activo BOOLEAN DEFAULT TRUE,
+    requiere_asignacion BOOLEAN DEFAULT true,
+    permite_multiples_usuarios BOOLEAN DEFAULT true,
+    descripcion TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     created_by UUID REFERENCES seguridad.usuarios(id),
@@ -991,9 +998,194 @@ CREATE TABLE configuracion.puntos_emision (
 COMMENT ON TABLE configuracion.puntos_emision IS 'Puntos de emisión asociados a una sucursal.';
 COMMENT ON COLUMN configuracion.puntos_emision.id IS 'Identificador único del punto de emisión';
 COMMENT ON COLUMN configuracion.puntos_emision.sucursal_id IS 'Sucursal a la que pertenece el punto de emisión';
-COMMENT ON COLUMN configuracion.puntos_emision.codigo IS 'Código del punto de emisión (3 dígitos, ej: 001) según el SRI';
+COMMENT ON COLUMN configuracion.puntos_emision.codigo IS 'Código del punto de emisión (3 dí­gitos, ej: 001) según el SRI';
 COMMENT ON COLUMN configuracion.puntos_emision.nombre IS 'Nombre descriptivo (ej: Caja 1)';
-COMMENT ON COLUMN configuracion.puntos_emision.activo IS 'Estado del punto de emisión';
+COMMENT ON COLUMN configuracion.puntos_emision.activo IS 'Indica si el punto está activo y puede ser usado. Permite desactivar puntos sin eliminarlos.';
+COMMENT ON COLUMN configuracion.puntos_emision.requiere_asignacion IS 'Si es true, solo usuarios explí­citamente asignados pueden usar este punto. Si es false, cualquier usuario de la empresa puede usarlo.';
+COMMENT ON COLUMN configuracion.puntos_emision.permite_multiples_usuarios IS 'Si es true, múltiples usuarios pueden tener este punto asignado simultáneamente. Si es false, solo un usuario a la vez.';
+COMMENT ON COLUMN configuracion.puntos_emision.descripcion IS 'Descripción o notas adicionales sobre el punto de emisión (ej: "Caja principal del local matriz").';
+
+
+-- ============================================================================
+-- TABLA: configuracion.usuarios_puntos_emision
+-- ============================================================================
+-- Propósito: Relaciona usuarios con los puntos de emisión que pueden usar
+-- Reglas de negocio:
+--   1. Un usuario puede tener múltiples puntos asignados
+--   2. Solo un punto puede estar activo a la vez por usuario-empresa
+--   3. Un punto puede ser marcado como principal (se activa automáticamente)
+--   4. Control de si el usuario puede cambiar de punto
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS configuracion.usuarios_puntos_emision (
+    -- Identificadores
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id) ON DELETE CASCADE,
+    empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
+    punto_emision_id UUID NOT NULL REFERENCES configuracion.puntos_emision(id) ON DELETE CASCADE,
+    
+    -- Estado y configuración
+    activo BOOLEAN DEFAULT false,
+    es_principal BOOLEAN DEFAULT false,
+    puede_cambiar BOOLEAN DEFAULT true,
+    
+    -- Auditoría
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES seguridad.usuarios(id),
+    updated_by UUID REFERENCES seguridad.usuarios(id),
+    
+    -- Constraints
+    CONSTRAINT uk_usuario_empresa_punto UNIQUE (usuario_id, empresa_id, punto_emision_id)
+);
+
+
+
+-- ============================================================================
+-- FUNCIÓN: Obtener punto de emisión activo de un usuario
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION configuracion.fn_obtener_punto_activo_usuario(
+    p_usuario_id UUID,
+    p_empresa_id UUID
+)
+RETURNS TABLE (
+    punto_emision_id UUID,
+    codigo_establecimiento VARCHAR(3),
+    codigo_punto VARCHAR(3),
+    nombre_punto VARCHAR(255),
+    es_activo BOOLEAN,
+    es_principal BOOLEAN
+) AS $$
+BEGIN
+    -- Primero buscar el punto activo
+    RETURN QUERY
+    SELECT 
+        pe.id,
+        s.codigo,
+        pe.codigo,
+        pe.nombre,
+        upe.activo,
+        upe.es_principal
+    FROM configuracion.usuarios_puntos_emision upe
+    INNER JOIN configuracion.puntos_emision pe ON upe.punto_emision_id = pe.id
+    INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
+    WHERE upe.usuario_id = p_usuario_id
+    AND upe.empresa_id = p_empresa_id
+    AND upe.activo = true
+    AND pe.activo = true
+    LIMIT 1;
+    
+    -- Si no hay activo, buscar el principal
+    IF NOT FOUND THEN
+        RETURN QUERY
+        SELECT 
+            pe.id,
+            s.codigo,
+            pe.codigo,
+            pe.nombre,
+            upe.activo,
+            upe.es_principal
+        FROM configuracion.usuarios_puntos_emision upe
+        INNER JOIN configuracion.puntos_emision pe ON upe.punto_emision_id = pe.id
+        INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
+        WHERE upe.usuario_id = p_usuario_id
+        AND upe.empresa_id = p_empresa_id
+        AND upe.es_principal = true
+        AND pe.activo = true
+        LIMIT 1;
+    END IF;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION configuracion.fn_obtener_punto_activo_usuario IS 
+'Obtiene el punto de emisión activo de un usuario. Si no tiene activo, retorna el principal.';
+
+-- ============================================================================
+-- FUNCIÓN: Activar punto de emisión para un usuario
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION configuracion.fn_activar_punto_emision(
+    p_usuario_id UUID,
+    p_empresa_id UUID,
+    p_punto_emision_id UUID
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_count INT;
+BEGIN
+    -- Verificar que el usuario tiene asignado ese punto
+    SELECT COUNT(*) INTO v_count
+    FROM configuracion.usuarios_puntos_emision
+    WHERE usuario_id = p_usuario_id
+    AND empresa_id = p_empresa_id
+    AND punto_emision_id = p_punto_emision_id;
+    
+    IF v_count = 0 THEN
+        RAISE EXCEPTION 'El usuario no tiene asignado este punto de emisión';
+    END IF;
+    
+    -- Desactivar todos los puntos del usuario en esta empresa
+    UPDATE configuracion.usuarios_puntos_emision
+    SET activo = false, updated_at = NOW()
+    WHERE usuario_id = p_usuario_id
+    AND empresa_id = p_empresa_id;
+    
+    -- Activar el punto especificado
+    UPDATE configuracion.usuarios_puntos_emision
+    SET activo = true, updated_at = NOW()
+    WHERE usuario_id = p_usuario_id
+    AND empresa_id = p_empresa_id
+    AND punto_emision_id = p_punto_emision_id;
+    
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION configuracion.fn_activar_punto_emision IS 
+'Activa un punto de emisión para el usuario, desactivando todos los demás.';
+
+
+-- ============================================================================
+-- COMENTARIOS DE DOCUMENTACIÓN
+-- ============================================================================
+
+COMMENT ON TABLE configuracion.usuarios_puntos_emision IS 
+'Asignación de puntos de emisión a usuarios. Controla qué usuarios pueden emitir comprobantes desde qué puntos.';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.id IS 
+'Identificador único del registro de asignación';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.usuario_id IS 
+'Usuario al que se asigna el punto de emisión';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.empresa_id IS 
+'Empresa a la que pertenece la asignación';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.punto_emision_id IS 
+'Punto de emisión asignado al usuario';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.activo IS 
+'Indica si este es el punto de emisión actualmente activo para el usuario. Solo puede haber uno activo a la vez.';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.es_principal IS 
+'Punto que se activa automáticamente cuando el usuario selecciona la empresa. Solo puede haber uno principal.';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.puede_cambiar IS 
+'Si es false, el usuario no puede cambiar a otro punto sin ayuda del administrador.';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.created_at IS 
+'Fecha y hora de creación del registro';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.updated_at IS 
+'Fecha y hora de última actualización del registro';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.created_by IS 
+'Usuario que creó el registro';
+
+COMMENT ON COLUMN configuracion.usuarios_puntos_emision.updated_by IS 
+'Usuario que realizó la última actualización';
+
 
 -- Tabla: configuracion.puntos_emision_secuenciales
 -- Para manejar los secuenciales por tipo de comprobante en cada punto de emisión
@@ -1040,14 +1232,22 @@ CREATE TABLE configuracion.parametros (
     sbu NUMERIC(15,2) DEFAULT 460,
     iva NUMERIC(5,2) DEFAULT 15,
     max_consumidor_final NUMERIC(15,2) DEFAULT 50,
-    cuenta_caja VARCHAR(50),
-    cuenta_iva_ventas VARCHAR(50),
-    cuenta_iva_compras VARCHAR(50),
-    cuenta_ret_renta_por_pagar VARCHAR(50),
-    cuenta_cxc_clientes VARCHAR(50),
-    cuenta_anticipo_clientes VARCHAR(50),
-    cuenta_cxp_proveedores VARCHAR(50),
-    cuenta_anticipo_proveedores VARCHAR(50),
+    cuenta_caja VARCHAR(20),
+    cuenta_iva_ventas VARCHAR(20),
+    cuenta_iva_compras VARCHAR(20),
+    cuenta_ret_renta_por_pagar VARCHAR(20),
+    cuenta_cxc_clientes VARCHAR(20),
+    cuenta_anticipo_clientes VARCHAR(20),
+    cuenta_cxp_proveedores VARCHAR(20),
+    cuenta_anticipo_proveedores VARCHAR(20),
+    cuenta_ventas VARCHAR(20),
+    cuenta_devolucion_ventas VARCHAR(20),
+    cuenta_compras VARCHAR(20),
+    cuenta_inventario VARCHAR(20),
+    cuenta_iva_por_pagar VARCHAR(20),
+    cuenta_ret_iva_por_pagar VARCHAR(20),
+    cuenta_costo_ventas VARCHAR(20),
+    cuenta_descuento_ventas VARCHAR(20),
     fecha_cierre DATE,
     updated_at TIMESTAMP DEFAULT NOW(),
     updated_by UUID REFERENCES seguridad.usuarios(id)
@@ -1134,7 +1334,7 @@ COMMENT ON COLUMN configuracion.sri_certificados.cert_numero_serie IS 'Número d
 
 
 -- ===========================================================================
--- MÓDULO: CATÁLOGOS DEL SISTEMA Y SRI
+-- MÓDULO: CATí�LOGOS DEL SISTEMA Y SRI
 -- ============================================================================
 
 -- Tabla: configuracion.catalogos_tipos
@@ -1171,7 +1371,7 @@ CREATE TABLE configuracion.catalogos_items (
     UNIQUE(catalogo_codigo, codigo)
 );
 
-COMMENT ON TABLE configuracion.catalogos_items IS 'Items individuales de cada catálogo. Aquí residen los códigos del SRI.';
+COMMENT ON TABLE configuracion.catalogos_items IS 'Items individuales de cada catálogo. Aquí­ residen los códigos del SRI.';
 COMMENT ON COLUMN configuracion.catalogos_items.id IS 'Identificador único autoincrementable';
 COMMENT ON COLUMN configuracion.catalogos_items.catalogo_codigo IS 'Referencia al tipo de catálogo al que pertenece';
 COMMENT ON COLUMN configuracion.catalogos_items.codigo IS 'Código técnico (ej: 01 para Factura).';
@@ -1259,8 +1459,8 @@ COMMENT ON COLUMN caja_chica.movimientos.estado IS 'Estado del vale: PENDIENTE, 
 CREATE TRIGGER audit_caja_chica AFTER INSERT OR UPDATE OR DELETE ON caja_chica.cajas FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 CREATE TRIGGER audit_caja_chica_vales AFTER INSERT OR UPDATE OR DELETE ON caja_chica.movimientos FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
-COMMENT ON TRIGGER audit_caja_chica ON caja_chica.cajas IS 'Auditoría automática de cambios en cajas chicas';
-COMMENT ON TRIGGER audit_caja_chica_vales ON caja_chica.movimientos IS 'Auditoría automática de movimientos de caja chica';
+COMMENT ON TRIGGER audit_caja_chica ON caja_chica.cajas IS 'Auditorí­a automática de cambios en cajas chicas';
+COMMENT ON TRIGGER audit_caja_chica_vales ON caja_chica.movimientos IS 'Auditorí­a automática de movimientos de caja chica';
 
 
 -- ============================================================================
@@ -1289,7 +1489,7 @@ COMMENT ON TABLE cartera.documentos_pendientes IS 'Documentos pendientes de cobr
 COMMENT ON COLUMN cartera.documentos_pendientes.id IS 'Identificador único del documento pendiente';
 COMMENT ON COLUMN cartera.documentos_pendientes.tipo IS 'Tipo de cartera: CXC o CXP';
 COMMENT ON COLUMN cartera.documentos_pendientes.tercero_id IS 'Referencia al cliente o proveedor';
-COMMENT ON COLUMN cartera.documentos_pendientes.nro_comprobante IS 'Número de factura o documento físico';
+COMMENT ON COLUMN cartera.documentos_pendientes.nro_comprobante IS 'Número de factura o documento fí­sico';
 COMMENT ON COLUMN cartera.documentos_pendientes.fecha_emision IS 'Fecha de emisión del documento';
 COMMENT ON COLUMN cartera.documentos_pendientes.fecha_vencimiento IS 'Fecha de vencimiento para el cobro/pago';
 COMMENT ON COLUMN cartera.documentos_pendientes.monto_total IS 'Valor total original del documento';
@@ -1386,7 +1586,7 @@ COMMENT ON COLUMN activos.activos_fijos.empresa_id IS 'Empresa propietaria del a
 COMMENT ON COLUMN activos.activos_fijos.usuario_id IS 'Usuario que registró el activo';
 COMMENT ON COLUMN activos.activos_fijos.codigo IS 'Código interno de inventario del activo';
 COMMENT ON COLUMN activos.activos_fijos.nombre IS 'Nombre o descripción del activo';
-COMMENT ON COLUMN activos.activos_fijos.categoria IS 'Categoría (VEHICULO, MAQUINARIA, EQUIPO_COMPUTACION, MUEBLES_ENSERES, EDIFICIO)';
+COMMENT ON COLUMN activos.activos_fijos.categoria IS 'Categorí­a (VEHICULO, MAQUINARIA, EQUIPO_COMPUTACION, MUEBLES_ENSERES, EDIFICIO)';
 COMMENT ON COLUMN activos.activos_fijos.fecha_adquisicion IS 'Fecha de compra o incorporación';
 COMMENT ON COLUMN activos.activos_fijos.valor_adquisicion IS 'Costo histórico de adquisición';
 COMMENT ON COLUMN activos.activos_fijos.valor_residual IS 'Valor estimado al final de la vida útil';
@@ -1394,7 +1594,7 @@ COMMENT ON COLUMN activos.activos_fijos.vida_util_meses IS 'Vida útil total est
 COMMENT ON COLUMN activos.activos_fijos.depreciacion_acumulada IS 'Suma de depreciaciones mensuales procesadas';
 COMMENT ON COLUMN activos.activos_fijos.valor_libros IS 'Valor actual contable (Adquisición - Acumulada)';
 COMMENT ON COLUMN activos.activos_fijos.estado IS 'Estado operativo del activo: OPERATIVO, MANTENIMIENTO, DADO_BAJA';
-COMMENT ON COLUMN activos.activos_fijos.ubicacion IS 'Ubicación física del activo';
+COMMENT ON COLUMN activos.activos_fijos.ubicacion IS 'Ubicación fí­sica del activo';
 COMMENT ON COLUMN activos.activos_fijos.responsable IS 'Persona responsable del activo';
 
 CREATE TABLE activos.depreciaciones (
@@ -1495,7 +1695,7 @@ COMMENT ON COLUMN compras.compras.proveedor_id IS 'Referencia al proveedor (terc
 COMMENT ON COLUMN compras.compras.tipo_comprobante IS 'Código SRI del tipo de comprobante (01, etc.)';
 COMMENT ON COLUMN compras.compras.secuencial IS 'Número de factura del proveedor (ej: 001-001-000000001)';
 COMMENT ON COLUMN compras.compras.autorizacion IS 'Número de autorización SRI de la factura del proveedor';
-COMMENT ON COLUMN compras.compras.fecha_emision IS 'Fecha de emisión de la factura física/electrónica';
+COMMENT ON COLUMN compras.compras.fecha_emision IS 'Fecha de emisión de la factura fí­sica/electrónica';
 COMMENT ON COLUMN compras.compras.fecha_registro IS 'Fecha en que se ingresa al sistema contable';
 COMMENT ON COLUMN compras.compras.sustento IS 'Código SRI del sustento tributario';
 COMMENT ON COLUMN compras.compras.descripcion IS 'Descripción o detalle de la compra';
@@ -1510,27 +1710,31 @@ COMMENT ON COLUMN compras.compras.nro_retencion IS 'Número secuencial de la ret
 COMMENT ON COLUMN compras.compras.created_at IS 'Fecha de creación del registro';
 COMMENT ON COLUMN compras.compras.updated_at IS 'Fecha de última actualización';
 
-CREATE TABLE IF NOT EXISTS compras.compras_detalles (
+CREATE TABLE IF NOT EXISTS compras.compras_detalle (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     compra_id UUID NOT NULL REFERENCES compras.compras(id) ON DELETE CASCADE,
     producto_id UUID REFERENCES inventario.productos(id),
-    descripcion TEXT NOT NULL,
-    cantidad NUMERIC(18,2) NOT NULL,
-    precio_unitario NUMERIC(18,2) NOT NULL,
-    descuento NUMERIC(18,2) DEFAULT 0,
-    total NUMERIC(18,2) NOT NULL
+    descripcion VARCHAR(500) NOT NULL,
+    cantidad NUMERIC(18,4) NOT NULL,
+    precio_unitario NUMERIC(18,6) NOT NULL,
+    subtotal NUMERIC(18,2) NOT NULL,
+    porcentaje_iva NUMERIC(5,2) DEFAULT 0,
+    valor_iva NUMERIC(18,2) DEFAULT 0,
+    total NUMERIC(18,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
-COMMENT ON TABLE compras.compras_detalles IS 'Detalle de ítems o servicios adquiridos en la compra.';
-COMMENT ON COLUMN compras.compras_detalles.id IS 'Identificador único de la línea de detalle';
-COMMENT ON COLUMN compras.compras_detalles.compra_id IS 'Referencia a la cabecera de la compra';
-COMMENT ON COLUMN compras.compras_detalles.producto_id IS 'Referencia al producto del inventario (opcional)';
-COMMENT ON COLUMN compras.compras_detalles.descripcion IS 'Descripción del ítem o servicio';
-COMMENT ON COLUMN compras.compras_detalles.cantidad IS 'Cantidad comprada';
-COMMENT ON COLUMN compras.compras_detalles.precio_unitario IS 'Costo unitario antes de impuestos';
-COMMENT ON COLUMN compras.compras_detalles.descuento IS 'Descuento aplicado por el proveedor';
-COMMENT ON COLUMN compras.compras_detalles.total IS 'Subtotal de la línea';
-
+COMMENT ON TABLE compras.compras_detalle IS 'Detalle de productos/servicios en cada factura de compra';
+COMMENT ON COLUMN compras.compras_detalle.id IS 'Identificador único del detalle';
+COMMENT ON COLUMN compras.compras_detalle.compra_id IS 'Referencia a la compra (factura)';
+COMMENT ON COLUMN compras.compras_detalle.producto_id IS 'Producto inventariable (NULL si es servicio)';
+COMMENT ON COLUMN compras.compras_detalle.descripcion IS 'Descripción del í­tem comprado';
+COMMENT ON COLUMN compras.compras_detalle.cantidad IS 'Cantidad comprada';
+COMMENT ON COLUMN compras.compras_detalle.precio_unitario IS 'Precio unitario de compra';
+COMMENT ON COLUMN compras.compras_detalle.subtotal IS 'Subtotal sin IVA (cantidad í— precio)';
+COMMENT ON COLUMN compras.compras_detalle.porcentaje_iva IS 'Porcentaje de IVA aplicado (0, 15, etc)';
+COMMENT ON COLUMN compras.compras_detalle.valor_iva IS 'Valor calculado del IVA';
+COMMENT ON COLUMN compras.compras_detalle.total IS 'Total con IVA incluido';
 CREATE TABLE IF NOT EXISTS compras.ordenes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
@@ -1574,7 +1778,7 @@ COMMENT ON COLUMN compras.ordenes_detalles.cantidad IS 'Cantidad solicitada';
 COMMENT ON COLUMN compras.ordenes_detalles.precio_unitario IS 'Precio unitario referencial';
 
 -- ============================================================================
--- Triggers de auditoría para las nuevas tablas
+-- Triggers de auditorí­a para las nuevas tablas
 CREATE IF NOT EXISTS TRIGGER audit_activos_fijos AFTER INSERT OR UPDATE OR DELETE ON activos.activos_fijos FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 CREATE IF NOT EXISTS TRIGGER audit_compras AFTER INSERT OR UPDATE OR DELETE ON compras.compras FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 CREATE IF NOT EXISTS TRIGGER audit_compras_ordenes AFTER INSERT OR UPDATE OR DELETE ON compras.ordenes FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
@@ -1609,7 +1813,7 @@ COMMENT ON COLUMN buzon.comprobantes_recibidos.razon_social_emisor IS 'Nombre o 
 COMMENT ON COLUMN buzon.comprobantes_recibidos.fecha_emision IS 'Fecha en que se emitió el comprobante';
 COMMENT ON COLUMN buzon.comprobantes_recibidos.fecha_recepcion IS 'Fecha y hora en que el sistema detectó el comprobante';
 COMMENT ON COLUMN buzon.comprobantes_recibidos.monto_total IS 'Valor total del comprobante';
-COMMENT ON COLUMN buzon.comprobantes_recibidos.clave_acceso IS 'Clave de acceso de 49 dígitos del SRI';
+COMMENT ON COLUMN buzon.comprobantes_recibidos.clave_acceso IS 'Clave de acceso de 49 dí­gitos del SRI';
 COMMENT ON COLUMN buzon.comprobantes_recibidos.estado IS 'Estado de procesamiento: RECIBIDO, PROCESADO, RECHAZADO';
 COMMENT ON COLUMN buzon.comprobantes_recibidos.asociado_a IS 'ID de la compra o gasto al que se vinculó este XML';
 
@@ -1632,16 +1836,17 @@ COMMENT ON COLUMN seguridad.roles.descripcion IS 'Descripción del rol';
 COMMENT ON COLUMN seguridad.roles.created_at IS 'Fecha de creación del rol';
 
 
--- Trigger de auditoría
+-- Trigger de auditorí­a
 CREATE TRIGGER audit_roles AFTER INSERT OR UPDATE OR DELETE ON seguridad.roles FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
-COMMENT ON TRIGGER audit_roles ON seguridad.roles IS 'Auditoría automática de cambios en roles de seguridad';
+COMMENT ON TRIGGER audit_roles ON seguridad.roles IS 'Auditorí­a automática de cambios en roles de seguridad';
 
 
 
 CREATE TABLE IF NOT EXISTS seguridad.usuarios_roles (
     usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id) ON DELETE CASCADE,
     rol_id UUID NOT NULL REFERENCES seguridad.roles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
     PRIMARY KEY (usuario_id, rol_id)
 );
 
@@ -1649,10 +1854,10 @@ COMMENT ON TABLE seguridad.usuarios_roles IS 'Relación entre usuarios y roles';
 COMMENT ON COLUMN seguridad.usuarios_roles.usuario_id IS 'Identificador del usuario';
 COMMENT ON COLUMN seguridad.usuarios_roles.rol_id IS 'Identificador del rol';
 
--- Trigger de auditoría
+-- Trigger de auditorí­a
 CREATE TRIGGER audit_usuarios_roles AFTER INSERT OR UPDATE OR DELETE ON seguridad.usuarios_roles FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
-COMMENT ON TRIGGER audit_usuarios_roles ON seguridad.usuarios_roles IS 'Auditoría automática de asignación de roles a usuarios';
+COMMENT ON TRIGGER audit_usuarios_roles ON seguridad.usuarios_roles IS 'Auditorí­a automática de asignación de roles a usuarios';
 
 
 
@@ -1669,21 +1874,21 @@ CREATE TABLE IF NOT EXISTS configuracion.menu_items (
 );
 
 
-COMMENT ON TABLE configuracion.menu_items IS 'Tabla de ítems de menú configurables';
+COMMENT ON TABLE configuracion.menu_items IS 'Tabla de í­tems de menú configurables';
 COMMENT ON COLUMN configuracion.menu_items.id IS 'Identificador único (UUID)';
 COMMENT ON COLUMN configuracion.menu_items.label IS 'Etiqueta visible del menú';
-COMMENT ON COLUMN configuracion.menu_items.icon_name IS 'Nombre del ícono asociado';
-COMMENT ON COLUMN configuracion.menu_items.path IS 'Ruta o URL del ítem';
+COMMENT ON COLUMN configuracion.menu_items.icon_name IS 'Nombre del í­cono asociado';
+COMMENT ON COLUMN configuracion.menu_items.path IS 'Ruta o URL del í­tem';
 COMMENT ON COLUMN configuracion.menu_items.orden IS 'Orden de aparición en el menú';
-COMMENT ON COLUMN configuracion.menu_items.plan_minimo IS 'Plan mínimo requerido para ver el ítem';
-COMMENT ON COLUMN configuracion.menu_items.activo IS 'Estado de activación del ítem';
-COMMENT ON COLUMN configuracion.menu_items.created_at IS 'Fecha de creación del ítem';
+COMMENT ON COLUMN configuracion.menu_items.plan_minimo IS 'Plan mí­nimo requerido para ver el í­tem';
+COMMENT ON COLUMN configuracion.menu_items.activo IS 'Estado de activación del í­tem';
+COMMENT ON COLUMN configuracion.menu_items.created_at IS 'Fecha de creación del í­tem';
 
 
--- Trigger de auditoría
+-- Trigger de auditorí­a
 CREATE TRIGGER audit_menu_items AFTER INSERT OR UPDATE OR DELETE ON configuracion.menu_items FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
-COMMENT ON TRIGGER audit_menu_items ON configuracion.menu_items IS 'Auditoría automática de cambios en ítems de menú';
+COMMENT ON TRIGGER audit_menu_items ON configuracion.menu_items IS 'Auditorí­a automática de cambios en í­tems de menú';
 
 
 
@@ -1693,14 +1898,14 @@ CREATE TABLE IF NOT EXISTS configuracion.menu_item_roles (
     PRIMARY KEY (menu_item_id, rol_id)
 );
 
-COMMENT ON TABLE configuracion.menu_item_roles IS 'Relación entre ítems de menú y roles';
-COMMENT ON COLUMN configuracion.menu_item_roles.menu_item_id IS 'Identificador del ítem de menú';
+COMMENT ON TABLE configuracion.menu_item_roles IS 'Relación entre í­tems de menú y roles';
+COMMENT ON COLUMN configuracion.menu_item_roles.menu_item_id IS 'Identificador del í­tem de menú';
 COMMENT ON COLUMN configuracion.menu_item_roles.rol_id IS 'Identificador del rol asociado';
 
--- Trigger de auditoría
+-- Trigger de auditorí­a
 CREATE TRIGGER audit_menu_item_roles AFTER INSERT OR UPDATE OR DELETE ON configuracion.menu_item_roles FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
--- Crear triggers de auditoría para tablas críticas
+-- Crear triggers de auditorí­a para tablas crí­ticas
 -- Seguridad
 CREATE TRIGGER audit_empresas AFTER INSERT OR UPDATE OR DELETE ON seguridad.empresas FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 CREATE TRIGGER audit_usuarios AFTER INSERT OR UPDATE OR DELETE ON seguridad.usuarios FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
@@ -1783,81 +1988,92 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 COMMENT ON FUNCTION configuracion.es_certificado_vigente(TIMESTAMP) IS 
     'Verifica si un certificado está vigente comparando la fecha de expiración con la fecha actual';
 
--- Función: Calcular días hasta la expiración
-CREATE OR REPLACE FUNCTION configuracion.dias_hasta_expiracion(fecha_expiracion TIMESTAMP)
-RETURNS INTEGER AS $$
-BEGIN
-    IF fecha_expiracion IS NULL THEN
-        RETURN NULL;
-    END IF;
-    RETURN EXTRACT(DAY FROM (fecha_expiracion - NOW()))::INTEGER;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
+-- Función: Calcular dí­as hasta la expiración
+-- CREATE OR REPLACE FUNCTION configuracion.dias_hasta_expiracion(fecha_expiracion TIMESTAMP)
+-- RETURNS INTEGER AS $$
+-- BEGIN
+--     IF fecha_expiracion IS NULL THEN
+--         RETURN NULL;
+--     END IF;
+--     RETURN EXTRACT(DAY FROM (fecha_expiracion - NOW()))::INTEGER;
+-- END;
+-- $$ LANGUAGE plpgsql IMMUTABLE;
 
-COMMENT ON FUNCTION configuracion.dias_hasta_expiracion(TIMESTAMP) IS 
-    'Calcula días restantes hasta la expiración del certificado. Retorna número negativo si ya expiró';
+-- COMMENT ON FUNCTION configuracion.dias_hasta_expiracion(TIMESTAMP) IS 
+--     'Calcula dí­as restantes hasta la expiración del certificado. Retorna número negativo si ya expiró';
 
 -- Función: Obtener metadatos completos del certificado
-CREATE OR REPLACE FUNCTION configuracion.obtener_metadata_certificado(
-    p_empresa_id UUID,
-    p_ambiente_codigo VARCHAR
-)
-RETURNS TABLE (
-    certificado_id UUID,
-    ambiente VARCHAR,
-    fecha_emision TIMESTAMP,
-    fecha_expiracion TIMESTAMP,
-    sujeto TEXT,
-    emisor TEXT,
-    numero_serie VARCHAR,
-    es_vigente BOOLEAN,
-    dias_restantes INTEGER,
-    tiene_certificado BOOLEAN
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        sc.id,
-        sa.codigo,
-        sc.cert_fecha_emision,
-        sc.cert_fecha_expiracion,
-        sc.cert_sujeto,
-        sc.cert_emisor,
-        sc.cert_numero_serie,
-        configuracion.es_certificado_vigente(sc.cert_fecha_expiracion) as es_vigente,
-        configuracion.dias_hasta_expiracion(sc.cert_fecha_expiracion) as dias_restantes,
-        (sc.cert_p12_certificado IS NOT NULL) as tiene_certificado
-    FROM configuracion.sri_certificados sc
-    INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
-    WHERE sc.empresa_id = p_empresa_id 
-      AND sa.codigo = p_ambiente_codigo
-      AND sc.activo = TRUE
-    LIMIT 1;
-END;
-$$ LANGUAGE plpgsql STABLE;
+-- CREATE OR REPLACE FUNCTION configuracion.obtener_metadata_certificado(
+--     p_empresa_id UUID,
+--     p_ambiente_codigo VARCHAR
+-- )
+-- RETURNS TABLE (
+--     certificado_id UUID,
+--     ambiente VARCHAR,
+--     fecha_emision TIMESTAMP,
+--     fecha_expiracion TIMESTAMP,
+--     sujeto TEXT,
+--     emisor TEXT,
+--     numero_serie VARCHAR,
+--     es_vigente BOOLEAN,
+--     dias_restantes INTEGER,
+--     tiene_certificado BOOLEAN
+-- ) AS $$
+-- BEGIN
+--     RETURN QUERY
+--     SELECT 
+--         sc.id,
+--         sa.codigo,
+--         sc.cert_fecha_emision,
+--         sc.cert_fecha_expiracion,
+--         sc.cert_sujeto,
+--         sc.cert_emisor,
+--         sc.cert_numero_serie,
+--         configuracion.es_certificado_vigente(sc.cert_fecha_expiracion) as es_vigente,
+--         configuracion.dias_hasta_expiracion(sc.cert_fecha_expiracion) as dias_restantes,
+--         (sc.cert_p12_certificado IS NOT NULL) as tiene_certificado
+--     FROM configuracion.sri_certificados sc
+--     INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
+--     WHERE sc.empresa_id = p_empresa_id 
+--       AND sa.codigo = p_ambiente_codigo
+--       AND sc.activo = TRUE
+--     LIMIT 1;
+-- END;
+-- $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION configuracion.obtener_metadata_certificado(UUID, VARCHAR) IS 
-    'Obtiene los metadatos completos del certificado digital activo para una empresa y ambiente, incluyendo estado de vigencia';
+-- COMMENT ON FUNCTION configuracion.obtener_metadata_certificado(UUID, VARCHAR) IS 
+--     'Obtiene los metadatos completos del certificado digital activo para una empresa y ambiente, incluyendo estado de vigencia';
 
 
 -- FIN DEL SCHEMA
 -- ============================================================================
 
 COMMENT ON TRIGGER trigger_terceros_updated_at ON directorio.terceros IS 'Actualiza automáticamente el campo updated_at al modificar un tercero';
-COMMENT ON TRIGGER audit_plan_cuentas ON contabilidad.plan_cuentas IS 'Auditoría de cambios en el plan de cuentas';
-COMMENT ON TRIGGER audit_asientos ON contabilidad.asientos IS 'Auditoría de cambios en asientos contables';
-COMMENT ON TRIGGER audit_productos ON inventario.productos IS 'Auditoría de cambios en el catálogo de productos';
-COMMENT ON TRIGGER audit_kardex_movimientos ON inventario.kardex_movimientos IS 'Auditoría de movimientos de inventario';
-COMMENT ON TRIGGER audit_empleados ON nomina.empleados IS 'Auditoría de cambios en datos de empleados';
-COMMENT ON TRIGGER audit_nomina_roles ON nomina.nomina_roles IS 'Auditoría de generación y cambios en roles de pago';
-COMMENT ON TRIGGER audit_bancos_cuentas ON bancos.bancos_cuentas IS 'Auditoría de cambios en cuentas bancarias';
-COMMENT ON TRIGGER audit_bancos_movimientos ON bancos.bancos_movimientos IS 'Auditoría de transacciones bancarias';
-COMMENT ON TRIGGER audit_comprobantes_electronicos ON facturacion.comprobantes_electronicos IS 'Auditoría de emisión de comprobantes electrónicos';
-COMMENT ON TRIGGER audit_documentos_pendientes ON cartera.documentos_pendientes IS 'Auditoría de cambios en cartera de clientes/proveedores';
-COMMENT ON TRIGGER audit_anticipos ON cartera.anticipos IS 'Auditoría de gestión de anticipos';
-COMMENT ON TRIGGER audit_transacciones ON cartera.transacciones IS 'Auditoría de cobros y pagos';
-COMMENT ON TRIGGER audit_activos_fijos ON activos.activos_fijos IS 'Auditoría de gestión de activos fijos';
-COMMENT ON TRIGGER audit_compras ON compras.compras IS 'Auditoría de registro de compras';
-COMMENT ON TRIGGER audit_compras_ordenes ON compras.ordenes IS 'Auditoría de órdenes de compra';
-COMMENT ON TRIGGER audit_buzon_comprobantes ON buzon.comprobantes_recibidos IS 'Auditoría de recepción de comprobantes electrónicos';
-COMMENT ON TRIGGER audit_menu_item_roles ON configuracion.menu_item_roles IS 'Auditoría automática de asignación de roles a ítems de menú';
+COMMENT ON TRIGGER audit_plan_cuentas ON contabilidad.plan_cuentas IS 'Auditorí­a de cambios en el plan de cuentas';
+COMMENT ON TRIGGER audit_asientos ON contabilidad.asientos IS 'Auditorí­a de cambios en asientos contables';
+COMMENT ON TRIGGER audit_productos ON inventario.productos IS 'Auditorí­a de cambios en el catálogo de productos';
+COMMENT ON TRIGGER audit_kardex_movimientos ON inventario.kardex_movimientos IS 'Auditorí­a de movimientos de inventario';
+COMMENT ON TRIGGER audit_empleados ON nomina.empleados IS 'Auditorí­a de cambios en datos de empleados';
+COMMENT ON TRIGGER audit_nomina_roles ON nomina.nomina_roles IS 'Auditorí­a de generación y cambios en roles de pago';
+COMMENT ON TRIGGER audit_bancos_cuentas ON bancos.bancos_cuentas IS 'Auditorí­a de cambios en cuentas bancarias';
+COMMENT ON TRIGGER audit_bancos_movimientos ON bancos.bancos_movimientos IS 'Auditorí­a de transacciones bancarias';
+COMMENT ON TRIGGER audit_comprobantes_electronicos ON facturacion.comprobantes_electronicos IS 'Auditorí­a de emisión de comprobantes electrónicos';
+COMMENT ON TRIGGER audit_documentos_pendientes ON cartera.documentos_pendientes IS 'Auditorí­a de cambios en cartera de clientes/proveedores';
+COMMENT ON TRIGGER audit_anticipos ON cartera.anticipos IS 'Auditorí­a de gestión de anticipos';
+COMMENT ON TRIGGER audit_transacciones ON cartera.transacciones IS 'Auditorí­a de cobros y pagos';
+COMMENT ON TRIGGER audit_activos_fijos ON activos.activos_fijos IS 'Auditorí­a de gestión de activos fijos';
+COMMENT ON TRIGGER audit_compras ON compras.compras IS 'Auditorí­a de registro de compras';
+COMMENT ON TRIGGER audit_compras_ordenes ON compras.ordenes IS 'Auditorí­a de órdenes de compra';
+COMMENT ON TRIGGER audit_buzon_comprobantes ON buzon.comprobantes_recibidos IS 'Auditorí­a de recepción de comprobantes electrónicos';
+COMMENT ON TRIGGER audit_menu_item_roles ON configuracion.menu_item_roles IS 'Auditorí­a automática de asignación de roles a í­tems de menú';
+-- ============================================================================
+-- TRIGGER: Auditoría automática
+-- ============================================================================
+
+CREATE TRIGGER audit_usuarios_puntos_emision
+    AFTER INSERT OR UPDATE OR DELETE ON configuracion.usuarios_puntos_emision
+    FOR EACH ROW
+    EXECUTE FUNCTION audit_trigger_function();
+
+COMMENT ON TRIGGER audit_usuarios_puntos_emision ON configuracion.usuarios_puntos_emision IS 
+'Auditoría automática de asignaciones de puntos de emisión a usuarios';

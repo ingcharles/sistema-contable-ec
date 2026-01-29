@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         const desde = url.searchParams.get('desde');
         const hasta = url.searchParams.get('hasta');
 
-        let whereConditions = ['empresa_id = $1', "tipo_comprobante = 'GUIA_REMISION'"];
+        let whereConditions = ['empresa_id = $1', "tipo_comprobante = '06'"];
         let values: any[] = [context.empresaId];
         let paramIndex = 2;
 

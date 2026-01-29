@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Download, ShoppingCart, FileText, RotateCcw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Download, ShoppingCart, FileText, RotateCcw } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Compra, OrdenCompra } from '@/modules/compras/domain/types';
 import { useCompras, useComprasMutations } from '@/modules/compras/hooks/useCompras';
@@ -10,12 +10,9 @@ import { NuevaCompraModal } from '@/modules/compras/ui/components/NuevaCompraMod
 import { LiquidacionCompraModal } from '@/modules/compras/ui/components/LiquidacionCompraModal';
 import { NuevaOrdenModal } from '@/modules/compras/ui/components/NuevaOrdenModal';
 import { DataTable, Column } from '@/shared/ui/DataTable';
+import { EstadoBadge } from '@/shared/ui/EstadoBadge';
 
-const RetencionBadge = ({ estado }: { estado: string }) => {
-    if (estado === 'EMITIDA') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200"><CheckCircle2 size={10} /> Retenida</span>;
-    if (estado === 'PENDIENTE') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200 animate-pulse"><AlertCircle size={10} /> Pendiente</span>;
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">No Aplica</span>;
-};
+
 
 export default function ComprasPage() {
     const { currentEmpresa } = useEmpresa();
@@ -45,7 +42,7 @@ export default function ComprasPage() {
         { header: 'Fecha', accessorKey: 'fechaEmision', className: 'text-slate-600' },
         {
             header: 'Proveedor',
-            cell: (row) => <span className="font-medium">{row.proveedor.razonSocial}</span>
+            cell: (row) => <span className="font-medium">{row.proveedor?.razonSocial}</span>
         },
         { header: 'Comprobante', accessorKey: 'secuencial' },
         {
@@ -58,7 +55,7 @@ export default function ComprasPage() {
             header: 'Retención',
             accessorKey: 'estadoRetencion',
             className: 'text-center',
-            cell: (row) => <RetencionBadge estado={row.estadoRetencion} />
+            cell: (row) => row.estadoRetencion && row.estadoRetencion !== 'NO_APLICA' ? <EstadoBadge estado={row.estadoRetencion} /> : <span className="text-xs text-slate-400">N/A</span>
         },
         {
             header: '',

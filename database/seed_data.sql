@@ -10,7 +10,7 @@
 INSERT INTO seguridad.empresas (id, ruc, razon_social, nombre_comercial, direccion, email, es_obligado_contabilidad)
 VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    '1790011222001',
+    '1722039953001',
     'EMPRESA DEMO S.A.',
     'ECUCONTABLE STORE',
     'Av. Amazonas y Naciones Unidas, Quito',
@@ -20,13 +20,12 @@ VALUES (
 
 -- 2. USUARIO SUPERADMIN
 -- Password: password123 (Hash SHA-256 referencial)
-INSERT INTO seguridad.usuarios (id, email, nombre, password_hash, rol, activo)
+INSERT INTO seguridad.usuarios (id, email, nombre, password_hash, activo)
 VALUES (
     'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     'admin@demo.com',
     'Administrador Demo',
     'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 
-    'SUPERADMIN',
     true
 ) ON CONFLICT (email) DO NOTHING;
 
@@ -38,8 +37,13 @@ VALUES (
 ) ON CONFLICT (usuario_id, empresa_id) DO NOTHING;
 
 -- 3. Poblar Roles Estándar
-INSERT INTO seguridad.roles (nombre) VALUES 
-('SUPERADMIN'), ('ADMIN'), ('CONTADOR'), ('AUDITOR'), ('ASISTENTE')
+-- 3. Insertar roles base
+INSERT INTO seguridad.roles (nombre, descripcion) VALUES
+('SUPERADMIN', 'Acceso total al sistema y todas las empresas'),
+('ADMIN', 'Administrador de empresa con acceso a configuración'),
+('CONTADOR', 'Acceso a módulos contables y financieros'),
+('AUDITOR', 'Acceso de solo lectura para auditoría'),
+('ASISTENTE', 'Acceso limitado a operaciones básicas')
 ON CONFLICT (nombre) DO NOTHING;
 
 
@@ -137,8 +141,12 @@ BEGIN
     VALUES ('Configuración', 'Settings', '/configuracion', 160, 'GRATUITO') RETURNING id INTO item_id;
     INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin);
 
-END $$;
+    -- Administración
+    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
+    VALUES ('Administración', 'ShieldCheck', '/administracion', 170, 'EMPRESARIAL') RETURNING id INTO item_id;
+    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin);
 
+END $$;
 
 
 
@@ -663,3 +671,18 @@ INSERT INTO configuracion.codigos_retencion (empresa_id, codigo, concepto, porce
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '7', 'Retención de IVA 0%', 0.00, 'IVA'),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '8', 'Retención de IVA 20%', 20.00, 'IVA')
 ON CONFLICT (empresa_id, codigo, tipo) DO UPDATE SET porcentaje = EXCLUDED.porcentaje, concepto = EXCLUDED.concepto;
+
+
+-- PASO 2: Insertar los ambientes estándar del SRI
+-- ============================================================================
+INSERT INTO configuracion.sri_ambiente (codigo, nombre, url_recepcion, url_autorizacion, descripcion)
+VALUES
+    ('PRUEBAS', 'Ambiente de Pruebas', 
+     'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
+     'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
+     'Ambiente de certificación y pruebas del SRI'),
+    ('PRODUCCION', 'Ambiente de Producción',
+     'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
+     'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
+     'Ambiente productivo del SRI')
+ON CONFLICT (codigo) DO NOTHING;

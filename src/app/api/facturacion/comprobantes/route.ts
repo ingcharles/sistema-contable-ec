@@ -68,10 +68,25 @@ export async function GET(req: NextRequest) {
             {
                 text: `
                     SELECT 
-                        id, tipo_comprobante, secuencial, clave_acceso, numero_autorizacion,
-                        fecha_emision, fecha_autorizacion, cliente_id, cliente_nombre,
-                        cliente_identificacion, subtotal, iva, total, estado,
-                        ambiente_sri, tipo_emision_sri, xml_firmado, created_at, updated_at
+                        id,
+                        tipo_comprobante AS "tipoComprobante",
+                        secuencial,
+                        clave_acceso AS "claveAcceso",
+                        numero_autorizacion AS "numeroAutorizacion",
+                        fecha_emision AS "fechaEmision",
+                        fecha_autorizacion AS "fechaAutorizacion",
+                        cliente_id AS "clienteId",
+                        cliente_nombre AS "terceroNombre",
+                        cliente_identificacion AS "terceroRuc",
+                        subtotal,
+                        iva,
+                        total AS "importeTotal",
+                        estado,
+                        ambiente_sri AS "ambienteSri",
+                        tipo_emision_sri AS "tipoEmisionSri",
+                        xml_firmado AS "xmlFirmado",
+                        created_at AS "createdAt",
+                        updated_at AS "updatedAt"
                     FROM facturacion.comprobantes_electronicos
                     WHERE ${whereClause}
                     ORDER BY fecha_emision DESC, secuencial DESC
@@ -202,16 +217,52 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await db.transaction(async (client) => {
+            // 1. Obtener punto de emisión activo
+            const puntoActivoResult = await client.query(`
+                SELECT * FROM configuracion.fn_obtener_punto_activo_usuario($1, $2)
+            `, [context.usuarioId, context.empresaId]);
+
+            if (puntoActivoResult.rows.length === 0) {
+                throw new Error('No tienes un punto de emisión activo asignado. Por favor contacta al administrador.');
+            }
+
+            const puntoActivo = puntoActivoResult.rows[0];
             let secuencial = secuencialManual;
 
             // Si no viene secuencial, generar el siguiente
             if (!secuencial) {
-                const secuencialResult = await client.query(`
-                    SELECT COALESCE(MAX(secuencial::int), 0) + 1 as next_secuencial
-                    FROM facturacion.comprobantes_electronicos
-                    WHERE empresa_id = $1 AND tipo_comprobante = $2
-                `, [context.empresaId, tipoComprobante]);
-                secuencial = secuencialResult.rows[0].next_secuencial.toString().padStart(9, '0');
+                // Obtener siguiente secuencial del punto de emisión
+                // Primero intentar obtener de la tabla de secuenciales
+                const secuencialConfigResult = await client.query(`
+                    SELECT secuencial_actual 
+                    FROM configuracion.puntos_emision_secuenciales
+                    WHERE punto_emision_id = $1 AND tipo_comprobante = $2
+                    FOR UPDATE
+                `, [puntoActivo.punto_emision_id, tipoComprobante]);
+
+                let nextSecuencialInt = 1;
+
+                if (secuencialConfigResult.rows.length > 0) {
+                    nextSecuencialInt = secuencialConfigResult.rows[0].secuencial_actual;
+                } else {
+                    // Si no existe registro, crearlo (empezar en 1)
+                    await client.query(`
+                        INSERT INTO configuracion.puntos_emision_secuenciales
+                            (punto_emision_id, tipo_comprobante, secuencial_actual, created_by)
+                        VALUES ($1, $2, 1, $3)
+                    `, [puntoActivo.punto_emision_id, tipoComprobante, context.usuarioId]);
+                }
+
+                // Actualizar el secuencial para el siguiente uso (+1)
+                await client.query(`
+                    INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante, secuencial_actual, created_by)
+                    VALUES ($1, $2, $3 + 1, $4)
+                    ON CONFLICT (punto_emision_id, tipo_comprobante)
+                    DO UPDATE SET secuencial_actual = configuracion.puntos_emision_secuenciales.secuencial_actual + 1, updated_at = NOW()
+                `, [puntoActivo.punto_emision_id, tipoComprobante, nextSecuencialInt, context.usuarioId]);
+
+                // Formatear secuencial (9 dígitos)
+                secuencial = nextSecuencialInt.toString().padStart(9, '0');
             }
 
             // --- 0. VALIDACIÓN DE STOCK Y OBTENCIÓN DE DATOS CONTABLES ---
@@ -238,15 +289,15 @@ export async function POST(req: NextRequest) {
             // --- 1. REGISTRO DE CABECERA FACTURA ---
             const comprobanteResult = await client.query(`
                 INSERT INTO facturacion.comprobantes_electronicos 
-                    (empresa_id, usuario_id, tipo_comprobante, secuencial, fecha_emision,
+                    (empresa_id, usuario_id, tipo_comprobante, punto_emision_id, secuencial, fecha_emision,
                      cliente_id, cliente_nombre, cliente_identificacion,
                      subtotal, iva, total, estado, clave_acceso, numero_autorizacion,
                      ambiente_sri, tipo_emision_sri, created_at, updated_at)
                 VALUES 
-                    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+                    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
                 RETURNING id
             `, [
-                context.empresaId, context.usuarioId, tipoComprobante, secuencial, fechaEmision,
+                context.empresaId, context.usuarioId, tipoComprobante, puntoActivo.punto_emision_id, secuencial, fechaEmision,
                 clienteId, clienteNombre, clienteIdentificacion, subtotal, iva, total,
                 estado, claveAcceso, numeroAutorizacion, ambienteSri, tipoEmisionSri
             ]);

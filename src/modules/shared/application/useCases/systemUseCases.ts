@@ -20,7 +20,14 @@ export class BaseUseCase {
         const res = await fetch(url, { ...options, headers });
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.error || 'Error en la petición al servidor');
+            // Crear error con detalles completos del SRI
+            const error = new Error(err.error || err.message || 'Error en la petición al servidor') as any;
+            error.details = err.details;
+            error.xml = err.xml;
+            error.success = err.success;
+            error.status = res.status;
+            console.error('Error API:', err);
+            throw error;
         }
         return await res.json();
     }
@@ -396,6 +403,17 @@ export class ConfiguracionUseCases extends BaseUseCase {
     static async obtenerMenu() {
         return this.request('/api/configuracion/menu');
     }
+
+    static async obtenerMisPuntos() {
+        return this.request('/api/configuracion/puntos-emision/mis-puntos');
+    }
+
+    static async activarPuntoEmision(puntoEmisionId: string) {
+        return this.request('/api/configuracion/puntos-emision/activar', {
+            method: 'POST',
+            body: JSON.stringify({ puntoEmisionId })
+        });
+    }
 }
 
 /**
@@ -463,6 +481,13 @@ export class ComprasUseCases extends BaseUseCase {
         return this.request('/api/compras', {
             method: 'POST',
             body: JSON.stringify(compra)
+        });
+    }
+
+    static async registrarCompraConRetencion(data: any) {
+        return this.request('/api/compras/registrar-con-retencion', {
+            method: 'POST',
+            body: JSON.stringify(data)
         });
     }
 
@@ -596,5 +621,34 @@ export class UsuariosUseCases extends BaseUseCase {
     static async obtenerEstadisticasUso(periodo?: string) {
         const query = periodo ? `?periodo=${periodo}` : '';
         return this.request(`/api/users/me/usage${query}`);
+    }
+
+    // --- ADMINISTRACIÓN DE USUARIOS ---
+    static async listarUsuarios(filtros?: any) {
+        const query = filtros ? `?${new URLSearchParams(filtros).toString()}` : '';
+        return this.request(`/api/administracion/usuarios${query}`);
+    }
+
+    static async obtenerUsuario(id: string) {
+        return this.request(`/api/administracion/usuarios/${id}`);
+    }
+
+    static async guardarUsuario(usuario: any) {
+        if (usuario.id) {
+            return this.request(`/api/administracion/usuarios/${usuario.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(usuario)
+            });
+        }
+        return this.request('/api/administracion/usuarios', {
+            method: 'POST',
+            body: JSON.stringify(usuario)
+        });
+    }
+
+    static async eliminarUsuario(id: string) {
+        return this.request(`/api/administracion/usuarios/${id}`, {
+            method: 'DELETE'
+        });
     }
 }

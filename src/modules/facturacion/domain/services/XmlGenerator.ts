@@ -327,44 +327,122 @@ export class XmlGenerator {
 
     /**
      * Genera el XML completo para un Comprobante de Retención (07)
+     * Compatible con versión 2.0.0 del esquema XSD del SRI
      */
     static generateRetencionXml(data: any): string {
         const accessKey = data.infoTributaria.claveAcceso || this.generateAccessKey(data);
 
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-        xml += '<comprobanteRetencion id="comprobante" version="1.0.0">\n';
+        // El namespace de firma será declarado por la firma misma, no en el root
+        xml += '<comprobanteRetencion id="comprobante" version="2.0.0">\n';
 
         xml += this.generateInfoTributaria(data.infoTributaria, accessKey);
 
-        // Info Comp Retencion
+        // Info Comp Retencion - Orden según XSD v2.0.0
         xml += '  <infoCompRetencion>\n';
         xml += `    <fechaEmision>${data.infoCompRetencion.fechaEmision}</fechaEmision>\n`;
-        xml += `    <dirEstablecimiento>${this.escapeXml(data.infoCompRetencion.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        if (data.infoCompRetencion.dirEstablecimiento) {
+            xml += `    <dirEstablecimiento>${this.escapeXml(data.infoCompRetencion.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        }
         if (data.infoCompRetencion.contribuyenteEspecial) {
             xml += `    <contribuyenteEspecial>${data.infoCompRetencion.contribuyenteEspecial}</contribuyenteEspecial>\n`;
         }
-        xml += `    <obligadoContabilidad>${data.infoCompRetencion.obligadoContabilidad}</obligadoContabilidad>\n`;
+        if (data.infoCompRetencion.obligadoContabilidad) {
+            xml += `    <obligadoContabilidad>${data.infoCompRetencion.obligadoContabilidad}</obligadoContabilidad>\n`;
+        }
         xml += `    <tipoIdentificacionSujetoRetenido>${data.infoCompRetencion.tipoIdentificacionSujetoRetenido}</tipoIdentificacionSujetoRetenido>\n`;
+        
+        // IMPORTANTE: tipoSujetoRetenido solo se incluye para identificación del EXTERIOR
+        // NO se debe incluir para RUC (04), Cédula (05), ni Consumidor Final (07)
+        // Solo aplica para tipos: 06 (Pasaporte), 08 (Identificación exterior)
+        const tipoIdExterior = ['06', '08'];
+        if (tipoIdExterior.includes(data.infoCompRetencion.tipoIdentificacionSujetoRetenido) && data.infoCompRetencion.tipoSujetoRetenido) {
+            xml += `    <tipoSujetoRetenido>${data.infoCompRetencion.tipoSujetoRetenido}</tipoSujetoRetenido>\n`;
+        }
+        
+        // parteRel es obligatorio en v2.0.0
+        xml += `    <parteRel>${data.infoCompRetencion.parteRel || 'NO'}</parteRel>\n`;
         xml += `    <razonSocialSujetoRetenido>${this.escapeXml(data.infoCompRetencion.razonSocialSujetoRetenido)}</razonSocialSujetoRetenido>\n`;
         xml += `    <identificacionSujetoRetenido>${data.infoCompRetencion.identificacionSujetoRetenido}</identificacionSujetoRetenido>\n`;
         xml += `    <periodoFiscal>${data.infoCompRetencion.periodoFiscal}</periodoFiscal>\n`;
         xml += '  </infoCompRetencion>\n';
 
-        // Impuestos
-        xml += '  <impuestos>\n';
+        // Documentos Sustento (estructura v2.0.0)
+        xml += '  <docsSustento>\n';
+        
+        // Agrupar impuestos por documento sustento
+        const docsSustentoMap = new Map<string, any[]>();
         data.impuestos.forEach((imp: any) => {
-            xml += '    <impuesto>\n';
-            xml += `      <codigo>${imp.codigo}</codigo>\n`;
-            xml += `      <codigoRetencion>${imp.codigoRetencion}</codigoRetencion>\n`;
-            xml += `      <baseImponible>${imp.baseImponible.toFixed(2)}</baseImponible>\n`;
-            xml += `      <porcentajeRetener>${imp.porcentajeRetener}</porcentajeRetener>\n`;
-            xml += `      <valorRetenido>${imp.valorRetenido.toFixed(2)}</valorRetenido>\n`;
-            xml += `      <codDocSustento>${imp.codDocSustento}</codDocSustento>\n`;
-            xml += `      <numDocSustento>${imp.numDocSustento}</numDocSustento>\n`;
-            xml += `      <fechaEmisionDocSustento>${imp.fechaEmisionDocSustento}</fechaEmisionDocSustento>\n`;
-            xml += '    </impuesto>\n';
+            const key = `${imp.codDocSustento}|${imp.numDocSustento}|${imp.fechaEmisionDocSustento}`;
+            if (!docsSustentoMap.has(key)) {
+                docsSustentoMap.set(key, []);
+            }
+            docsSustentoMap.get(key)!.push(imp);
         });
-        xml += '  </impuestos>\n';
+
+        docsSustentoMap.forEach((retenciones, key) => {
+            const [codDocSustento, numDocSustento, fechaEmisionDocSustento] = key.split('|');
+            const primerImp = retenciones[0];
+            
+            // Totales correctos del documento sustento (no dependen de retenciones)
+            const totalSinImpuestos = Number(primerImp.totalSinImpuestosDocSustento ?? 0);
+            const baseImponibleIvaDoc = Number(primerImp.baseImponibleIvaDocSustento ?? totalSinImpuestos);
+            const importeTotal = Number(primerImp.importeTotalDocSustento ?? (totalSinImpuestos + (primerImp.ivaDocSustento || 0)));
+            
+            xml += '    <docSustento>\n';
+            xml += `      <codSustento>${primerImp.codSustento || '01'}</codSustento>\n`;
+            xml += `      <codDocSustento>${codDocSustento.padStart(2, '0')}</codDocSustento>\n`;
+            xml += `      <numDocSustento>${numDocSustento}</numDocSustento>\n`;
+            xml += `      <fechaEmisionDocSustento>${fechaEmisionDocSustento}</fechaEmisionDocSustento>\n`;
+            if (primerImp.fechaRegistroContable) {
+                xml += `      <fechaRegistroContable>${primerImp.fechaRegistroContable}</fechaRegistroContable>\n`;
+            }
+            if (primerImp.numAutDocSustento) {
+                xml += `      <numAutDocSustento>${primerImp.numAutDocSustento}</numAutDocSustento>\n`;
+            }
+            xml += `      <pagoLocExt>${primerImp.pagoLocExt || '01'}</pagoLocExt>\n`;
+            xml += `      <totalSinImpuestos>${totalSinImpuestos.toFixed(2)}</totalSinImpuestos>\n`;
+            xml += `      <importeTotal>${importeTotal.toFixed(2)}</importeTotal>\n`;
+            
+            // Impuestos del documento sustento
+            // Impuestos del documento sustento - formato entero para tarifa según XSD
+            xml += '      <impuestosDocSustento>\n';
+            xml += '        <impuestoDocSustento>\n';
+            xml += `          <codImpuestoDocSustento>2</codImpuestoDocSustento>\n`;
+            xml += `          <codigoPorcentaje>${primerImp.codigoPorcentajeIva || '0'}</codigoPorcentaje>\n`;
+            xml += `          <baseImponible>${baseImponibleIvaDoc.toFixed(2)}</baseImponible>\n`;
+            // tarifa debe ser entero según XSD (ej: 15, no 15.00)
+            xml += `          <tarifa>${Math.round(Number(primerImp.tarifaIva || 0))}</tarifa>\n`;
+            xml += `          <valorImpuesto>${Number(primerImp.ivaDocSustento || 0).toFixed(2)}</valorImpuesto>\n`;
+            xml += '        </impuestoDocSustento>\n';
+            xml += '      </impuestosDocSustento>\n';
+            
+            // Retenciones - porcentajeRetener debe ser entero según XSD
+            xml += '      <retenciones>\n';
+            retenciones.forEach((ret: any) => {
+                xml += '        <retencion>\n';
+                xml += `          <codigo>${ret.codigo}</codigo>\n`;
+                xml += `          <codigoRetencion>${ret.codigoRetencion}</codigoRetencion>\n`;
+                xml += `          <baseImponible>${Number(ret.baseImponible).toFixed(2)}</baseImponible>\n`;
+                // porcentajeRetener debe ser entero según XSD (ej: 10, no 10.00)
+                xml += `          <porcentajeRetener>${Math.round(Number(ret.porcentajeRetener))}</porcentajeRetener>\n`;
+                xml += `          <valorRetenido>${Number(ret.valorRetenido).toFixed(2)}</valorRetenido>\n`;
+                xml += '        </retencion>\n';
+            });
+            xml += '      </retenciones>\n';
+            
+            // Pagos (obligatorio en v2.0.0)
+            xml += '      <pagos>\n';
+            xml += '        <pago>\n';
+            xml += `          <formaPago>${primerImp.formaPago || '20'}</formaPago>\n`;
+            xml += `          <total>${importeTotal.toFixed(2)}</total>\n`;
+            xml += '        </pago>\n';
+            xml += '      </pagos>\n';
+            
+            xml += '    </docSustento>\n';
+        });
+        
+        xml += '  </docsSustento>\n';
 
         xml += '</comprobanteRetencion>';
         return xml;

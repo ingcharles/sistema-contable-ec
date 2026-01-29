@@ -7,6 +7,8 @@ import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { XsdValidator } from '@/modules/facturacion/domain/services/XsdValidator';
 
+export const runtime = 'nodejs';
+
 /**
  * POST /api/facturacion/emitir
  * Proceso completo de Facturación Electrónica (SRI Ecuador)
@@ -83,11 +85,13 @@ export async function POST(req: NextRequest) {
                 throw new Error(`Tipo de comprobante ${codDoc} no soportado para generación de XML`);
         }
 
+        console.log('XML generado:', rawXml);
+
         // 2.5. Validación XSD Estricta
         try {
             console.log(`Validando XML contra esquema XSD para tipo ${codDoc}...`);
             // Se valida el XML generado antes de firmar
-            XsdValidator.validate(rawXml, codDoc);
+            await XsdValidator.validate(rawXml, codDoc);
             console.log('Validación XSD exitosa.');
         } catch (validationError: any) {
             console.error('Error de validación XSD:', validationError.message);
@@ -95,7 +99,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
                 success: false,
                 error: 'El XML generado no cumple con el esquema XSD del SRI',
-                details: validationError.message.split('\n')
+                details: validationError.message.split('\n'),
+                xml: process.env.NODE_ENV !== 'production' ? rawXml : undefined
             }, { status: 400 });
         }
 
@@ -105,16 +110,44 @@ export async function POST(req: NextRequest) {
             passwordP12: config.cert_clave_certificado
         });
 
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('XML firmado:', signedXml);
+        }
+
+        // 3.1 Validar XML firmado (incluye Signature)
+        try {
+            console.log(`Validando XML firmado contra XSD para tipo ${codDoc}...`);
+            await XsdValidator.validate(signedXml, codDoc);
+            console.log('Validación XSD del XML firmado exitosa.');
+        } catch (validationError: any) {
+            console.error('Error de validación XSD (XML firmado):', validationError.message);
+            return NextResponse.json({
+                success: false,
+                error: 'El XML firmado no cumple con el esquema XSD del SRI',
+                details: validationError.message.split('\n'),
+                xml: process.env.NODE_ENV !== 'production' ? signedXml : undefined
+            }, { status: 400 });
+        }
+
         const sriEnv = ambiente === 'PRODUCCION' ? SriEnvironment.PRODUCCION : SriEnvironment.PRUEBAS;
         console.log(`XML firmado. Enviando al SRI en ambiente ${sriEnv}...`);
         // 4. Envío al SRI - Fase Recepción
         const recepcionResult = await SriWebService.enviarComprobante(signedXml, sriEnv);
+        console.log('Resultado Recepción SRI:', JSON.stringify(recepcionResult, null, 2));
 
         if (recepcionResult.estado !== 'RECIBIDA') {
+            // Formatear mensajes de error del SRI para mejor legibilidad
+            const mensajesFormateados = recepcionResult.mensajes?.map(m => 
+                `[${m.tipo}] ${m.identificador}: ${m.mensaje}`
+            ).join('\n') || 'Sin mensajes adicionales';
+            
             return NextResponse.json({
                 success: false,
-                message: 'SRI rechazó el comprobante en recepción',
-                details: recepcionResult
+                error: 'SRI rechazó el comprobante en recepción',
+                estado: recepcionResult.estado,
+                mensajesSri: recepcionResult.mensajes,
+                details: mensajesFormateados,
+                xml: process.env.NODE_ENV !== 'production' ? signedXml : undefined
             }, { status: 422 });
         }
 

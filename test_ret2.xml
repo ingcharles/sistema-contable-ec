@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<comprobanteRetencion id="comprobante" version="2.0.0">
+  <infoTributaria>
+    <ambiente>1</ambiente>
+    <tipoEmision>1</tipoEmision>
+    <razonSocial>EMPRESA DEMO S.A.</razonSocial>
+    <nombreComercial>ECUCONTABLE STORE</nombreComercial>
+    <ruc>1722039953001</ruc>
+    <claveAcceso>2701202607172203995300110010010000000771234567819</claveAcceso>
+    <codDoc>07</codDoc>
+    <estab>001</estab>
+    <ptoEmi>001</ptoEmi>
+    <secuencial>000000077</secuencial>
+    <dirMatriz>Av. Amazonas y Naciones Unidas, Quito</dirMatriz>
+  </infoTributaria>
+  <infoCompRetencion>
+    <fechaEmision>27/01/2026</fechaEmision>
+    <dirEstablecimiento>Av. Amazonas y Naciones Unidas, Quito</dirEstablecimiento>
+    <obligadoContabilidad>SI</obligadoContabilidad>
+    <tipoIdentificacionSujetoRetenido>04</tipoIdentificacionSujetoRetenido>
+    <parteRel>NO</parteRel>
+    <razonSocialSujetoRetenido>carlos anchundia</razonSocialSujetoRetenido>
+    <identificacionSujetoRetenido>1722039953001</identificacionSujetoRetenido>
+    <periodoFiscal>01/2026</periodoFiscal>
+  </infoCompRetencion>
+  <docsSustento>
+    <docSustento>
+      <codSustento>01</codSustento>
+      <codDocSustento>01</codDocSustento>
+      <numDocSustento>001001000000001</numDocSustento>
+      <fechaEmisionDocSustento>27/01/2026</fechaEmisionDocSustento>
+      <numAutDocSustento>1111111111111111111111111111111111111111111111111</numAutDocSustento>
+      <pagoLocExt>01</pagoLocExt>
+      <totalSinImpuestos>100.00</totalSinImpuestos>
+      <importeTotal>100.00</importeTotal>
+      <impuestosDocSustento>
+        <impuestoDocSustento>
+          <codImpuestoDocSustento>2</codImpuestoDocSustento>
+          <codigoPorcentaje>0</codigoPorcentaje>
+          <baseImponible>100.00</baseImponible>
+          <tarifa>0</tarifa>
+          <valorImpuesto>0.00</valorImpuesto>
+        </impuestoDocSustento>
+      </impuestosDocSustento>
+      <retenciones>
+        <retencion>
+          <codigo>1</codigo>
+          <codigoRetencion>303</codigoRetencion>
+          <baseImponible>100.00</baseImponible>
+          <porcentajeRetener>10</porcentajeRetener>
+          <valorRetenido>10.00</valorRetenido>
+        </retencion>
+      </retenciones>
+      <pagos>
+        <pago>
+          <formaPago>20</formaPago>
+          <total>100.00</total>
+        </pago>
+      </pagos>
+    </docSustento>
+  </docsSustento>
+</comprobanteRetencion>

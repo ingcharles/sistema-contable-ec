@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comprobanteRetencion id="comprobante" version="2.0.0">
+  <infoTributaria>
+    <ambiente>1</ambiente>
+    <tipoEmision>1</tipoEmision>
+    <razonSocial>EMPRESA DEMO S.A.</razonSocial>
+    <nombreComercial>ECUCONTABLE STORE</nombreComercial>
+    <ruc>1722039953001</ruc>
+    <claveAcceso>2701202607172203995300110010016549889911234567812</claveAcceso>
+    <codDoc>07</codDoc>
+    <estab>001</estab>
+    <ptoEmi>001</ptoEmi>
+    <secuencial>654988991</secuencial>
+    <dirMatriz>Av. Amazonas y Naciones Unidas, Quito</dirMatriz>
+  </infoTributaria>
+  <infoCompRetencion>
+    <fechaEmision>27/01/2026</fechaEmision>
+    <dirEstablecimiento>Av. Amazonas y Naciones Unidas, Quito</dirEstablecimiento>
+    <obligadoContabilidad>SI</obligadoContabilidad>
+    <tipoIdentificacionSujetoRetenido>04</tipoIdentificacionSujetoRetenido>
+    <parteRel>NO</parteRel>
+    <razonSocialSujetoRetenido>PROVEEDOR DE PRUEBA</razonSocialSujetoRetenido>
+    <identificacionSujetoRetenido>1722039953001</identificacionSujetoRetenido>
+    <periodoFiscal>01/2026</periodoFiscal>
+  </infoCompRetencion>
+  <docsSustento>
+    <docSustento>
+      <codSustento>01</codSustento>
+      <codDocSustento>01</codDocSustento>
+      <numDocSustento>001001000000001</numDocSustento>
+      <fechaEmisionDocSustento>27/01/2026</fechaEmisionDocSustento>
+      <numAutDocSustento>1111111111111111111111111111111111111111111111111</numAutDocSustento>
+      <pagoLocExt>01</pagoLocExt>
+      <totalSinImpuestos>100.00</totalSinImpuestos>
+      <importeTotal>100.00</importeTotal>
+      <impuestosDocSustento>
+        <impuestoDocSustento>
+          <codImpuestoDocSustento>2</codImpuestoDocSustento>
+          <codigoPorcentaje>0</codigoPorcentaje>
+          <baseImponible>100.00</baseImponible>
+          <tarifa>0.00</tarifa>
+          <valorImpuesto>0.00</valorImpuesto>
+        </impuestoDocSustento>
+      </impuestosDocSustento>
+      <retenciones>
+        <retencion>
+          <codigo>1</codigo>
+          <codigoRetencion>303</codigoRetencion>
+          <baseImponible>100.00</baseImponible>
+          <porcentajeRetener>10.00</porcentajeRetener>
+          <valorRetenido>10.00</valorRetenido>
+        </retencion>
+      </retenciones>
+      <pagos>
+        <pago>
+          <formaPago>20</formaPago>
+          <total>100.00</total>
+        </pago>
+      </pagos>
+    </docSustento>
+  </docsSustento>
+<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:etsi="http://uri.etsi.org/01903/v1.3.2#" Id="Signature-551271"><ds:SignedInfo Id="SignedInfo-674134"><ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference Id="Reference-518375" URI="#comprobante"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>cjf7VSnw9aKxD2EWo/MTmXFQ3+I=</ds:DigestValue></ds:Reference><ds:Reference Type="http://uri.etsi.org/01903#SignedProperties" URI="#SignedProperties-8820"><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>wMD2lf3zlYBKUTEpgjOwNrQ6KVs=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue Id="SignatureValue-Signature-551271">gHrYcQkWYOs1S2ZaOcJBBJvXivxu1NsmHBDFJRcqBTz/XQPf8j5131663f4N5SJktZsGUknVvXWG4qFZsB7kVHQZlkrnuv5P8lgKotoP4Dadmiux1fkNl0MH0W1J96y1ORdyrU01Lue/WBuhy3fxMS9BheYlU76kMWGpP4YqAOXFuoUcZ8IUdvsLAjSMq+uCWBthK4Na2+hcpM9s4YzWTwso8yz+5HxTUvvEkpQ4XgB1jf7D/KDvN82vXq12t2T3drVkowmWyfdeDmt9OzVDzLhj8oNf0YogyJXRCCXV8Jq+dvaeVOr8+Z/3O2f3LYmmdrGWddiEEoh0dBeypNpD+g==</ds:SignatureValue><ds:KeyInfo Id="Certificate-584609"><ds:X509Data><ds:X509Certificate>MIIL7zCCCdegAwIBAgIEbs+vgzANBgkqhkiG9w0BAQsFADCBmTELMAkGA1UEBhMCRUMxHTAbBgNVBAoMFFNFQ1VSSVRZIERBVEEgUy5BLiAyMTAwLgYDVQQLDCdFTlRJREFEIERFIENFUlRJRklDQUNJT04gREUgSU5GT1JNQUNJT04xOTA3BgNVBAMMMEFVVE9SSURBRCBERSBDRVJUSUZJQ0FDSU9OIFNVQkNBLTIgU0VDVVJJVFkgREFUQTAeFw0yMTA0MjMxNTU1MzRaFw0yNjA0MjMxNTU1MzRaMIGhMSowKAYDVQQDDCFDQVJMT1MgRURVQVJETyBBTkNIVU5ESUEgVkFMRU5DSUExFTATBgNVBAUTDDIzMDQyMTExMDUzNjEwMC4GA1UECwwnRU5USURBRCBERSBDRVJUSUZJQ0FDSU9OIERFIElORk9STUFDSU9OMR0wGwYDVQQKDBRTRUNVUklUWSBEQVRBIFMuQS4gMjELMAkGA1UEBhMCRUMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCiWcthQlzb+5ap7ZmLZJwXV9Jy1PL2luXQQtfEOZIH/xwYuWdBUPjpVQcoOq87BxPQVnt+Yquu1FGuuoXQcDW4d+kI2htmw9VLXwvIb/qSzQyuA0jvDjr2SiotBTs3wa1vkpMmvmGd/qzeIBW9QrmuiSREoix4uJ875izFBXfRV27O35/GXbEq2if3uExCIxCbc87QVu4+DgV2ZEPJ7EelyAtWO+d80qLZC5NR7zOcDPIrdoRtCcAYsvFVnZDF/rGTlSvQ5ECApDBg+QvP03a2kvE4RCMwsOzuvBgrxmwE337+pQTBicigmoDNbJs2TbTHSlRUp22YyO3uaEjnFl6FAgMBAAGjggczMIIHLzAMBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFIy6yhFXeCWAHWsKS1W/ja5i3b2PMFkGCCsGAQUFBwEBBE0wSzBJBggrBgEFBQcwAYY9aHR0cDovL29jc3Bndy5zZWN1cml0eWRhdGEubmV0LmVjL2VqYmNhL3B1YmxpY3dlYi9zdGF0dXMvb2NzcDCBzwYDVR0uBIHHMIHEMIHBoIG+oIG7hoG4bGRhcDovL2xkYXBzZGNhMi5zZWN1cml0eWRhdGEubmV0LmVjL0NOPUFVVE9SSURBRCBERSBDRVJUSUZJQ0FDSU9OIFNVQkNBLTIgU0VDVVJJVFkgREFUQSxPVT1FTlRJREFEIERFIENFUlRJRklDQUNJT04gREUgSU5GT1JNQUNJT04sTz1TRUNVUklUWSBEQVRBIFMuQS4gMixDPUVDP2RlbHRhUmV2b2NhdGlvbkxpc3Q/YmFzZTAmBgNVHREEHzAdgRtlLmR1LmluZ2NoYXJsZXNAaG90bWFpbC5jb20wggEGBgNVHSAEgf4wgfswWgYKKwYBBAGCpnICBzBMMEoGCCsGAQUFBwICMD4ePABDAGUAcgB0AGkAZgBpAGMAYQBkAG8AIABkAGUAIABQAGUAcgBzAG8AbgBhACAATgBhAHQAdQByAGEAbDCBnAYKKwYBBAGCpnICATCBjTCBigYIKwYBBQUHAgEWfmh0dHBzOi8vd3d3LnNlY3VyaXR5ZGF0YS5uZXQuZWMvd3AtY29udGVudC9kb3dubG9hZHMvTm9ybWF0aXZhcy9QX2RlX0NlcnRpZmljYWRvcy9Qb2xpdGljYXMgZGUgQ2VydGlmaWNhZG8gUGVyc29uYSBOYXR1cmFsLnBkZjCCAqIGA1UdHwSCApkwggKVMIHloEGgP4Y9aHR0cDovL29jc3Bndy5zZWN1cml0eWRhdGEubmV0LmVjL2VqYmNhL3B1YmxpY3dlYi9zdGF0dXMvb2NzcKKBn6SBnDCBmTE5MDcGA1UEAwwwQVVUT1JJREFEIERFIENFUlRJRklDQUNJT04gU1VCQ0EtMiBTRUNVUklUWSBEQVRBMTAwLgYDVQQLDCdFTlRJREFEIERFIENFUlRJRklDQUNJT04gREUgSU5GT1JNQUNJT04xHTAbBgNVBAoMFFNFQ1VSSVRZIERBVEEgUy5BLiAyMQswCQYDVQQGEwJFQzCBx6CBxKCBwYaBvmxkYXA6Ly9sZGFwc2RjYTIuc2VjdXJpdHlkYXRhLm5ldC5lYy9DTj1BVVRPUklEQUQgREUgQ0VSVElGSUNBQ0lPTiBTVUJDQS0yIFNFQ1VSSVRZIERBVEEsT1U9RU5USURBRCBERSBDRVJUSUZJQ0FDSU9OIERFIElORk9STUFDSU9OLE89U0VDVVJJVFkgREFUQSBTLkEuIDIsQz1FQz9jZXJ0aWZpY2F0ZVJldm9jYXRpb25MaXN0P2Jhc2UwgeCggd2ggdqGgddodHRwczovL3BvcnRhbC1vcGVyYWRvcjIuc2VjdXJpdHlkYXRhLm5ldC5lYy9lamJjYS9wdWJsaWN3ZWIvd2ViZGlzdC9jZXJ0ZGlzdD9jbWQ9Y3JsJmlzc3Vlcj1DTj1BVVRPUklEQUQgREUgQ0VSVElGSUNBQ0lPTiBTVUJDQS0yIFNFQ1VSSVRZIERBVEEsT1U9RU5USURBRCBERSBDRVJUSUZJQ0FDSU9OIERFIElORk9STUFDSU9OLE89U0VDVVJJVFkgREFUQSBTLkEuIDIsQz1FQzAdBgNVHQ4EFgQUuU/xD6Px1QK3q9pOqjubbqRjSxUwKwYDVR0QBCQwIoAPMjAyMTA0MjMxNTU1MzRagQ8yMDI2MDQyMzE1NTUzNFowCwYDVR0PBAQDAgXgMBoGCisGAQQBgqZyAwEEDAwKMTcyMjAzOTk1MzAVBgorBgEEAYKmcgMJBAcMBVFVSVRPMBEGCisGAQQBgqZyAyIEAwwBLjBABgorBgEEAYKmcgMHBDIMME9FM0IgQU5UT05JTyBVTExPQSBOMzAtMzEgWSBOMzAgUEFTQ1VBTCBBTkRBR09ZQTAeBgorBgEEAYKmcgMCBBAMDkNBUkxPUyBFRFVBUkRPMB8GCisGAQQBgqZyAyAEEQwPMDAyMDAxMDAwMTgyNzI1MBEGCisGAQQBgqZyAyMEAwwBLjATBgorBgEEAYKmcgMhBAUMA1BGWDAXBgorBgEEAYKmcgMMBAkMB0VDVUFET1IwGQYKKwYBBAGCpnIDAwQLDAlBTkNIVU5ESUEwEQYKKwYBBAGCpnIDHgQDDAEuMB0GCisGAQQBgqZyAwsEDwwNMTcyMjAzOTk1MzAwMTARBgorBgEEAYKmcgMdBAMMAS4wGAYKKwYBBAGCpnIDBAQKDAhWQUxFTkNJQTAcBgorBgEEAYKmcgMIBA4MDDU5Mzk5NjQyMTExNDANBgkqhkiG9w0BAQsFAAOCAgEAQb41TFXm9vyu+adrGx4D+W0aSyK3XtrBFvPMO3vJspg46iaUviYMjFywdOOs2yiYjKpTaxxblugivPaYWjes3gwj8P4qaFkYjn4HGhR1QyohmEXnDZ4q1SyERbFRZSolToshixXDYCRk7bwo+bpm6fIGpG6KkSkfTXv3CYCvv8/MwEX9gs2ARtOiOZTEeT7OMWZaUsPUTbDok8U7mDegmIT2Cgz4Vgfx9+14jnJZBeKgMTHr6FBMSLtqWk0Pmf7F9+TiezK2HiU88fbbdn+tnP8nh8vsOUv5hFwg2k/KIGhAgHcngP5BP9OyzUbv5X7sC/tWNcrV0KEXRaCFKSFtNqJvau1cH2OMndRgVYCiljf7TO/WKz2nz5u10eJYgf3cNXdUHgfPcEV8s+oN4IH5sQGmqcCvC+NId1is+523tu+/3ASd/grJ6BWArJI+pDTViaaFt7fb8Kh5hf6MKUlxUjZ9azi3mFr2x9emOgOoNx1BL6LMLdmCdFrt24twZfBLPEk6Zst0R6FcrzAo5Os1jXXeLDfZ59V/it8SkhtC0iLyZYYgTMheKp3Qi8uMdtEsxQ2md80v2lOCU4vRv3v1nfJUfRDWLAz1VKOAvhH/CAnXC6F8QrCoRlchNUilosNp8qAE89BJPu2WCp4N13t33HPnu0EuQCopOZw73FD6N8U=</ds:X509Certificate></ds:X509Data></ds:KeyInfo><ds:Object Id="Object-349358"><etsi:QualifyingProperties Target="#Signature-551271"><etsi:SignedProperties Id="SignedProperties-8820"><etsi:SignedSignatureProperties><etsi:SigningTime>2026-01-27T06:36:35.396Z</etsi:SigningTime><etsi:SigningCertificate><etsi:Cert><etsi:CertDigest><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>vaH1Nh4JylToReb9xMjHhyn1mFY=</ds:DigestValue></etsi:CertDigest><etsi:IssuerSerial><ds:X509IssuerName>C=EC,O=SECURITY DATA S.A. 2,OU=ENTIDAD DE CERTIFICACION DE INFORMACION,CN=AUTORIDAD DE CERTIFICACION SUBCA-2 SECURITY DATA</ds:X509IssuerName><ds:X509SerialNumber>1859104643</ds:X509SerialNumber></etsi:IssuerSerial></etsi:Cert></etsi:SigningCertificate></etsi:SignedSignatureProperties><etsi:SignedDataObjectProperties><etsi:DataObjectFormat ObjectReference="#Reference-518375"><etsi:Description>contenido comprobante</etsi:Description><etsi:MimeType>text/xml</etsi:MimeType></etsi:DataObjectFormat></etsi:SignedDataObjectProperties></etsi:SignedProperties></etsi:QualifyingProperties></ds:Object></ds:Signature></comprobanteRetencion>

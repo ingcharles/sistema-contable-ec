@@ -114,19 +114,25 @@ export interface CuentaContable {
 // Tipos de Facturación
 export interface Factura extends Auditable {
     id: string;
-    empresaId: string;
-    tipo: TipoComprobante;
+    empresaId?: string;
+    tipo?: TipoComprobante; // Para compatibilidad
+    tipoComprobante?: string; // Lo que realmente viene de la API
     secuencial: string;
     fechaEmision: string;
     terceroNombre: string;
-    terceroId: string;
+    terceroId?: string;
+    terceroRuc?: string;
     terceroEmail?: string;
-    subtotal: number;
-    descuento: number;
-    totalImpuestos: number;
+    subtotal?: number;
+    descuento?: number;
+    iva?: number;
+    totalImpuestos?: number;
     importeTotal: number;
     estado: EstadoSRI;
     claveAcceso: string;
+    numeroAutorizacion?: string;
+    fechaAutorizacion?: string;
+    xmlFirmado?: string;
     documentoModificadoId?: string;
     motivoModificacion?: string;
 }

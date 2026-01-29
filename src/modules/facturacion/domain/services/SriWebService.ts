@@ -101,6 +101,7 @@ export class SriWebService {
             mensajes.push({
                 identificador: mensajesNodes[i].getElementsByTagName('identificador')[0]?.textContent || '',
                 mensaje: mensajesNodes[i].getElementsByTagName('mensaje')[0]?.textContent || '',
+                informacionAdicional: mensajesNodes[i].getElementsByTagName('informacionAdicional')[0]?.textContent || '',
                 tipo: mensajesNodes[i].getElementsByTagName('tipo')[0]?.textContent || ''
             });
         }

@@ -23,6 +23,9 @@ export async function GET(req: NextRequest) {
                         pe.codigo, 
                         pe.nombre, 
                         pe.activo,
+                        pe.requiere_asignacion as "requiereAsignacion",
+                        pe.permite_multiples_usuarios as "permiteMultiplesUsuarios",
+                        pe.descripcion,
                         s.nombre as "sucursalNombre",
                         s.codigo as "sucursalCodigo",
                         COALESCE(
@@ -63,7 +66,16 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { sucursalId, codigo, nombre, activo = true, secuenciales = [] } = body;
+        const {
+            sucursalId,
+            codigo,
+            nombre,
+            activo = true,
+            requiereAsignacion = true,
+            permiteMultiplesUsuarios = true,
+            descripcion = '',
+            secuenciales = []
+        } = body;
 
         if (!sucursalId || !codigo || !nombre) {
             return NextResponse.json({ error: 'Sucursal, código y nombre son requeridos' }, { status: 400 });
@@ -74,8 +86,10 @@ export async function POST(req: NextRequest) {
         // Usamos una transacción para insertar el punto y sus secuenciales
         await db.transaction(async (client) => {
             await client.query(
-                `INSERT INTO configuracion.puntos_emision (id, sucursal_id, codigo, nombre, activo, created_by) VALUES ($1, $2, $3, $4, $5, $6)`,
-                [id, sucursalId, codigo, nombre, activo, context.usuarioId]
+                `INSERT INTO configuracion.puntos_emision 
+                    (id, sucursal_id, codigo, nombre, activo, requiere_asignacion, permite_multiples_usuarios, descripcion, created_by) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [id, sucursalId, codigo, nombre, activo, requiereAsignacion, permiteMultiplesUsuarios, descripcion, context.usuarioId]
             );
 
             for (const seq of secuenciales) {
@@ -105,7 +119,17 @@ export async function PUT(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { id, sucursalId, codigo, nombre, activo, secuenciales = [] } = body;
+        const {
+            id,
+            sucursalId,
+            codigo,
+            nombre,
+            activo,
+            requiereAsignacion,
+            permiteMultiplesUsuarios,
+            descripcion,
+            secuenciales = []
+        } = body;
 
         if (!id || !sucursalId || !codigo || !nombre) {
             return NextResponse.json({ error: 'ID, Sucursal, código y nombre son requeridos' }, { status: 400 });
@@ -116,9 +140,16 @@ export async function PUT(req: NextRequest) {
             // 1. Actualizar datos básicos
             await client.query(
                 `UPDATE configuracion.puntos_emision 
-                 SET sucursal_id = $1, codigo = $2, nombre = $3, activo = $4, updated_at = NOW()
-                 WHERE id = $5 AND EXISTS (SELECT 1 FROM configuracion.sucursales s WHERE s.id = $1 AND s.empresa_id = $6)`,
-                [sucursalId, codigo, nombre, activo, id, context.empresaId]
+                 SET sucursal_id = $1, 
+                     codigo = $2, 
+                     nombre = $3, 
+                     activo = $4, 
+                     requiere_asignacion = $5,
+                     permite_multiples_usuarios = $6,
+                     descripcion = $7,
+                     updated_at = NOW()
+                 WHERE id = $8 AND EXISTS (SELECT 1 FROM configuracion.sucursales s WHERE s.id = $1 AND s.empresa_id = $9)`,
+                [sucursalId, codigo, nombre, activo, requiereAsignacion, permiteMultiplesUsuarios, descripcion, id, context.empresaId]
             );
 
             // 2. Actualizar secuenciales (Upsert: Update si existe, Insert si no)

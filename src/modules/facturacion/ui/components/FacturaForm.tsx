@@ -16,6 +16,7 @@ import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
+import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 
 // Repositorios para integración
 import { InventarioUseCases, FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -36,6 +37,7 @@ export interface FacturaFormProps {
 export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', showButtons = true }: FacturaFormProps) {
     const { currentEmpresa } = useEmpresa();
     const { parametros, cargarParametros } = useConfiguracion();
+    const { puntoActivo } = usePuntoEmision();
 
     useEffect(() => {
         cargarParametros();
@@ -103,10 +105,36 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     const [identificacionValida, setIdentificacionValida] = useState(false);
 
     // Datos del Comprobante
-    const [estab, setEstab] = useState(factura?.estab || '001');
-    const [ptoEmi, setPtoEmi] = useState(factura?.ptoEmi || '001');
+    const [estab, setEstab] = useState(factura?.estab || puntoActivo?.codigoEstablecimiento || '001');
+    const [ptoEmi, setPtoEmi] = useState(factura?.ptoEmi || puntoActivo?.codigoPunto || '001');
     const [secuencial, setSecuencial] = useState(factura?.secuencial || '');
     const [fechaEmision, setFechaEmision] = useState(factura?.fechaEmision || new Date().toISOString().split('T')[0]);
+
+    // Actualizar estab y ptoEmi cuando cambie el punto activo
+    useEffect(() => {
+        if (puntoActivo && !factura?.id) {
+            setEstab(puntoActivo.codigoEstablecimiento);
+            setPtoEmi(puntoActivo.codigoPunto);
+        }
+    }, [puntoActivo, factura?.id]);
+
+    // Cargar secuencial automático
+    useEffect(() => {
+        const cargarSecuencial = async () => {
+            if (puntoActivo?.puntoEmisionId && !factura?.id) {
+                try {
+                    const res = await fetch(`/api/facturacion/secuencial?puntoEmisionId=${puntoActivo.puntoEmisionId}&tipoComprobante=01`);
+                    const data = await res.json();
+                    if (data.success) {
+                        setSecuencial(data.secuencial);
+                    }
+                } catch (error) {
+                    console.error('Error al cargar secuencial:', error);
+                }
+            }
+        };
+        cargarSecuencial();
+    }, [puntoActivo?.puntoEmisionId, factura?.id]);
 
     // Detalles
     const [detalles, setDetalles] = useState<DetalleFactura[]>(factura?.detalles || [{

@@ -23,6 +23,9 @@ export interface PuntoEmision extends Auditable {
     nombre: string; // Ej: Caja Principal, Caja Secundaria
     secuenciales: SecuencialDocumento[];
     activo: boolean;
+    requiereAsignacion?: boolean;
+    permiteMultiplesUsuarios?: boolean;
+    descripcion?: string;
 }
 
 export interface UsuarioSistema extends Auditable {

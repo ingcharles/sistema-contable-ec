@@ -1,5 +1,6 @@
 import { FacturaViewModel, DetalleFactura } from '../FacturaViewModel';
 import { CODIGO_IMPUESTO } from '../../domain/catalogos';
+import { isoToSriDate } from '@/shared/utils/dateUtils';
 
 export class SriStandardizer {
     /**
@@ -225,6 +226,7 @@ export class SriStandardizer {
 
     /**
      * Genera el JSON estandarizado para un Comprobante de Retención (Doc 07)
+     * Compatible con versión 2.0.0 del esquema XSD del SRI
      */
     static standardizeRetencion(data: any) {
         return {
@@ -245,6 +247,8 @@ export class SriStandardizer {
                 dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
                 obligadoContabilidad: data.obligadoContabilidad,
                 tipoIdentificacionSujetoRetenido: data.tipoIdentificacionSujetoRetenido,
+                tipoSujetoRetenido: data.tipoSujetoRetenido, // Opcional para v2.0.0
+                parteRel: data.parteRel || 'NO', // Obligatorio en v2.0.0
                 razonSocialSujetoRetenido: data.razonSocialSujetoRetenido,
                 identificacionSujetoRetenido: data.identificacionSujetoRetenido,
                 periodoFiscal: data.periodoFiscal
@@ -252,12 +256,23 @@ export class SriStandardizer {
             impuestos: data.impuestos.map((imp: any) => ({
                 codigo: imp.codigo,
                 codigoRetencion: imp.codigoRetencion,
-                baseImponible: Number(imp.baseImponible.toFixed(2)),
-                porcentajeRetener: imp.porcentajeRetener,
-                valorRetenido: Number(imp.valorRetenido.toFixed(2)),
+                baseImponible: Number(Number(imp.baseImponible).toFixed(2)),
+                porcentajeRetener: Number(Number(imp.porcentajeRetener).toFixed(2)),
+                valorRetenido: Number(Number(imp.valorRetenido).toFixed(2)),
                 codDocSustento: imp.codDocSustento,
+                codSustento: imp.codSustento || '01', // Código sustento tributario
                 numDocSustento: imp.numDocSustento,
-                fechaEmisionDocSustento: this.formatDate(imp.fechaEmisionDocSustento)
+                fechaEmisionDocSustento: this.formatDate(imp.fechaEmisionDocSustento),
+                numAutDocSustento: imp.numAutDocSustento,
+                // Campos adicionales para v2.0.0
+                totalSinImpuestosDocSustento: Number(imp.totalSinImpuestosDocSustento ?? 0),
+                baseImponibleIvaDocSustento: Number(imp.baseImponibleIvaDocSustento ?? 0),
+                importeTotalDocSustento: Number(imp.importeTotalDocSustento ?? 0),
+                pagoLocExt: imp.pagoLocExt || '01', // 01=Local
+                formaPago: imp.formaPago || '20', // 20=Otros con utilización del sistema financiero
+                codigoPorcentajeIva: imp.codigoPorcentajeIva || '0', // 0=0%, 2=12%, etc.
+                tarifaIva: imp.tarifaIva || '0',
+                ivaDocSustento: Number(imp.ivaDocSustento || 0)
             }))
         };
     }
@@ -315,8 +330,8 @@ export class SriStandardizer {
 
     private static formatDate(dateStr: string): string {
         if (!dateStr) return '';
-        const [year, month, day] = dateStr.split('-');
-        return `${day}/${month}/${year}`;
+        // Usar utilidad que maneja correctamente la zona horaria
+        return isoToSriDate(dateStr);
     }
 
     public static getTarifaValue(codigo: string, generalIva: number = 15): number {
