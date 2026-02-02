@@ -1,5 +1,4 @@
 import { FacturaViewModel, DetalleFactura } from '../FacturaViewModel';
-import { CODIGO_IMPUESTO } from '../../domain/catalogos';
 import { isoToSriDate } from '@/shared/utils/dateUtils';
 
 export class SriStandardizer {
@@ -53,7 +52,7 @@ export class SriStandardizer {
                 precioTotalSinImpuesto: Number(d.baseImponible.toFixed(2)),
                 impuestos: [
                     {
-                        codigo: CODIGO_IMPUESTO.IVA,
+                        codigo: '2',
                         codigoPorcentaje: d.codigoIVA,
                         tarifa: this.getTarifaValue(d.codigoIVA, generalIva),
                         baseImponible: Number(d.baseImponible.toFixed(2)),
@@ -75,7 +74,7 @@ export class SriStandardizer {
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
-                codDoc: '03',
+                codDoc: data.codDoc || '03',
                 estab: data.estab.padStart(3, '0'),
                 ptoEmi: data.ptoEmi.padStart(3, '0'),
                 secuencial: data.secuencial.padStart(9, '0'),
@@ -110,7 +109,7 @@ export class SriStandardizer {
                 precioTotalSinImpuesto: Number(d.baseImponible.toFixed(2)),
                 impuestos: [
                     {
-                        codigo: CODIGO_IMPUESTO.IVA,
+                        codigo: '2',
                         codigoPorcentaje: d.codigoIVA,
                         tarifa: this.getTarifaValue(d.codigoIVA, generalIva),
                         baseImponible: Number(d.baseImponible.toFixed(2)),
@@ -163,7 +162,7 @@ export class SriStandardizer {
                 precioTotalSinImpuesto: Number(d.baseImponible.toFixed(2)),
                 impuestos: [
                     {
-                        codigo: CODIGO_IMPUESTO.IVA,
+                        codigo: '2',
                         codigoPorcentaje: d.codigoIVA,
                         tarifa: this.getTarifaValue(d.codigoIVA, generalIva),
                         baseImponible: Number(d.baseImponible.toFixed(2)),
@@ -204,7 +203,7 @@ export class SriStandardizer {
                 totalSinImpuestos: Number(data.totalSinImpuestos.toFixed(2)),
                 impuestos: [
                     {
-                        codigo: CODIGO_IMPUESTO.IVA,
+                        codigo: '2',
                         codigoPorcentaje: data.codigoIVA,
                         tarifa: this.getTarifaValue(data.codigoIVA, generalIva),
                         baseImponible: Number(data.totalSinImpuestos.toFixed(2)),
@@ -345,9 +344,9 @@ export class SriStandardizer {
 
     private static summarizeTaxes(detalles: DetalleFactura[]) {
         const resumen: any[] = [];
-        const grupos = detalles.reduce((acc: any, d) => {
+        const grupos = detalles.reduce((acc: any, d: any) => {
             const key = d.codigoIVA;
-            if (!acc[key]) acc[key] = { base: 0, valor: 0 };
+            if (!acc[key]) acc[key] = { base: 0, valor: 0, codigo: d.codigoImpuesto };
             acc[key].base += d.baseImponible;
             acc[key].valor += d.valorIVA;
             return acc;
@@ -355,7 +354,7 @@ export class SriStandardizer {
 
         for (const codigoPorcentaje in grupos) {
             resumen.push({
-                codigo: CODIGO_IMPUESTO.IVA,
+                codigo: grupos[codigoPorcentaje].codigo || '2',
                 codigoPorcentaje,
                 baseImponible: Number(grupos[codigoPorcentaje].base.toFixed(2)),
                 valor: Number(grupos[codigoPorcentaje].valor.toFixed(2))

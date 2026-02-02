@@ -5,21 +5,24 @@ import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { TipoMovimientoCaja } from '../../domain/types';
 import { useCajaChicaMutations } from '../../hooks/useCajaChica';
 
+import { ComprobanteRecibido } from '@/modules/buzon/domain/types';
+
 interface MovimientoCajaModalProps {
     tipo: 'INGRESO' | 'EGRESO';
     onClose: () => void;
     onSave: () => void;
     empresaId: string;
+    xmlPrevio?: ComprobanteRecibido;
 }
 
-export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId }: MovimientoCajaModalProps) => {
+export const MovimientoCajaModal = ({ tipo, onClose, onSave, empresaId, xmlPrevio }: MovimientoCajaModalProps) => {
     const { guardarVale, procesando } = useCajaChicaMutations();
 
-    const [monto, setMonto] = useState(0);
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
-    const [beneficiario, setBeneficiario] = useState('');
-    const [concepto, setConcepto] = useState('');
-    const [comprobante, setComprobante] = useState('');
+    const [monto, setMonto] = useState(xmlPrevio?.montoTotal || 0);
+    const [fecha, setFecha] = useState(xmlPrevio?.fechaEmision || new Date().toISOString().split('T')[0]);
+    const [beneficiario, setBeneficiario] = useState(xmlPrevio?.razonSocialEmisor || '');
+    const [concepto, setConcepto] = useState(xmlPrevio ? `GASTO SEGUN XML ${xmlPrevio.secuencial}` : '');
+    const [comprobante, setComprobante] = useState(xmlPrevio?.secuencial || '');
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const handleGuardar = async () => {

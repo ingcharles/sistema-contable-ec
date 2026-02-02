@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
                     id,
                     codigo,
                     nombre,
+                    valor,
                     url_recepcion,
                     url_autorizacion,
                     descripcion,

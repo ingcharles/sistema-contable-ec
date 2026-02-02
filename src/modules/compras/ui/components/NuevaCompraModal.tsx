@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, Calculator, Search, Receipt, AlertCircle } from 'lucide-react';
 import { useToast } from '@/shared/context/ToastContext';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
+import { ComprobanteRecibido } from '@/modules/buzon/domain/types';
 import { SustentoTributario, OrdenCompra } from '../../domain/types';
 import { CodigoRetencion } from '@/modules/configuracion/domain/types';
 import { ComprasUseCases, ConfiguracionUseCases, FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -12,7 +13,6 @@ import { formatMoney } from '@/shared/utils/formatearDinero';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
-import { AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
 import { obtenerPeriodoFiscal } from '@/shared/utils/dateUtils';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Modal } from '@/shared/ui/Modal';
@@ -25,9 +25,10 @@ interface Props {
     onClose: () => void;
     onSave: () => void;
     ordenPrevia?: OrdenCompra;
+    xmlPrevio?: ComprobanteRecibido;
 }
 
-export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia }) => {
+export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia, xmlPrevio }) => {
     const { currentEmpresa } = useEmpresa();
     const { showToast } = useToast();
     const { puntoActivo, puntosDisponibles, cambiarPuntoActivo } = usePuntoEmision();
@@ -37,8 +38,8 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     const [proveedorCompleto, setProveedorCompleto] = useState<Tercero | null>(null);
     const [retencionesDisponibles, setRetencionesDisponibles] = useState<CodigoRetencion[]>([]);
 
-    const [proveedorNombre, setProveedorNombre] = useState(ordenPrevia?.proveedor.razonSocial || '');
-    const [proveedorRuc, setProveedorRuc] = useState(ordenPrevia?.proveedor.ruc || '');
+    const [proveedorNombre, setProveedorNombre] = useState(ordenPrevia?.proveedor.razonSocial || xmlPrevio?.razonSocialEmisor || '');
+    const [proveedorRuc, setProveedorRuc] = useState(ordenPrevia?.proveedor.ruc || xmlPrevio?.rucEmisor || '');
 
     // Obtener fecha actual en zona horaria local (no UTC)
     const getFechaLocal = () => {
@@ -49,9 +50,9 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
         return `${anio}-${mes}-${dia}`;
     };
 
-    const [fechaEmision, setFechaEmision] = useState(getFechaLocal());
-    const [secuencial, setSecuencial] = useState('');
-    const [autorizacion, setAutorizacion] = useState('');
+    const [fechaEmision, setFechaEmision] = useState(xmlPrevio?.fechaEmision || getFechaLocal());
+    const [secuencial, setSecuencial] = useState(xmlPrevio?.secuencial || '');
+    const [autorizacion, setAutorizacion] = useState(xmlPrevio?.claveAcceso || '');
     const [sustento, setSustento] = useState<SustentoTributario>(SustentoTributario.CREDITO_TRIBUTARIO);
 
     const [centroCostoId, setCentroCostoId] = useState('');
@@ -105,8 +106,20 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                 };
             });
             setDetalles(nuevosDetalles);
+        } else if (xmlPrevio) {
+            buscarProveedor();
+            setDetalles([{
+                productoId: '',
+                descripcion: 'COMPRA SEGUN XML ' + xmlPrevio.secuencial,
+                cantidad: 1,
+                precioUnitario: xmlPrevio.montoTotal / (1 + (parametros?.iva || 15) / 100),
+                subtotal: xmlPrevio.montoTotal / (1 + (parametros?.iva || 15) / 100),
+                porcentajeIva: parametros?.iva || 15,
+                valorIva: xmlPrevio.montoTotal - (xmlPrevio.montoTotal / (1 + (parametros?.iva || 15) / 100)),
+                total: xmlPrevio.montoTotal
+            }]);
         }
-    }, [ordenPrevia, parametros?.iva]);
+    }, [ordenPrevia, xmlPrevio, parametros?.iva]);
 
     useEffect(() => {
         const loadProductos = async () => {
@@ -305,8 +318,8 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                     const esParteRelacionada = proveedorCompleto?.parteRelacionada ? 'SI' : 'NO';
 
                     datosRetencion = SriStandardizer.standardizeRetencion({
-                        ambiente: AMBIENTE.PRUEBAS,
-                        tipoEmision: TIPO_EMISION.NORMAL,
+                        ambiente: '1',
+                        tipoEmision: '1',
                         razonSocial: currentEmpresa.razonSocial,
                         nombreComercial: currentEmpresa.nombreComercial,
                         ruc: currentEmpresa.ruc,

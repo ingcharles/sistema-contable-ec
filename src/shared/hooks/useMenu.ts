@@ -1,6 +1,29 @@
 import { useState, useCallback } from 'react';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 
+// Helper recursivo para construir el árbol
+function buildMenuTree(items: any[]) {
+    const map = new Map();
+    const roots: any[] = [];
+
+    // 1. Inicializar mapa con children vacío
+    items.forEach(item => {
+        map.set(item.id, { ...item, children: [] });
+    });
+
+    // 2. Construir relaciones
+    items.forEach(item => {
+        const node = map.get(item.id);
+        if (item.padreId && map.has(item.padreId)) {
+            map.get(item.padreId).children.push(node);
+        } else {
+            roots.push(node);
+        }
+    });
+
+    return roots;
+}
+
 /**
  * Hook para gestionar el menú dinámico del sistema
  */
@@ -14,8 +37,9 @@ export const useMenu = () => {
         setError(null);
         try {
             const data = await ConfiguracionUseCases.obtenerMenu();
-            setMenuItems(data);
-            return data;
+            const tree = buildMenuTree(data);
+            setMenuItems(tree);
+            return tree;
         } catch (err: any) {
             setError(err.message || 'Error al cargar el menú');
             console.error('Error loading menu:', err);

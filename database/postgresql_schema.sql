@@ -83,7 +83,7 @@ COMMENT ON COLUMN seguridad.empresas.created_at IS 'Fecha y hora de creación de
 COMMENT ON COLUMN seguridad.empresas.updated_at IS 'Fecha y hora de última actualización';
 
 -- Tipos ENUM del módulo seguridad
-CREATE TYPE seguridad.tipo_rol AS ENUM ('SUPERADMIN', 'ADMIN', 'CONTADOR', 'AUDITOR', 'ASISTENTE');
+--CREATE TYPE seguridad.tipo_rol AS ENUM ('SUPERADMIN', 'ADMIN', 'CONTADOR', 'AUDITOR', 'ASISTENTE');
 
 -- Tabla: seguridad.usuarios
 CREATE TABLE seguridad.usuarios (
@@ -91,7 +91,7 @@ CREATE TABLE seguridad.usuarios (
     email VARCHAR(255) NOT NULL UNIQUE,
     nombre VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    rol seguridad.tipo_rol NOT NULL DEFAULT 'ASISTENTE',
+    --rol seguridad.tipo_rol NOT NULL DEFAULT 'ASISTENTE',
     activo BOOLEAN DEFAULT true,
     ultimo_acceso TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
@@ -103,7 +103,7 @@ COMMENT ON COLUMN seguridad.usuarios.id IS 'Identificador único (UUID) del usua
 COMMENT ON COLUMN seguridad.usuarios.email IS 'Correo electrónico único usado para login';
 COMMENT ON COLUMN seguridad.usuarios.nombre IS 'Nombre completo del usuario';
 COMMENT ON COLUMN seguridad.usuarios.password_hash IS 'Hash SHA-256 de la contraseña del usuario';
-COMMENT ON COLUMN seguridad.usuarios.rol IS 'Rol global del usuario: SUPERADMIN, ADMIN, CONTADOR, AUDITOR, ASISTENTE';
+--COMMENT ON COLUMN seguridad.usuarios.rol IS 'Rol global del usuario: SUPERADMIN, ADMIN, CONTADOR, AUDITOR, ASISTENTE';
 COMMENT ON COLUMN seguridad.usuarios.activo IS 'Estado del usuario. FALSE impide el login';
 COMMENT ON COLUMN seguridad.usuarios.ultimo_acceso IS 'Timestamp del último inicio de sesión exitoso';
 COMMENT ON COLUMN seguridad.usuarios.created_at IS 'Fecha de registro del usuario';
@@ -774,6 +774,7 @@ CREATE TABLE facturacion.comprobantes_electronicos (
     cliente_nombre VARCHAR(255) NOT NULL,
     cliente_identificacion VARCHAR(20) NOT NULL,
     subtotal NUMERIC(18,2) NOT NULL,
+    total_descuento NUMERIC(18,2) DEFAULT 0.00 NOT NULL,
     iva NUMERIC(18,2) NOT NULL,
     total NUMERIC(18,2) NOT NULL,
     estado facturacion.estado_comprobante DEFAULT 'BORRADOR',
@@ -804,6 +805,7 @@ COMMENT ON COLUMN facturacion.comprobantes_electronicos.cliente_id IS 'Referenci
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.cliente_nombre IS 'Nombre del cliente (desnormalizado)';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.cliente_identificacion IS 'RUC/Cédula del cliente';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.subtotal IS 'Subtotal antes de impuestos';
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.total_descuento IS 'Total descuentos aplicados';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.iva IS 'Valor del IVA';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.total IS 'Total del comprobante';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.estado IS 'Estado del proceso: BORRADOR -> PENDIENTE -> AUTORIZADO/RECHAZADO/ANULADO';
@@ -827,7 +829,8 @@ CREATE TABLE facturacion.comprobantes_detalles (
     cantidad NUMERIC(18,4) NOT NULL,
     precio_unitario NUMERIC(18,6) NOT NULL,
     descuento NUMERIC(18,2) NOT NULL,
-    total NUMERIC(18,2) NOT NULL
+    total NUMERIC(18,2) NOT NULL,
+    codigo_iva VARCHAR(5) DEFAULT '2' NOT NULL
 );
 
 COMMENT ON TABLE facturacion.comprobantes_detalles IS 'Detalle de lí­neas de los comprobantes electrónicos.';
@@ -873,6 +876,46 @@ COMMENT ON COLUMN facturacion.transportistas.activo IS 'Estado del transportista
 
 -- Tipos ENUM del módulo auditoria
 CREATE TYPE auditoria.severidad_log AS ENUM ('INFO', 'WARNING', 'ERROR', 'CRITICAL');
+
+-- Tabla: facturacion.proformas
+CREATE TABLE IF NOT EXISTS facturacion.proformas (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
+    usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id),
+    cliente_id UUID NOT NULL REFERENCES directorio.terceros(id),
+    numero VARCHAR(20) NOT NULL,
+    fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+    validez_dias INTEGER DEFAULT 15,
+    subtotal_iva NUMERIC(18,2) DEFAULT 0,
+    subtotal_0 NUMERIC(18,2) DEFAULT 0,
+    monto_iva NUMERIC(18,2) DEFAULT 0,
+    total NUMERIC(18,2) NOT NULL,
+    estado VARCHAR(20) DEFAULT 'PENDIENTE', -- PENDIENTE, FACTURADA, ANULADA
+    observaciones TEXT,
+    factura_id UUID REFERENCES facturacion.comprobantes_electronicos(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(empresa_id, numero)
+);
+
+COMMENT ON TABLE facturacion.proformas IS 'Presupuestos o cotizaciones emitidas a clientes.';
+
+-- Tabla: facturacion.proformas_detalle
+CREATE TABLE IF NOT EXISTS facturacion.proformas_detalle (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    proforma_id UUID NOT NULL REFERENCES facturacion.proformas(id) ON DELETE CASCADE,
+    producto_id UUID REFERENCES inventario.productos(id),
+    descripcion VARCHAR(500) NOT NULL,
+    cantidad NUMERIC(18,4) NOT NULL,
+    precio_unitario NUMERIC(18,6) NOT NULL,
+    subtotal NUMERIC(18,2) NOT NULL,
+    porcentaje_iva NUMERIC(5,2) DEFAULT 0,
+    valor_iva NUMERIC(18,2) DEFAULT 0,
+    total NUMERIC(18,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+COMMENT ON TABLE facturacion.proformas_detalle IS 'Líneas de detalle de las proformas.';
 
 -- Tabla: auditoria.auditoria_logs
 CREATE TABLE auditoria.auditoria_logs (
@@ -1269,7 +1312,8 @@ COMMENT ON COLUMN configuracion.parametros.fecha_cierre IS 'Fecha del último ci
 CREATE TABLE configuracion.sri_ambiente (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     codigo VARCHAR(20) NOT NULL UNIQUE CHECK (codigo IN ('PRUEBAS','PRODUCCION')),
-    nombre VARCHAR(50) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    valor VARCHAR(20) NOT NULL UNIQUE CHECK (valor IN ('1', '2')),
     url_recepcion TEXT NOT NULL,
     url_autorizacion TEXT NOT NULL,
     descripcion TEXT,
@@ -1288,12 +1332,12 @@ COMMENT ON COLUMN configuracion.sri_ambiente.descripcion IS 'Descripción adicio
 COMMENT ON COLUMN configuracion.sri_ambiente.activo IS 'Estado del ambiente';
 
 -- Insertar los ambientes estándar del SRI
-INSERT INTO configuracion.sri_ambiente (codigo, nombre, url_recepcion, url_autorizacion, descripcion) VALUES
-('PRUEBAS', 'Ambiente de Pruebas', 
+INSERT INTO configuracion.sri_ambiente (codigo, nombre, valor, url_recepcion, url_autorizacion, descripcion) VALUES
+('PRUEBAS', 'Ambiente de Pruebas', 1, 
  'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
  'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
  'Ambiente de certificación y pruebas del SRI'),
-('PRODUCCION', 'Ambiente de Producción',
+('PRODUCCION', 'Ambiente de Producción', 2,
  'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
  'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
  'Ambiente productivo del SRI');
@@ -1777,6 +1821,36 @@ COMMENT ON COLUMN compras.ordenes_detalles.producto_nombre IS 'Nombre o descripc
 COMMENT ON COLUMN compras.ordenes_detalles.cantidad IS 'Cantidad solicitada';
 COMMENT ON COLUMN compras.ordenes_detalles.precio_unitario IS 'Precio unitario referencial';
 
+CREATE TABLE IF NOT EXISTS compras.notas_credito (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
+    proveedor_id UUID NOT NULL REFERENCES directorio.terceros(id),
+    factura_id UUID REFERENCES compras.compras(id),
+    secuencial VARCHAR(20) NOT NULL,
+    fecha_emision DATE NOT NULL,
+    motivo VARCHAR(255) NOT NULL,
+    subtotal NUMERIC(18,2) NOT NULL,
+    iva NUMERIC(18,2) NOT NULL,
+    total NUMERIC(18,2) NOT NULL,
+    estado VARCHAR(20) DEFAULT 'REGISTRADO',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(empresa_id, proveedor_id, secuencial)
+);
+
+COMMENT ON TABLE compras.notas_credito IS 'Notas de crédito recibidas de proveedores.';
+
+CREATE TABLE IF NOT EXISTS compras.notas_credito_detalles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nota_credito_id UUID NOT NULL REFERENCES compras.notas_credito(id) ON DELETE CASCADE,
+    producto_id UUID REFERENCES inventario.productos(id),
+    cantidad NUMERIC(18,2) NOT NULL,
+    precio_unitario NUMERIC(18,2) NOT NULL,
+    total NUMERIC(18,2) NOT NULL
+);
+
+COMMENT ON TABLE compras.notas_credito_detalles IS 'Detalles de items devueltos o ajustados en NC compra.';
+
 -- ============================================================================
 -- Triggers de auditorí­a para las nuevas tablas
 CREATE IF NOT EXISTS TRIGGER audit_activos_fijos AFTER INSERT OR UPDATE OR DELETE ON activos.activos_fijos FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
@@ -1861,28 +1935,54 @@ COMMENT ON TRIGGER audit_usuarios_roles ON seguridad.usuarios_roles IS 'Auditor�
 
 
 
--- 2. Crear Tablas de Menú
+-- 2. Crear Tablas de Planes y Menú
+
+
+-- Tabla: seguridad.planes
+CREATE TABLE IF NOT EXISTS seguridad.planes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    codigo VARCHAR(50) UNIQUE NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion VARCHAR(200) NOT NULL,
+    precio_mensual DECIMAL(10, 2) NOT NULL,
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+COMMENT ON TABLE seguridad.planes IS 'Catálogo de planes de suscripción disponibles en el sistema.';
+COMMENT ON COLUMN seguridad.planes.id IS 'Identificador único del plan';
+COMMENT ON COLUMN seguridad.planes.codigo IS 'Código único del plan (ej: GRATUITO, PROFESIONAL)';
+COMMENT ON COLUMN seguridad.planes.nombre IS 'Nombre comercial del plan';
+COMMENT ON COLUMN seguridad.planes.descripcion IS 'Descripción detallada de las características del plan';
+COMMENT ON COLUMN seguridad.planes.precio_mensual IS 'Costo mensual de la suscripción';
+COMMENT ON COLUMN seguridad.planes.activo IS 'Estado del plan para nuevas suscripciones';
+COMMENT ON COLUMN seguridad.planes.created_at IS 'Fecha de creación del registro';
+COMMENT ON COLUMN seguridad.planes.updated_at IS 'Fecha de última actualización';
+
+
+
 CREATE TABLE IF NOT EXISTS configuracion.menu_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    padre_id UUID REFERENCES configuracion.menu_items(id) ON DELETE CASCADE,
     label VARCHAR(100) NOT NULL,
     icon_name VARCHAR(50) NOT NULL,
     path VARCHAR(200) NOT NULL,
     orden INT DEFAULT 0,
-    plan_minimo VARCHAR(20) DEFAULT 'GRATUITO',
+    plan_id UUID REFERENCES seguridad.planes(id),
     activo BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-
-COMMENT ON TABLE configuracion.menu_items IS 'Tabla de í­tems de menú configurables';
+COMMENT ON TABLE configuracion.menu_items IS 'Tabla de ítems de menú configurables';
 COMMENT ON COLUMN configuracion.menu_items.id IS 'Identificador único (UUID)';
 COMMENT ON COLUMN configuracion.menu_items.label IS 'Etiqueta visible del menú';
-COMMENT ON COLUMN configuracion.menu_items.icon_name IS 'Nombre del í­cono asociado';
-COMMENT ON COLUMN configuracion.menu_items.path IS 'Ruta o URL del í­tem';
+COMMENT ON COLUMN configuracion.menu_items.icon_name IS 'Nombre del ícono asociado';
+COMMENT ON COLUMN configuracion.menu_items.path IS 'Ruta o URL del ítem';
 COMMENT ON COLUMN configuracion.menu_items.orden IS 'Orden de aparición en el menú';
-COMMENT ON COLUMN configuracion.menu_items.plan_minimo IS 'Plan mí­nimo requerido para ver el í­tem';
-COMMENT ON COLUMN configuracion.menu_items.activo IS 'Estado de activación del í­tem';
-COMMENT ON COLUMN configuracion.menu_items.created_at IS 'Fecha de creación del í­tem';
+COMMENT ON COLUMN configuracion.menu_items.plan_id IS 'Plan mínimo requerido para ver el ítem (referencia a planes)';
+COMMENT ON COLUMN configuracion.menu_items.activo IS 'Estado de activación del ítem';
+COMMENT ON COLUMN configuracion.menu_items.created_at IS 'Fecha de creación del ítem';
 
 
 -- Trigger de auditorí­a

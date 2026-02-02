@@ -84,6 +84,14 @@ export class ContabilidadUseCases extends BaseUseCase {
             method: 'DELETE'
         });
     }
+
+    static async obtenerFlujoEfectivo(desde: string, hasta: string) {
+        return this.request(`/api/contabilidad/reportes/flujo-efectivo?desde=${desde}&hasta=${hasta}`);
+    }
+
+    static async obtenerCambiosPatrimonio(desde: string, hasta: string) {
+        return this.request(`/api/contabilidad/reportes/cambios-patrimonio?desde=${desde}&hasta=${hasta}`);
+    }
 }
 
 /**
@@ -148,6 +156,17 @@ export class InventarioUseCases extends BaseUseCase {
             hasta: fechaFin
         });
         return this.request(`/api/inventario/kardex?${queryParams.toString()}`);
+    }
+
+    static async listarTransferencias() {
+        return this.request('/api/inventario/transferencias');
+    }
+
+    static async registrarTransferencia(transferencia: any) {
+        return this.request('/api/inventario/transferencias', {
+            method: 'POST',
+            body: JSON.stringify(transferencia)
+        });
     }
 }
 
@@ -414,6 +433,14 @@ export class ConfiguracionUseCases extends BaseUseCase {
             body: JSON.stringify({ puntoEmisionId })
         });
     }
+
+    static async obtenerCatalogo(tipo: string) {
+        return this.request(`/api/configuracion/catalogos?tipo=${tipo}`);
+    }
+
+    static async obtenerAmbientesSRI() {
+        return this.request('/api/configuracion/sri/ambientes');
+    }
 }
 
 /**
@@ -437,6 +464,24 @@ export class FacturacionUseCases extends BaseUseCase {
     }
     static async listarGuias() {
         return this.request('/api/facturacion/guias');
+    }
+
+    // PROFORMAS
+    static async listarProformas() {
+        return this.request('/api/facturacion/proformas');
+    }
+
+    static async guardarProforma(proforma: any) {
+        return this.request('/api/facturacion/proformas', {
+            method: proforma.id ? 'PUT' : 'POST',
+            body: JSON.stringify(proforma)
+        });
+    }
+
+    static async facturarProforma(id: string) {
+        return this.request(`/api/facturacion/proformas/${id}/facturar`, {
+            method: 'POST'
+        });
     }
     static async guardarGuiaRemision(guia: any) {
         return this.request('/api/facturacion/guias', {
@@ -563,6 +608,13 @@ export class BuzonUseCases extends BaseUseCase {
             })
         });
     }
+
+    static async procesarComprobante(id: string) {
+        return this.request(`/api/buzon/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ estado: 'PROCESADO' })
+        });
+    }
 }
 
 /**
@@ -649,6 +701,44 @@ export class UsuariosUseCases extends BaseUseCase {
     static async eliminarUsuario(id: string) {
         return this.request(`/api/administracion/usuarios/${id}`, {
             method: 'DELETE'
+        });
+    }
+
+    // --- ASIGNACIÓN DE PUNTOS DE EMISIÓN ---
+    static async listarAsignacionesPuntos(filtros?: any) {
+        const query = filtros ? `?${new URLSearchParams(filtros).toString()}` : '';
+        return this.request(`/api/administracion/puntos-emision/asignaciones${query}`);
+    }
+
+    static async guardarAsignacionPunto(asignacion: any) {
+        return this.request('/api/administracion/puntos-emision/asignaciones', {
+            method: 'POST',
+            body: JSON.stringify(asignacion)
+        });
+    }
+
+    static async eliminarAsignacionPunto(id: string) {
+        return this.request(`/api/administracion/puntos-emision/asignaciones/${id}`, {
+            method: 'DELETE'
+        });
+    }
+}
+
+/**
+ * MÓDULO: TERCEROS / DIRECTORIO
+ */
+export class TercerosUseCases extends BaseUseCase {
+    static async listarTerceros(filtros: any = {}) {
+        const query = new URLSearchParams(filtros).toString();
+        return this.request(`/api/directorio/terceros${query ? '?' + query : ''}`);
+    }
+    static async obtenerTercero(id: string) {
+        return this.request(`/api/directorio/terceros/${id}`);
+    }
+    static async guardarTercero(tercero: any) {
+        return this.request('/api/directorio/terceros', {
+            method: tercero.id ? 'PUT' : 'POST',
+            body: JSON.stringify(tercero)
         });
     }
 }

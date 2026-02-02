@@ -7,7 +7,6 @@ import { DataTable, Column } from '@/shared/ui/DataTable';
 import { EstadoBadge } from '@/shared/ui/EstadoBadge';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
-import { getTipoComprobanteNombre } from '@/shared/constants/catalogos';
 
 interface ComprobantesEmitidosTableProps {
     facturas: Factura[];
@@ -36,7 +35,7 @@ export function ComprobantesEmitidosTable({
             header: 'Tipo',
             cell: (row) => (
                 <span className="text-xs font-medium px-2 py-1 bg-slate-100 text-slate-700 rounded">
-                    {getTipoComprobanteNombre(row.tipoComprobante || row.tipo || '')}
+                    {row.tipoComprobanteNombre}
                 </span>
             ),
             className: 'text-sm'

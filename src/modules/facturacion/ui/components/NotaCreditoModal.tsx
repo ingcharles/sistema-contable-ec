@@ -1,16 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { RotateCcw, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RotateCcw, AlertCircle, Hash } from 'lucide-react';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
 import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 import { Modal } from '@/shared/ui/Modal';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
-import { useEffect } from 'react';
+import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 
 interface ItemNotaCredito {
     id: string;
@@ -30,22 +29,30 @@ interface NotaCreditoModalProps {
 export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalProps) {
     const { currentEmpresa } = useEmpresa();
     const { parametros, cargarParametros } = useConfiguracion();
+    const { puntoActivo, puntosDisponibles: puntosContext } = usePuntoEmision();
     const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
-    const [puntoEmisionId, setPuntoEmisionId] = useState('');
+    const [puntoEmisionId, setPuntoEmisionId] = useState(puntoActivo?.puntoEmisionId || '');
 
     useEffect(() => {
         cargarParametros();
         const cargarPuntos = async () => {
             try {
-                const puntos = await FacturacionUseCases.listarPuntosEmision();
-                setPuntosEmision(puntos);
-                if (puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+                // Si tenemos puntos en el contexto (asignados), usamos esos
+                if (puntosContext && puntosContext.length > 0) {
+                    setPuntosEmision(puntosContext);
+                    if (!puntoEmisionId) setPuntoEmisionId(puntosContext[0].puntoEmisionId || puntosContext[0].id);
+                } else {
+                    // Fallback a listar todos si no hay contexto (ej: admin o no cargado aún)
+                    const puntos = await FacturacionUseCases.listarPuntosEmision();
+                    setPuntosEmision(puntos);
+                    if (!puntoEmisionId && puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+                }
             } catch (e) {
                 console.error('Error al cargar puntos de emisión:', e);
             }
         };
         cargarPuntos();
-    }, []);
+    }, [puntosContext, puntoActivo]);
 
     const [motivo, setMotivo] = useState('');
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
@@ -88,7 +95,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
         setGuardando(true);
         setErrorValidacion(null);
         try {
-            const puntoEmi = puntosEmision.find(p => p.id === puntoEmisionId);
+            const puntoEmi = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
             if (!puntoEmi) {
                 throw new Error('Debe seleccionar un punto de emisión válido');
             }
@@ -104,13 +111,13 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
             }
 
             const dataNC = {
-                ambiente: AMBIENTE.PRUEBAS,
-                tipoEmision: TIPO_EMISION.NORMAL,
+                ambiente: '1',
+                tipoEmision: '1',
                 razonSocial: currentEmpresa.razonSocial,
                 nombreComercial: currentEmpresa.nombreComercial,
                 ruc: currentEmpresa.ruc,
-                estab: puntoEmi.sucursalCodigo,
-                ptoEmi: puntoEmi.codigo,
+                estab: puntoEmi.sucursalCodigo || puntoEmi.codigoEstablecimiento,
+                ptoEmi: puntoEmi.codigo || puntoEmi.codigoPunto,
                 secuencial: secuencialResponse.secuencial,
                 dirMatriz: currentEmpresa.direccionMatriz,
                 fechaEmision,
@@ -229,6 +236,26 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                         <p className="text-sm font-medium">{errorValidacion}</p>
                     </div>
                 )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4 border-b">
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
+                            <Hash size={16} className="text-sri-blue" /> Punto de Emisión *
+                        </label>
+                        <select
+                            value={puntoEmisionId}
+                            onChange={(e) => setPuntoEmisionId(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold text-sri-blue"
+                        >
+                            {puntosEmision.length === 0 && <option value="">No hay puntos disponibles</option>}
+                            {puntosEmision.map(p => (
+                                <option key={p.puntoEmisionId || p.id} value={p.puntoEmisionId || p.id}>
+                                    {p.nombrePunto || p.nombre || 'Punto'} ({p.codigoPunto || p.codigo}) - {p.nombreSucursal || p.sucursalNombre || 'Sucursal'}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-1">Secuencial NC *</label>

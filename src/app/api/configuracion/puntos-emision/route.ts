@@ -6,7 +6,7 @@ import { db } from '@/shared/infrastructure/database/postgresql';
  * GET /api/configuracion/puntos-emision
  * Lista puntos de emisión de las sucursales de la empresa
  */
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest): Promise<NextResponse> {
     const context = validateContext(req);
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
@@ -33,7 +33,13 @@ export async function GET(req: NextRequest) {
                              FROM configuracion.puntos_emision_secuenciales pes 
                              WHERE pes.punto_emision_id = pe.id),
                             '[]'::json
-                        ) as secuenciales
+                        ) as secuenciales,
+                        COALESCE(
+                            (SELECT json_agg(upe.usuario_id)
+                             FROM configuracion.usuarios_puntos_emision upe
+                             WHERE upe.punto_emision_id = pe.id AND upe.empresa_id = $1),
+                            '[]'::json
+                        ) as "usuariosAsignados"
                     FROM configuracion.puntos_emision pe
                     JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
                     WHERE s.empresa_id = $1
@@ -58,7 +64,7 @@ export async function GET(req: NextRequest) {
  * POST /api/configuracion/puntos-emision
  * Crea un nuevo punto de emisión
  */
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
     const context = validateContext(req);
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
@@ -74,7 +80,8 @@ export async function POST(req: NextRequest) {
             requiereAsignacion = true,
             permiteMultiplesUsuarios = true,
             descripcion = '',
-            secuenciales = []
+            secuenciales = [],
+            usuariosAsignados = [] // Array of user IDs
         } = body;
 
         if (!sucursalId || !codigo || !nombre) {
@@ -98,6 +105,16 @@ export async function POST(req: NextRequest) {
                     [id, seq.tipoComprobante, seq.secuencialActual]
                 );
             }
+
+            // 4. Asignar usuarios
+            for (const usuarioId of usuariosAsignados) {
+                await client.query(
+                    `INSERT INTO configuracion.usuarios_puntos_emision 
+                        (usuario_id, empresa_id, punto_emision_id, activo, es_principal, created_by) 
+                     VALUES ($1, $2, $3, true, false, $4)`,
+                    [usuarioId, context.empresaId, id, context.usuarioId]
+                );
+            }
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
         return NextResponse.json({ success: true, id, message: 'Punto de emisión creado exitosamente' }, { status: 201 });
@@ -111,7 +128,7 @@ export async function POST(req: NextRequest) {
  * PUT /api/configuracion/puntos-emision
  * Actualiza un punto de emisión existente
  */
-export async function PUT(req: NextRequest) {
+export async function PUT(req: NextRequest): Promise<NextResponse> {
     const context = validateContext(req);
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
@@ -128,7 +145,8 @@ export async function PUT(req: NextRequest) {
             requiereAsignacion,
             permiteMultiplesUsuarios,
             descripcion,
-            secuenciales = []
+            secuenciales = [],
+            usuariosAsignados = []
         } = body;
 
         if (!id || !sucursalId || !codigo || !nombre) {
@@ -174,6 +192,25 @@ export async function PUT(req: NextRequest) {
                         [id, seq.tipoComprobante, seq.secuencialActual]
                     );
                 }
+            }
+
+            // 3. Actualizar asignaciones de usuarios
+            // Primero eliminamos las que ya no están
+            await client.query(
+                `DELETE FROM configuracion.usuarios_puntos_emision 
+                 WHERE punto_emision_id = $1 AND empresa_id = $2`,
+                [id, context.empresaId]
+            );
+
+            // Re-insertamos las nuevas
+            for (const usuarioId of usuariosAsignados) {
+                await client.query(
+                    `INSERT INTO configuracion.usuarios_puntos_emision 
+                        (usuario_id, empresa_id, punto_emision_id, activo, es_principal, created_by) 
+                     VALUES ($1, $2, $3, true, false, $4)
+                     ON CONFLICT (usuario_id, empresa_id, punto_emision_id) DO UPDATE SET activo = true`,
+                    [usuarioId, context.empresaId, id, context.usuarioId]
+                );
             }
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 

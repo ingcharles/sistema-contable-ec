@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Save, FileText, UserPlus, Calculator, Plus, Trash2, CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { TARIFA_IVA, FORMA_PAGO, TIPO_IDENTIFICACION } from '@/modules/facturacion/domain/catalogos';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
 import { ComprasUseCases, ContabilidadUseCases, ConfiguracionUseCases, FacturacionUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -12,6 +11,7 @@ import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStanda
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { Producto } from '@/modules/inventario/domain/types';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
+import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 
 interface Props {
     onClose: () => void;
@@ -20,9 +20,10 @@ interface Props {
 
 export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     const { currentEmpresa } = useEmpresa();
+    const { puntoActivo } = usePuntoEmision();
 
-    const [estab, setEstab] = useState('001');
-    const [ptoEmi, setPtoEmi] = useState('001');
+    const [estab, setEstab] = useState(puntoActivo?.codigoEstablecimiento || '001');
+    const [ptoEmi, setPtoEmi] = useState(puntoActivo?.codigoPunto || '001');
     const [secuencial, setSecuencial] = useState('');
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [productos, setProductos] = useState<Producto[]>([]);
@@ -31,7 +32,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     const [nombre, setNombre] = useState('');
     const [identificacion, setIdentificacion] = useState('');
     const [direccion] = useState('');
-    const [tipoIdentificacion, setTipoIdentificacion] = useState(TIPO_IDENTIFICACION.CEDULA);
+    const [tipoIdentificacion, setTipoIdentificacion] = useState('05');
 
     const [detalles, setDetalles] = useState<any[]>([{
         productoId: '',
@@ -40,21 +41,55 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         cantidad: 1,
         precioUnitario: 0,
         descuento: 0,
-        codigoIVA: TARIFA_IVA.IVA_0,
+        codigoIVA: '0',
         baseImponible: 0,
         valorIVA: 0,
         total: 0
     }]);
 
     const [pagos, setPagos] = useState<any[]>([{
-        formaPago: FORMA_PAGO.SIN_SISTEMA_FINANCIERO,
+        formaPago: '01', // SIN UTILIZACION DEL SISTEMA FINANCIERO
         total: 0
     }]);
+
+    const [catalogoIdentificacion, setCatalogoIdentificacion] = useState<any[]>([]);
+    const [catalogoIva, setCatalogoIva] = useState<any[]>([]);
+    const [catalogoFormasPago, setCatalogoFormasPago] = useState<any[]>([]);
+    const [catalogoCodigoImpuesto, setCatalogoCodigoImpuesto] = useState<any[]>([]);
+    const [catalogoTipoEmision, setCatalogoTipoEmision] = useState<any[]>([]);
+    const [catalogoTipoComprobante, setCatalogoTipoComprobante] = useState<any[]>([]);
+    const [catalogoAmbiente, setCatalogoAmbiente] = useState<any[]>([]);
 
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [errorIdentificacion, setErrorIdentificacion] = useState('');
     const [identificacionValida, setIdentificacionValida] = useState(false);
+
+    useEffect(() => {
+        const cargarCatalogos = async () => {
+            try {
+                const [iden, iva, pagos, codImp, tEmi, tComp, ambRes] = await Promise.all([
+                    ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_IDENTIFICACION'),
+                    ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_IMPUESTO_IVA'),
+                    ConfiguracionUseCases.obtenerCatalogo('SRI_FORMA_PAGO'),
+                    ConfiguracionUseCases.obtenerCatalogo('SRI_CODIGO_IMPUESTO'),
+                    ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_EMISION'),
+                    ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_COMPROBANTE'),
+                    ConfiguracionUseCases.obtenerAmbientesSRI()
+                ]);
+                setCatalogoIdentificacion(iden);
+                setCatalogoIva(iva);
+                setCatalogoFormasPago(pagos);
+                setCatalogoCodigoImpuesto(codImp);
+                setCatalogoTipoEmision(tEmi);
+                setCatalogoTipoComprobante(tComp);
+                setCatalogoAmbiente(ambRes.ambientes || []);
+            } catch (error) {
+                console.error('Error al cargar catálogos:', error);
+            }
+        };
+        cargarCatalogos();
+    }, []);
 
     const calcularTotales = () => {
         let totalSinImpuestos = 0;
@@ -81,6 +116,14 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         }
     }, [totales.importeTotal]);
 
+    // Sincronizar con punto activo si cambia
+    useEffect(() => {
+        if (puntoActivo) {
+            setEstab(puntoActivo.codigoEstablecimiento);
+            setPtoEmi(puntoActivo.codigoPunto);
+        }
+    }, [puntoActivo]);
+
     const { parametros, cargarParametros } = useConfiguracion();
 
     useEffect(() => {
@@ -88,9 +131,9 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     }, [cargarParametros]);
 
     useEffect(() => {
-        if (!identificacion || tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL) {
+        if (!identificacion || tipoIdentificacion === '07') {
             setErrorIdentificacion('');
-            setIdentificacionValida(tipoIdentificacion === TIPO_IDENTIFICACION.CONSUMIDOR_FINAL);
+            setIdentificacionValida(tipoIdentificacion === '07');
             return;
         }
 
@@ -131,8 +174,8 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
 
         detalle.baseImponible = (detalle.cantidad * detalle.precioUnitario) - detalle.descuento;
         let porcentaje = 0;
-        if (detalle.codigoIVA === TARIFA_IVA.IVA_15) porcentaje = ivaPorcentaje;
-        else if (detalle.codigoIVA === TARIFA_IVA.IVA_12) porcentaje = 0.12;
+        if (detalle.codigoIVA === '4') porcentaje = ivaPorcentaje;
+        else if (detalle.codigoIVA === '2') porcentaje = 0.12;
 
         detalle.valorIVA = detalle.baseImponible * porcentaje;
         detalle.total = detalle.baseImponible + detalle.valorIVA;
@@ -154,14 +197,16 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
             const fullSecuencial = `${estab}-${ptoEmi}-${secuencial.padStart(9, '0')}`;
 
             const dataSri = SriStandardizer.standardizeLiquidacion({
-                ambiente: 'PRUEBAS',
-                tipoEmision: '1',
+                ambiente: catalogoAmbiente.find(a => a.codigo === 'PRUEBAS')?.valor.toString() || '1',
+                tipoEmision: catalogoTipoEmision.find(e => e.valor === 'NORMAL')?.codigo || '1',
                 razonSocial: currentEmpresa?.razonSocial || '',
                 nombreComercial: currentEmpresa?.nombreComercial || '',
                 ruc: currentEmpresa?.ruc || '',
                 estab,
                 ptoEmi,
                 secuencial: secuencial.padStart(9, '0'),
+                codDoc: catalogoTipoComprobante.find(c => c.valor === 'LIQUIDACIÓN DE COMPRA')?.codigo || '03',
+                codigoImpuestoIva: catalogoCodigoImpuesto.find(i => i.valor === 'IVA')?.codigo || '2',
                 dirMatriz: currentEmpresa?.direccionMatriz || '',
                 fechaEmision,
                 tipoIdentificacionProveedor: tipoIdentificacion,
@@ -174,6 +219,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                 importeTotal: totales.importeTotal,
                 detalles: detalles.map(d => ({
                     ...d,
+                    codigoImpuesto: catalogoCodigoImpuesto.find(i => i.valor === 'IVA')?.codigo || '2',
                     baseImponible: d.baseImponible,
                     valorIVA: d.valorIVA
                 })),
@@ -350,8 +396,9 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                         <div>
                             <label className="text-xs font-bold text-slate-500 mb-1 block">Tipo Identificación</label>
                             <select value={tipoIdentificacion} onChange={e => setTipoIdentificacion(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all">
-                                <option value={TIPO_IDENTIFICACION.CEDULA}>Cédula</option>
-                                <option value={TIPO_IDENTIFICACION.PASAPORTE}>Pasaporte</option>
+                                {catalogoIdentificacion.map(item => (
+                                    <option key={item.codigo} value={item.codigo}>{item.valor}</option>
+                                ))}
                             </select>
                         </div>
                         <div>
@@ -392,7 +439,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                         <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                             <Calculator size={18} className="text-sri-blue" /> Detalles de la Liquidación
                         </h3>
-                        <button onClick={() => setDetalles([...detalles, { codigoPrincipal: 'GEN-01', descripcion: '', cantidad: 1, precioUnitario: 0, descuento: 0, codigoIVA: TARIFA_IVA.IVA_0, baseImponible: 0, valorIVA: 0, total: 0 }])} className="px-4 py-2 bg-sri-blue/10 text-sri-blue rounded-xl text-xs font-black flex items-center gap-2 hover:bg-sri-blue hover:text-white transition-all">
+                        <button onClick={() => setDetalles([...detalles, { codigoPrincipal: 'GEN-01', descripcion: '', cantidad: 1, precioUnitario: 0, descuento: 0, codigoIVA: '0', baseImponible: 0, valorIVA: 0, total: 0 }])} className="px-4 py-2 bg-sri-blue/10 text-sri-blue rounded-xl text-xs font-black flex items-center gap-2 hover:bg-sri-blue hover:text-white transition-all">
                             <Plus size={16} /> Añadir Ítem
                         </button>
                     </div>
@@ -447,9 +494,9 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <select value={d.codigoIVA} onChange={e => handleActualizarDetalle(i, 'codigoIVA', e.target.value)} className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-black text-sri-blue outline-none border-none">
-                                                <option value={TARIFA_IVA.IVA_0}>0%</option>
-                                                <option value={TARIFA_IVA.IVA_15}>{parametros?.iva || 15}%</option>
-                                                <option value={TARIFA_IVA.IVA_12}>12%</option>
+                                                {catalogoIva.map(item => (
+                                                    <option key={item.codigo} value={item.codigo}>{item.valor}</option>
+                                                ))}
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-slate-800 text-lg font-mono">
@@ -478,7 +525,9 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                                 <div className="flex-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Forma de Pago</label>
                                     <select value={p.formaPago} onChange={e => { const np = [...pagos]; np[i].formaPago = e.target.value; setPagos(np); }} className="w-full bg-transparent text-sm font-bold text-slate-700 border-none outline-none p-0 focus:ring-0">
-                                        {Object.entries(FORMA_PAGO).map(([k, v]) => <option key={v} value={v}>{k.replace(/_/g, ' ')}</option>)}
+                                        {catalogoFormasPago.map(item => (
+                                            <option key={item.codigo} value={item.codigo}>{item.valor}</option>
+                                        ))}
                                     </select>
                                 </div>
                                 <div className="text-right">

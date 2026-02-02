@@ -11,7 +11,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { FacturaViewModel, DetalleFactura, PagoFactura } from '../../domain/FacturaViewModel';
-import { AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
@@ -105,9 +104,9 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     const [identificacionValida, setIdentificacionValida] = useState(false);
 
     // Datos del Comprobante
-    const [estab, setEstab] = useState(factura?.estab || puntoActivo?.codigoEstablecimiento || '001');
-    const [ptoEmi, setPtoEmi] = useState(factura?.ptoEmi || puntoActivo?.codigoPunto || '001');
-    const [secuencial, setSecuencial] = useState(factura?.secuencial || '');
+    const [estab, setEstab] = useState(factura?.estab || puntoActivo?.codigoEstablecimiento);
+    const [ptoEmi, setPtoEmi] = useState(factura?.ptoEmi || puntoActivo?.codigoPunto);
+    const [secuencial, setSecuencial] = useState(factura?.secuencial);
     const [fechaEmision, setFechaEmision] = useState(factura?.fechaEmision || new Date().toISOString().split('T')[0]);
 
     // Actualizar estab y ptoEmi cuando cambie el punto activo
@@ -326,15 +325,15 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
 
         const nuevaFactura: FacturaViewModel = {
             id: factura?.id,
-            ambiente: AMBIENTE.PRUEBAS,
-            tipoEmision: TIPO_EMISION.NORMAL,
+            ambiente: '1',
+            tipoEmision: '1',
             razonSocial: currentEmpresa.razonSocial,
             nombreComercial: currentEmpresa.nombreComercial,
             ruc: currentEmpresa.ruc,
             codDoc: '01',
-            estab,
-            ptoEmi,
-            secuencial,
+            estab: estab || '',
+            ptoEmi: ptoEmi || '',
+            secuencial: secuencial || '',
             dirMatriz: currentEmpresa.direccionMatriz,
             fechaEmision,
             tipoIdentificacionAdquirente: tipoIdentificacion,
@@ -381,13 +380,15 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                 subtotal: totales.totalSinImpuestos,
                 iva: totales.totalIVA,
                 total: totales.importeTotal,
+                totalDescuento: totales.totalDescuento,
                 detalles: detalles.map(d => ({
                     codigoPrincipal: d.codigoPrincipal,
                     descripcion: d.descripcion,
                     cantidad: d.cantidad,
                     precioUnitario: d.precioUnitario,
                     descuento: d.descuento,
-                    total: d.total
+                    total: d.total,
+                    codigoIVA: d.codigoIVA
                 })),
                 secuencial: parseInt(secuencial),
                 claveAcceso: sriResult.claveAcceso,

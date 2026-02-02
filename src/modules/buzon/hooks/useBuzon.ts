@@ -42,12 +42,22 @@ export const useBuzon = () => {
         }
     }, [cargarComprobantes]);
 
+    const procesarComprobante = useCallback(async (id: string, empresaId: string) => {
+        try {
+            await BuzonUseCases.procesarComprobante(id);
+            await cargarComprobantes(empresaId);
+        } catch (err: any) {
+            console.error('Error al procesar comprobante:', err);
+        }
+    }, [cargarComprobantes]);
+
     return {
         comprobantes,
         loading,
         importing,
         error,
         cargarComprobantes,
-        sincronizarSRI
+        sincronizarSRI,
+        procesarComprobante
     };
 };

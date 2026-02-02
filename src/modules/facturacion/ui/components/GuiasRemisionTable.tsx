@@ -4,7 +4,6 @@ import { Eye, FileCode, Send, Download } from 'lucide-react';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { EstadoBadge } from '@/shared/ui/EstadoBadge';
 import { GuiaRemision } from '@/modules/facturacion/domain/guias';
-import { AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 import { Empresa } from '@/shared/types';
 
@@ -70,7 +69,7 @@ export function GuiasRemisionTable({
                             // Estandarización para Guía de Remisión
                             const dataSri = {
                                 infoTributaria: {
-                                    ambiente: AMBIENTE.PRUEBAS, tipoEmision: TIPO_EMISION.NORMAL, razonSocial: currentEmpresa.razonSocial, ruc: currentEmpresa.ruc,
+                                    ambiente: '1', tipoEmision: '1', razonSocial: currentEmpresa.razonSocial, ruc: currentEmpresa.ruc,
                                     codDoc: '06', estab: '001', ptoEmi: '001', secuencial: row.secuencial, dirMatriz: currentEmpresa.direccionMatriz
                                 },
                                 infoGuiaRemision: {

@@ -6,7 +6,7 @@ import { db } from '@/shared/infrastructure/database/postgresql';
  * POST /api/configuracion/puntos-emision/activar
  * Activa un punto de emisión para el usuario actual
  */
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
     const context = validateContext(req);
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });

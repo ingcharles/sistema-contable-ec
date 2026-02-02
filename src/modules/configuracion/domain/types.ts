@@ -26,6 +26,7 @@ export interface PuntoEmision extends Auditable {
     requiereAsignacion?: boolean;
     permiteMultiplesUsuarios?: boolean;
     descripcion?: string;
+    usuariosAsignados?: string[]; // IDs of users assigned to this point
 }
 
 export interface UsuarioSistema extends Auditable {

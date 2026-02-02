@@ -21,25 +21,6 @@ END $$;
 -- TABLAS DE PLANES Y SUSCRIPCIONES
 -- ============================================================================
 
--- Tabla: seguridad.planes
-CREATE TABLE IF NOT EXISTS seguridad.planes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    codigo VARCHAR(50) UNIQUE NOT NULL,
-    nombre VARCHAR(100) NOT NULL,
-    precio_mensual DECIMAL(10, 2) NOT NULL,
-    activo BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-COMMENT ON TABLE seguridad.planes IS 'Catálogo de planes de suscripción disponibles en el sistema.';
-COMMENT ON COLUMN seguridad.planes.id IS 'Identificador único del plan';
-COMMENT ON COLUMN seguridad.planes.codigo IS 'Código único del plan (ej: GRATUITO, PROFESIONAL)';
-COMMENT ON COLUMN seguridad.planes.nombre IS 'Nombre comercial del plan';
-COMMENT ON COLUMN seguridad.planes.precio_mensual IS 'Costo mensual de la suscripción';
-COMMENT ON COLUMN seguridad.planes.activo IS 'Estado del plan para nuevas suscripciones';
-COMMENT ON COLUMN seguridad.planes.created_at IS 'Fecha de creación del registro';
-COMMENT ON COLUMN seguridad.planes.updated_at IS 'Fecha de última actualización';
 
 -- Tabla: seguridad.plan_caracteristicas
 CREATE TABLE IF NOT EXISTS seguridad.plan_caracteristicas (

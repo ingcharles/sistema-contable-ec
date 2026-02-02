@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowUpCircle, Plus, Trash2, FileText, Calendar, Hash, AlertCircle } from 'lucide-react';
+import { ArrowUpCircle, Plus, Trash2, FileText, Calendar, AlertCircle, Hash } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { Button } from '@/shared/ui/Button';
@@ -9,8 +9,8 @@ import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
 import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
+import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
-import { AMBIENTE, TIPO_EMISION, FORMA_PAGO } from '../../domain/catalogos';
 
 interface MotivoNotaDebito {
     razon: string;
@@ -26,28 +26,34 @@ interface NotaDebitoModalProps {
 export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalProps) {
     const { currentEmpresa } = useEmpresa();
     const { parametros, cargarParametros } = useConfiguracion();
+    const { puntoActivo, puntosDisponibles: puntosContext } = usePuntoEmision();
     const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
-    const [puntoEmisionId, setPuntoEmisionId] = useState('');
+    const [puntoEmisionId, setPuntoEmisionId] = useState(puntoActivo?.puntoEmisionId || '');
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [motivos, setMotivos] = useState<MotivoNotaDebito[]>([{ razon: '', valor: 0 }]);
-    const [formaPago] = useState(FORMA_PAGO.OTROS_CON_SISTEMA_FINANCIERO);
+    const [formaPago] = useState('20');
 
     useEffect(() => {
         cargarParametros();
         const cargarPuntos = async () => {
             try {
-                const puntos = await FacturacionUseCases.listarPuntosEmision();
-                setPuntosEmision(puntos);
-                if (puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+                if (puntosContext && puntosContext.length > 0) {
+                    setPuntosEmision(puntosContext);
+                    if (!puntoEmisionId) setPuntoEmisionId(puntosContext[0].puntoEmisionId || puntosContext[0].id);
+                } else {
+                    const puntos = await FacturacionUseCases.listarPuntosEmision();
+                    setPuntosEmision(puntos);
+                    if (!puntoEmisionId && puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+                }
             } catch (e) {
                 console.error('Error al cargar puntos de emisión:', e);
             }
         };
         cargarPuntos();
-    }, [cargarParametros]);
+    }, [puntosContext, puntoActivo]);
 
     const agregarMotivo = () => setMotivos([...motivos, { razon: '', valor: 0 }]);
     const eliminarMotivo = (index: number) => setMotivos(motivos.filter((_, i) => i !== index));
@@ -73,7 +79,7 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
         setGuardando(true);
         setErrorValidacion(null);
         try {
-            const puntoEmi = puntosEmision.find(p => p.id === puntoEmisionId);
+            const puntoEmi = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
             if (!puntoEmi) {
                 throw new Error('Debe seleccionar un punto de emisión válido');
             }
@@ -89,13 +95,13 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
             }
 
             const dataND = {
-                ambiente: AMBIENTE.PRUEBAS,
-                tipoEmision: TIPO_EMISION.NORMAL,
+                ambiente: '1',
+                tipoEmision: '1',
                 razonSocial: currentEmpresa.razonSocial,
                 nombreComercial: currentEmpresa.nombreComercial,
                 ruc: currentEmpresa.ruc,
-                estab: puntoEmi.sucursalCodigo,
-                ptoEmi: puntoEmi.codigo,
+                estab: (puntoEmi.sucursalCodigo || puntoEmi.codigoEstablecimiento),
+                ptoEmi: (puntoEmi.codigo || puntoEmi.codigoPunto),
                 secuencial: secuencialResponse.secuencial,
                 dirMatriz: currentEmpresa.direccionMatriz,
                 fechaEmision,
@@ -209,6 +215,26 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
                         <p className="text-sm font-medium">{errorValidacion}</p>
                     </div>
                 )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4 border-b">
+                    <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1">
+                            <Hash size={14} className="text-sri-blue" /> Punto de Emisión *
+                        </label>
+                        <select
+                            value={puntoEmisionId}
+                            onChange={(e) => setPuntoEmisionId(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-bold text-sri-blue"
+                        >
+                            {puntosEmision.length === 0 && <option value="">No hay puntos disponibles</option>}
+                            {puntosEmision.map(p => (
+                                <option key={p.puntoEmisionId || p.id} value={p.puntoEmisionId || p.id}>
+                                    {p.nombrePunto || p.nombre || 'Punto'} ({p.codigoPunto || p.codigo}) - {p.nombreSucursal || p.sucursalNombre || 'Sucursal'}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">

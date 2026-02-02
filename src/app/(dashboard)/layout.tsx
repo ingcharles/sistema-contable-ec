@@ -13,6 +13,87 @@ import { AsistenteFloating } from '@/shared/ui/AsistenteFloating';
 import { EmpresaModal } from '@/modules/configuracion/ui/components/EmpresaModal';
 import { useMenu } from '@/shared/hooks/useMenu';
 
+const RecursiveMenuItem = ({ item, pathname, onItemClick, depth = 0 }: { item: any, pathname: string, onItemClick: () => void, depth?: number }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const Icon = ICON_MAP[item.icono] || FileText;
+    const hasChildren = item.children && item.children.length > 0;
+
+    // Helper to check if any descendant is active
+    const isChildActive = React.useMemo(() => {
+        const check = (node: any): boolean => {
+            if (node.ruta === pathname) return true;
+            if (node.children) return node.children.some(check);
+            return false;
+        };
+        return item.children ? item.children.some(check) : false;
+    }, [item, pathname]);
+
+    const isActive = pathname === item.ruta;
+
+    React.useEffect(() => {
+        if (isChildActive) setIsOpen(true);
+    }, [isChildActive]);
+
+    if (hasChildren) {
+        return (
+            <div className="mb-0.5">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative
+                        ${isOpen || isChildActive ? 'text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}
+                    `}
+                    style={{ paddingLeft: `${depth * 0.8 + 1}rem` }}
+                >
+                    {/* Active Indicator for Parent */}
+                    {(isOpen || isChildActive) && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-sri-blue rounded-r-full" />
+                    )}
+
+                    <Icon size={18} className={`${isOpen || isChildActive ? 'text-white' : 'text-slate-500 group-hover:text-sky-400'} transition-colors duration-300`} />
+                    <span className="flex-1 text-left font-semibold tracking-wide">{item.etiqueta}</span>
+                    <ChevronDown size={14} className={`transition-transform duration-300 text-slate-500 ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="mt-0.5 space-y-0.5 relative">
+                        {/* Thread line */}
+                        <div className="absolute w-px bg-slate-800/50 h-full" style={{ left: `${depth * 0.8 + 1.25}rem` }} />
+                        {item.children.map((child: any) => (
+                            <RecursiveMenuItem
+                                key={child.id}
+                                item={child}
+                                pathname={pathname}
+                                onItemClick={onItemClick}
+                                depth={depth + 1}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <Link
+            href={item.ruta}
+            onClick={onItemClick}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden mb-0.5 ${isActive
+                ? 'bg-gradient-to-r from-sri-blue to-sri-light text-white shadow-lg shadow-sri-blue/30 scale-[1.02]'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+            style={{ paddingLeft: `${depth * 0.8 + 1}rem` }}
+        >
+            {isActive && (
+                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50" />
+            )}
+            <Icon size={18} className={`${isActive ? 'text-white' : 'text-slate-500 group-hover:text-sky-400'} transition-colors duration-300`} />
+            <span className="relative z-10">{item.etiqueta}</span>
+            {!isActive && (
+                <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-sri-blue scale-0 group-hover:scale-100 transition-transform duration-300" />
+            )}
+        </Link>
+    );
+};
+
 export default function DashboardLayout({
     children,
 }: {
@@ -29,7 +110,7 @@ export default function DashboardLayout({
 
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
-    // Cargar menú dinámico desde la DB (Ya viene filtrado por Rol y Plan desde el Backend)
+    // Cargar menú dinámico desde la DB
     React.useEffect(() => {
         cargarMenu();
     }, [cargarMenu]);
@@ -73,30 +154,14 @@ export default function DashboardLayout({
                                         ))}
                                     </div>
                                 ) : (
-                                    menuItems.map((item) => {
-                                        const Icon = ICON_MAP[item.iconName] || FileText;
-                                        const isActive = pathname === item.path;
-                                        return (
-                                            <Link
-                                                key={item.path}
-                                                href={item.path}
-                                                onClick={() => setSidebarOpen(false)}
-                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${isActive
-                                                    ? 'bg-gradient-to-r from-sri-blue to-sri-light text-white shadow-lg shadow-sri-blue/30 scale-[1.02]'
-                                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                                                    }`}
-                                            >
-                                                {isActive && (
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50" />
-                                                )}
-                                                <Icon size={18} className={`${isActive ? 'text-white' : 'text-slate-500 group-hover:text-sky-400'} transition-colors duration-300`} />
-                                                <span className="relative z-10">{item.label}</span>
-                                                {!isActive && (
-                                                    <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-sri-blue scale-0 group-hover:scale-100 transition-transform duration-300" />
-                                                )}
-                                            </Link>
-                                        );
-                                    })
+                                    menuItems.map((item) => (
+                                        <RecursiveMenuItem
+                                            key={item.id}
+                                            item={item}
+                                            pathname={pathname}
+                                            onItemClick={() => setSidebarOpen(false)}
+                                        />
+                                    ))
                                 )}
                             </>
                         ) : (

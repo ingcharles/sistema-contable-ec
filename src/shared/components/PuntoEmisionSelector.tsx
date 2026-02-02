@@ -66,7 +66,7 @@ export function PuntoEmisionSelector() {
 
                 {/* Info del punto activo */}
                 <div className="flex flex-col items-start">
-                    <span className="text-xs text-slate-500 font-medium">Punto de Emisión</span>
+                    <span className="text-xs text-slate-500 font-medium">{puntoActivo?.nombrePunto}</span>
                     <span className="text-sm font-bold text-slate-800">
                         {puntoActivo?.codigoCompleto || 'N/A'}
                     </span>

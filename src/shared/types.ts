@@ -117,6 +117,7 @@ export interface Factura extends Auditable {
     empresaId?: string;
     tipo?: TipoComprobante; // Para compatibilidad
     tipoComprobante?: string; // Lo que realmente viene de la API
+    tipoComprobanteNombre?: string;
     secuencial: string;
     fechaEmision: string;
     terceroNombre: string;

@@ -18,9 +18,10 @@ interface TerceroModalProps {
     onSave: () => void;
     empresaId: string;
     terceroEditar?: Tercero;
+    prefixedType?: TipoTercero;
 }
 
-export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: TerceroModalProps) => {
+export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar, prefixedType }: TerceroModalProps) => {
     const { getCatalogo } = useCatalogos(['SRI_TIPO_IDENTIFICACION']);
     const tiposIdentificacion = getCatalogo('SRI_TIPO_IDENTIFICACION');
 
@@ -31,7 +32,7 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
         identificacion: '',
         razonSocial: '',
         nombreComercial: '',
-        tipo: TipoTercero.CLIENTE,
+        tipo: prefixedType || TipoTercero.CLIENTE,
         direccion: '',
         telefono: '',
         celular: '',

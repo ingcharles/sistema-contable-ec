@@ -6,23 +6,25 @@ import { db } from '@/shared/infrastructure/database/postgresql';
  * GET /api/configuracion/puntos-emision/mis-puntos
  * Obtiene los puntos de emisión asignados al usuario actual
  */
-export async function GET(req: NextRequest) {
-    const context = validateContext(req);
+export async function GET(request: NextRequest) {
+    const context = validateContext(request);
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
     }
 
     try {
-        // Obtener puntos asignados
+        // Obtener puntos asignados con toda la info necesaria para el selector
         const result = await db.query(
             {
                 text: `
                     SELECT 
-                        pe.id,
-                        pe.codigo,
-                        pe.nombre,
-                        s.codigo as "sucursalCodigo",
-                        s.nombre as "sucursalNombre",
+                        upe.id,
+                        pe.id as "puntoEmisionId",
+                        pe.codigo as "codigoPunto",
+                        s.codigo as "codigoEstablecimiento",
+                        pe.nombre as "nombrePunto",
+                        s.nombre as "nombreSucursal",
+                        CONCAT(s.codigo, '-', pe.codigo) as "codigoCompleto",
                         upe.activo,
                         upe.es_principal as "esPrincipal",
                         upe.puede_cambiar as "puedeCambiar"
@@ -39,18 +41,12 @@ export async function GET(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        // Obtener punto activo usando la función almacenada (para doble verificación)
-        const puntoActivoResult = await db.query(
-            {
-                text: `SELECT * FROM configuracion.fn_obtener_punto_activo_usuario($1, $2)`,
-                values: [context.usuarioId, context.empresaId]
-            },
-            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
-        );
+        // El punto activo es el que tiene upe.activo = true en el resultado anterior
+        const puntoActivo = result.rows.find(p => p.activo) || null;
 
         return NextResponse.json({
             puntosAsignados: result.rows,
-            puntoActivo: puntoActivoResult.rows[0] || null
+            puntoActivo: puntoActivo
         });
 
     } catch (error: any) {

@@ -8,9 +8,9 @@
 
 // Remove unused React import
 import { FacturaViewModel } from '../../domain/FacturaViewModel';
-import { FORMA_PAGO } from '../../domain/catalogos';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { useEffect } from 'react';
+import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 interface FacturaRIDEProps {
     factura: FacturaViewModel;
@@ -18,14 +18,16 @@ interface FacturaRIDEProps {
 
 export function FacturaRIDE({ factura }: FacturaRIDEProps) {
     const { parametros, cargarParametros } = useConfiguracion();
+    const { getCatalogo } = useCatalogos(['SRI_FORMA_PAGO']);
+    const formasPagoCatalogo = getCatalogo('SRI_FORMA_PAGO');
 
     useEffect(() => {
         cargarParametros();
     }, []);
 
     const getNombreFormaPago = (codigo: string) => {
-        const entry = Object.entries(FORMA_PAGO).find(([_, val]) => val === codigo);
-        return entry ? entry[0].replace(/_/g, ' ') : 'OTROS CON SISTEMA FINANCIERO';
+        const item = formasPagoCatalogo.find(f => f.codigo === codigo);
+        return item ? item.valor : 'OTROS CON UTILIZACION DEL SISTEMA FINANCIERO';
     };
 
     return (
@@ -53,7 +55,17 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
                 <div className="border-2 border-slate-900 p-6 rounded-2xl space-y-3">
                     <div className="space-y-1">
                         <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{factura.ruc}</span></p>
-                        <p className="text-xl font-black uppercase bg-slate-900 text-white px-3 py-1 inline-block rounded-md">Factura</p>
+                        <p className="text-xl font-black uppercase bg-slate-900 text-white px-3 py-1 inline-block rounded-md">
+                            {
+                                factura.codDoc === '01' ? 'FACTURA' :
+                                    factura.codDoc === '03' ? 'LIQUIDACIÓN DE COMPRA' :
+                                        factura.codDoc === '04' ? 'NOTA DE CRÉDITO' :
+                                            factura.codDoc === '05' ? 'NOTA DE DÉBITO' :
+                                                factura.codDoc === '06' ? 'GUÍA DE REMISIÓN' :
+                                                    factura.codDoc === '07' ? 'COMPROBANTE DE RETENCIÓN' :
+                                                        'COMPROBANTE ELECTRÓNICO'
+                            }
+                        </p>
                         <p className="text-sm font-bold">No. {factura.estab}-{factura.ptoEmi}-{factura.secuencial}</p>
                     </div>
 
@@ -92,30 +104,63 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
 
             {/* Tabla de Detalles */}
             <div className="border border-slate-900 rounded-xl overflow-hidden mb-8">
-                <table className="w-full text-[10px] text-left">
-                    <thead className="bg-slate-900 text-white font-bold uppercase tracking-wider">
-                        <tr>
-                            <th className="px-3 py-2 border-r border-white/10">Cod. Principal</th>
-                            <th className="px-3 py-2 border-r border-white/10">Cant</th>
-                            <th className="px-3 py-2 border-r border-white/10">Descripción</th>
-                            <th className="px-3 py-2 border-r border-white/10 text-right">Precio Unitario</th>
-                            <th className="px-3 py-2 border-r border-white/10 text-right">Descuento</th>
-                            <th className="px-3 py-2 text-right">Precio Total</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                        {factura.detalles.map((detalle, idx) => (
-                            <tr key={idx}>
-                                <td className="px-3 py-2 border-r border-slate-200 font-mono">{detalle.codigoPrincipal}</td>
-                                <td className="px-3 py-2 border-r border-slate-200 text-center">{detalle.cantidad.toFixed(2)}</td>
-                                <td className="px-3 py-2 border-r border-slate-200 font-bold">{detalle.descripcion}</td>
-                                <td className="px-3 py-2 border-r border-slate-200 text-right">{detalle.precioUnitario.toFixed(2)}</td>
-                                <td className="px-3 py-2 border-r border-slate-200 text-right">{detalle.descuento.toFixed(2)}</td>
-                                <td className="px-3 py-2 text-right font-bold">{detalle.total.toFixed(2)}</td>
+                {factura.codDoc === '07' ? (
+                    // Tabla Específica para Retenciones
+                    <table className="w-full text-[10px] text-left">
+                        <thead className="bg-slate-900 text-white font-bold uppercase tracking-wider">
+                            <tr>
+                                <th className="px-3 py-2 border-r border-white/10">Comprobante</th>
+                                <th className="px-3 py-2 border-r border-white/10">Número</th>
+                                <th className="px-3 py-2 border-r border-white/10">Fecha Emisión</th>
+                                <th className="px-3 py-2 border-r border-white/10 text-right">Ejercicio Fiscal</th>
+                                <th className="px-3 py-2 border-r border-white/10 text-right">Base Imponible</th>
+                                <th className="px-3 py-2 border-r border-white/10 text-right">Impuesto</th>
+                                <th className="px-3 py-2 border-r border-white/10 text-right">Porcentaje</th>
+                                <th className="px-3 py-2 text-right">Valor Retenido</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                            {factura.detalles?.map((detalle, idx) => (
+                                <tr key={idx}>
+                                    <td className="px-3 py-2 border-r border-slate-200 uppercase">FACTURA</td>
+                                    <td className="px-3 py-2 border-r border-slate-200">{'000-000-000000000'}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 text-center">{factura.fechaEmision}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 text-center">{new Date(factura.fechaEmision).getFullYear()}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 text-right">{Number(detalle.baseImponible).toFixed(2)}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 text-right">{detalle.descripcion}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 text-right">{Number(detalle.precioUnitario).toFixed(2)}%</td>
+                                    <td className="px-3 py-2 text-right font-bold">{Number(detalle.total).toFixed(2)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : (
+                    // Tabla Estándar para Facturas, Notas Crédito, etc.
+                    <table className="w-full text-[10px] text-left">
+                        <thead className="bg-slate-900 text-white font-bold uppercase tracking-wider">
+                            <tr>
+                                <th className="px-3 py-2 border-r border-white/10">Cod. Principal</th>
+                                <th className="px-3 py-2 border-r border-white/10">Cant</th>
+                                <th className="px-3 py-2 border-r border-white/10">Descripción</th>
+                                <th className="px-3 py-2 border-r border-white/10 text-right">Precio Unitario</th>
+                                <th className="px-3 py-2 border-r border-white/10 text-right">Descuento</th>
+                                <th className="px-3 py-2 text-right">Precio Total</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                            {factura.detalles?.map((detalle, idx) => (
+                                <tr key={idx}>
+                                    <td className="px-3 py-2 border-r border-slate-200 font-mono">{detalle.codigoPrincipal}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 text-center">{Number(detalle.cantidad).toFixed(2)}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 font-bold">{detalle.descripcion}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 text-right">{Number(detalle.precioUnitario).toFixed(2)}</td>
+                                    <td className="px-3 py-2 border-r border-slate-200 text-right">{Number(detalle.descuento).toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-right font-bold">{Number(detalle.total).toFixed(2)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
 
             {/* Pie de Factura: Info Adicional, Pagos y Totales */}
@@ -146,7 +191,7 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
                                 {factura.pagos.map((pago, idx) => (
                                     <tr key={idx}>
                                         <td className="px-3 py-1.5 border-r border-slate-900 uppercase">{getNombreFormaPago(pago.formaPago)}</td>
-                                        <td className="px-3 py-1.5 border-r border-slate-900 text-right font-bold">{pago.total.toFixed(2)}</td>
+                                        <td className="px-3 py-1.5 border-r border-slate-900 text-right font-bold">{Number(pago.total).toFixed(2)}</td>
                                         <td className="px-3 py-1.5 border-r border-slate-900 text-center">{pago.plazo || 0}</td>
                                         <td className="px-3 py-1.5 text-center uppercase">{pago.unidadTiempo || 'Dias'}</td>
                                     </tr>
@@ -162,35 +207,35 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
                         <tbody className="divide-y divide-slate-900">
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal Sin Impuestos</td>
-                                <td className="px-3 py-1.5 text-right font-bold">{factura.totalSinImpuestos.toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right font-bold">{Number(factura.totalSinImpuestos || 0).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal {parametros?.iva || 15}%</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc, d) => acc + Number(d.baseImponible), 0).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal 0%</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '0').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '0').reduce((acc, d) => acc + Number(d.baseImponible), 0).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal No Objeto de IVA</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '6').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '6').reduce((acc, d) => acc + Number(d.baseImponible), 0).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal Exento de IVA</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '7').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '7').reduce((acc, d) => acc + Number(d.baseImponible), 0).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Total Descuento</td>
-                                <td className="px-3 py-1.5 text-right">{(factura.totalDescuento || 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right">{Number(factura.totalDescuento || 0).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA {parametros?.iva || 15}%</td>
-                                <td className="px-3 py-1.5 text-right font-bold">{(factura.totalIVA || 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right font-bold">{Number(factura.totalIVA || 0).toFixed(2)}</td>
                             </tr>
                             <tr className="bg-slate-900 text-white">
                                 <td className="px-3 py-2 font-black uppercase text-xs">Importe Total</td>
-                                <td className="px-3 py-2 text-right font-black text-xs">{(factura.importeTotal || 0).toFixed(2)}</td>
+                                <td className="px-3 py-2 text-right font-black text-xs">{Number(factura.importeTotal || 0).toFixed(2)}</td>
                             </tr>
                         </tbody>
                     </table>

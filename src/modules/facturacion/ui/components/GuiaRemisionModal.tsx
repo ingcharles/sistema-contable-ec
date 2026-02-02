@@ -9,9 +9,9 @@ import { MotivoTraslado } from '../../domain/guias';
 import { useTransportistas } from '../../hooks/useTransportistas';
 import { TransportistaModal } from './TransportistaModal';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
+import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 
 interface GuiaRemisionModalProps {
     facturaReferencia?: any;
@@ -22,10 +22,11 @@ interface GuiaRemisionModalProps {
 
 export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRemisionModalProps) => {
     const { currentEmpresa } = useEmpresa();
+    const { puntoActivo, puntosDisponibles: puntosContext } = usePuntoEmision();
     const { transportistas, cargarTransportistas } = useTransportistas();
     const [transportistaId, setTransportistaId] = useState('');
     const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
-    const [puntoEmisionId, setPuntoEmisionId] = useState('');
+    const [puntoEmisionId, setPuntoEmisionId] = useState(puntoActivo?.puntoEmisionId || '');
     const [puntoPartida, setPuntoPartida] = useState('Matriz / Bodega Principal');
     const [puntoDestino, setPuntoDestino] = useState(facturaReferencia?.direccion || '');
     const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().split('T')[0]);
@@ -37,17 +38,26 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
 
     useEffect(() => {
         cargarTransportistas();
+    }, [cargarTransportistas]);
+
+    useEffect(() => {
         const cargarPuntos = async () => {
             try {
-                const puntos = await FacturacionUseCases.listarPuntosEmision();
-                setPuntosEmision(puntos);
-                if (puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+                if (puntosContext && puntosContext.length > 0) {
+                    setPuntosEmision(puntosContext);
+                    if (!puntoEmisionId && puntoActivo) setPuntoEmisionId(puntoActivo.puntoEmisionId || puntosContext[0].id);
+                    else if (!puntoEmisionId && puntosContext.length > 0) setPuntoEmisionId(puntosContext[0].puntoEmisionId || puntosContext[0].id);
+                } else {
+                    const puntos = await FacturacionUseCases.listarPuntosEmision();
+                    setPuntosEmision(puntos);
+                    if (!puntoEmisionId && puntos.length > 0) setPuntoEmisionId(puntos[0].id);
+                }
             } catch (e) {
                 console.error('Error al cargar puntos de emisión:', e);
             }
         };
         cargarPuntos();
-    }, [cargarTransportistas]);
+    }, [puntosContext, puntoActivo, puntoEmisionId]);
 
     useEffect(() => {
         if (transportistas.length > 0 && !transportistaId) {
@@ -62,10 +72,14 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
         }
 
         const transportista = transportistas.find(t => t.id === transportistaId);
-        const puntoEmi = puntosEmision.find(p => p.id === puntoEmisionId);
+        const puntoEmi = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
 
         if (!transportista) {
             setErrorValidacion('Seleccione un transportista válido');
+            return;
+        }
+        if (!puntoEmi) {
+            setErrorValidacion('Debe seleccionar un punto de emisión válido');
             return;
         }
 
@@ -112,12 +126,12 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
             // 2. Preparar datos para SRI usando el secuencial generado por backend
             const dataGuia = {
                 ambiente: currentEmpresa.ambienteSri,
-                tipoEmision: TIPO_EMISION.NORMAL,
+                tipoEmision: '1',
                 razonSocial: currentEmpresa.razonSocial,
                 nombreComercial: currentEmpresa.nombreComercial,
                 ruc: currentEmpresa.ruc,
-                estab: puntoEmi?.sucursalCodigo,
-                ptoEmi: puntoEmi?.codigo,
+                estab: (puntoEmi.sucursalCodigo || puntoEmi.codigoEstablecimiento),
+                ptoEmi: (puntoEmi.codigo || puntoEmi.codigoPunto),
                 secuencial: savedGuiaResponse.secuencial,
                 dirMatriz: currentEmpresa.direccionMatriz,
                 dirPartida: puntoPartida,
@@ -227,9 +241,10 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                                 onChange={(e) => setPuntoEmisionId(e.target.value)}
                                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-bold text-sri-blue"
                             >
+                                {puntosEmision.length === 0 && <option value="">No hay puntos disponibles</option>}
                                 {puntosEmision.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.sucursalNombre} - {p.codigo.padStart(3, '0')} ({p.sucursalCodigo.padStart(3, '0')})
+                                    <option key={p.puntoEmisionId || p.id} value={p.puntoEmisionId || p.id}>
+                                        {p.nombrePunto || p.nombre || 'Punto'} ({p.codigoPunto || p.codigo}) - {p.nombreSucursal || p.sucursalNombre || 'Sucursal'}
                                     </option>
                                 ))}
                             </select>
