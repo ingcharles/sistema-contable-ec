@@ -45,11 +45,11 @@ export interface FacturaViewModel {
     dirEstablecimiento?: string;
     contribuyenteEspecial?: string;
     obligadoContabilidad: 'SI' | 'NO';
-    tipoIdentificacionAdquirente: string; // Catálogo 4
-    razonSocialAdquirente: string;
-    identificacionAdquirente: string;
-    direccionAdquirente?: string;
-    emailAdquirente?: string;
+    tipoIdentificacionComprador: string; // Catálogo 4
+    razonSocialComprador: string;
+    identificacionComprador: string;
+    direccionComprador?: string;
+    emailComprador?: string;
 
     detalles: DetalleFactura[];
 

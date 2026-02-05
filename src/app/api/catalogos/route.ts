@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
         const itemsResult = await db.querySimple({
             text: `
-                SELECT catalogo_codigo, codigo, valor, descripcion, orden
+                SELECT id, catalogo_codigo, codigo, valor, descripcion, orden, valor_numerico
                 FROM configuracion.catalogos_items 
                 WHERE catalogo_codigo = ANY($1) 
                 AND activo = true
@@ -45,9 +45,11 @@ export async function GET(req: NextRequest) {
         itemsResult.rows.forEach(item => {
             if (respuesta[item.catalogo_codigo]) {
                 respuesta[item.catalogo_codigo].push({
+                    id: item.id,
                     codigo: item.codigo,
                     valor: item.valor,
-                    descripcion: item.descripcion
+                    descripcion: item.descripcion,
+                    valorNumerico: item.valor_numerico ? Number(item.valor_numerico) : undefined
                 });
             }
         });

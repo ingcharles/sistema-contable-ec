@@ -307,14 +307,14 @@ INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUE
 ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
 
 -- C. SRI_TIPO_IMPUESTO_IVA
-INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor, descripcion, orden) VALUES
-('SRI_TIPO_IMPUESTO_IVA', '0', '0%', 'Tarifa 0% de IVA', 1),
-('SRI_TIPO_IMPUESTO_IVA', '2', '12%', 'Tarifa 12% de IVA', 2),
-('SRI_TIPO_IMPUESTO_IVA', '3', '14%', 'Tarifa 14% de IVA', 4),
-('SRI_TIPO_IMPUESTO_IVA', '4', '15%', 'Tarifa 15% de IVA', 3),
-('SRI_TIPO_IMPUESTO_IVA', '5', '5%', 'Tarifa 5% de IVA (Materiales construcción)', 5),
-('SRI_TIPO_IMPUESTO_IVA', '6', 'NO OBJETO DE IMPUESTO', 'No grava IVA', 6),
-('SRI_TIPO_IMPUESTO_IVA', '7', 'EXENTO DE IVA', 'Exento legal de IVA', 7)
+INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor, valor_numerico, descripcion, orden) VALUES
+('SRI_TIPO_IMPUESTO_IVA', '0', '0%', 0, 'Tarifa 0% de IVA', 1),
+('SRI_TIPO_IMPUESTO_IVA', '2', '12%', 12, 'Tarifa 12% de IVA', 2),
+('SRI_TIPO_IMPUESTO_IVA', '3', '14%', 14, 'Tarifa 14% de IVA', 4),
+('SRI_TIPO_IMPUESTO_IVA', '4', '15%', 15, 'Tarifa 15% de IVA', 3),
+('SRI_TIPO_IMPUESTO_IVA', '5', '5%', 5, 'Tarifa 5% de IVA (Materiales construcción)', 5),
+('SRI_TIPO_IMPUESTO_IVA', '6', 'NO OBJETO DE IMPUESTO', 0, 'No grava IVA', 6),
+('SRI_TIPO_IMPUESTO_IVA', '7', 'EXENTO DE IVA', 0, 'Exento legal de IVA', 7)
 ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
 
 -- D. SRI_FORMA_PAGO

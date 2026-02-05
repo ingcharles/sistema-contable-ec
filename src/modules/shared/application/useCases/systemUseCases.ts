@@ -453,6 +453,12 @@ export class FacturacionUseCases extends BaseUseCase {
             body: JSON.stringify(factura)
         });
     }
+    static async vender(venta: any) {
+        return this.request('/api/facturacion/vender', {
+            method: 'POST',
+            body: JSON.stringify(venta)
+        });
+    }
     static async registrarComprobante(comprobante: any) {
         return this.request('/api/facturacion/comprobantes', {
             method: 'POST',

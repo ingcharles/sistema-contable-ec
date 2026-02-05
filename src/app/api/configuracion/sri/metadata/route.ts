@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
-import { SriEnvironment } from '@/shared/sri-constants';
 import type { CertificadoApiResponse, EstadoCertificado } from '@/shared/types/certificado.types';
 
 /**
@@ -19,9 +18,9 @@ export async function GET(req: NextRequest) {
 
     try {
         const url = new URL(req.url);
-        const ambiente = url.searchParams.get('ambiente') || SriEnvironment.PRUEBAS;
+        const ambiente = url.searchParams.get('ambiente') || 'PRUEBAS';
 
-        if (![SriEnvironment.PRUEBAS, SriEnvironment.PRODUCCION].includes(ambiente as SriEnvironment)) {
+        if (!['PRUEBAS', 'PRODUCCION'].includes(ambiente)) {
             return NextResponse.json(
                 { error: 'Ambiente debe ser PRUEBAS o PRODUCCION' },
                 { status: 400 }
@@ -70,7 +69,7 @@ export async function GET(req: NextRequest) {
 
         if (result.rows.length === 0) {
             return NextResponse.json(
-                { 
+                {
                     error: `No se encontró certificado digital para ambiente ${ambiente}`,
                     tieneCertificado: false
                 },

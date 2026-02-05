@@ -11,7 +11,7 @@ export class AtsGenerator {
 
         // 1. Datos Empresa
         const empresa = (await db.querySimple<any>({
-            text: `SELECT ruc, razon_social, direccion_matriz FROM configuracion.empresas WHERE id = $1`,
+            text: `SELECT ruc, razon_social, direccion FROM seguridad.empresas WHERE id = $1`,
             values: [empresaId]
         })).rows[0];
 

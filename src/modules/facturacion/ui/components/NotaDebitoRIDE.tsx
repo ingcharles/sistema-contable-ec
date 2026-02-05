@@ -27,9 +27,11 @@ export interface NotaDebitoData {
     dirEstablecimiento?: string;
     contribuyenteEspecial?: string;
     obligadoContabilidad: string;
-    tipoIdentificacionAdquirente: string;
-    razonSocialAdquirente: string;
-    identificacionAdquirente: string;
+    tipoIdentificacionComprador: string;
+    razonSocialComprador: string;
+    identificacionComprador: string;
+    direccionComprador?: string;
+    emailComprador?: string;
     codDocModificado: string;
     numDocModificado: string;
     fechaEmisionDocSustento: string;
@@ -100,16 +102,31 @@ function parseNotaDebitoXml(xml: string): NotaDebitoData | null {
 
         // Parsear impuestos
         const impuestos: ImpuestoND[] = [];
-        const impuestoElements = infoNotaDebito.getElementsByTagName('impuesto');
-        for (let i = 0; i < impuestoElements.length; i++) {
-            const imp = impuestoElements[i];
-            impuestos.push({
-                codigo: getTextContent(imp, 'codigo'),
-                codigoPorcentaje: getTextContent(imp, 'codigoPorcentaje'),
-                tarifa: parseFloat(getTextContent(imp, 'tarifa')) || 0,
-                baseImponible: parseFloat(getTextContent(imp, 'baseImponible')) || 0,
-                valor: parseFloat(getTextContent(imp, 'valor')) || 0,
-            });
+        const impuestoElements = infoNotaDebito.getElementsByTagName('totalImpuesto');
+        if (impuestoElements.length === 0) {
+            // Reintentar con 'impuesto' si 'totalImpuesto' no existe
+            const reTryImpuestos = infoNotaDebito.getElementsByTagName('impuesto');
+            for (let i = 0; i < reTryImpuestos.length; i++) {
+                const imp = reTryImpuestos[i];
+                impuestos.push({
+                    codigo: getTextContent(imp, 'codigo'),
+                    codigoPorcentaje: getTextContent(imp, 'codigoPorcentaje'),
+                    tarifa: parseFloat(getTextContent(imp, 'tarifa')) || 0,
+                    baseImponible: parseFloat(getTextContent(imp, 'baseImponible')) || 0,
+                    valor: parseFloat(getTextContent(imp, 'valor')) || 0,
+                });
+            }
+        } else {
+            for (let i = 0; i < impuestoElements.length; i++) {
+                const imp = impuestoElements[i];
+                impuestos.push({
+                    codigo: getTextContent(imp, 'codigo'),
+                    codigoPorcentaje: getTextContent(imp, 'codigoPorcentaje'),
+                    tarifa: parseFloat(getTextContent(imp, 'tarifa')) || 0,
+                    baseImponible: parseFloat(getTextContent(imp, 'baseImponible')) || 0,
+                    valor: parseFloat(getTextContent(imp, 'valor')) || 0,
+                });
+            }
         }
 
         // Parsear motivos
@@ -138,7 +155,7 @@ function parseNotaDebitoXml(xml: string): NotaDebitoData | null {
             });
         }
 
-        return {
+        const parsedData: NotaDebitoData = {
             ambiente: getTextContent(infoTributaria, 'ambiente'),
             tipoEmision: getTextContent(infoTributaria, 'tipoEmision'),
             razonSocial: getTextContent(infoTributaria, 'razonSocial'),
@@ -154,9 +171,9 @@ function parseNotaDebitoXml(xml: string): NotaDebitoData | null {
             dirEstablecimiento: getTextContent(infoNotaDebito, 'dirEstablecimiento'),
             contribuyenteEspecial: getTextContent(infoNotaDebito, 'contribuyenteEspecial'),
             obligadoContabilidad: getTextContent(infoNotaDebito, 'obligadoContabilidad'),
-            tipoIdentificacionAdquirente: getTextContent(infoNotaDebito, 'tipoIdentificacionComprador'),
-            razonSocialAdquirente: getTextContent(infoNotaDebito, 'razonSocialComprador'),
-            identificacionAdquirente: getTextContent(infoNotaDebito, 'identificacionComprador'),
+            tipoIdentificacionComprador: getTextContent(infoNotaDebito, 'tipoIdentificacionComprador'),
+            razonSocialComprador: getTextContent(infoNotaDebito, 'razonSocialComprador'),
+            identificacionComprador: getTextContent(infoNotaDebito, 'identificacionComprador'),
             codDocModificado: getTextContent(infoNotaDebito, 'codDocModificado'),
             numDocModificado: getTextContent(infoNotaDebito, 'numDocModificado'),
             fechaEmisionDocSustento: getTextContent(infoNotaDebito, 'fechaEmisionDocSustento'),
@@ -166,6 +183,22 @@ function parseNotaDebitoXml(xml: string): NotaDebitoData | null {
             motivos,
             pagos,
         };
+
+        // Parsear Información Adicional
+        const infoAdicionalElements = doc.getElementsByTagName('campoAdicional');
+        for (let i = 0; i < infoAdicionalElements.length; i++) {
+            const campo = infoAdicionalElements[i];
+            const nombre = campo.getAttribute('nombre');
+            const valor = campo.textContent || '';
+
+            if (nombre === 'Direccion') {
+                parsedData.direccionComprador = valor;
+            } else if (nombre === 'Email') {
+                parsedData.emailComprador = valor;
+            }
+        }
+
+        return parsedData;
     } catch (error) {
         console.error('Error parseando XML de nota de débito:', error);
         return null;
@@ -261,8 +294,8 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
 
             {/* Datos del Adquirente y Documento Modificado */}
             <div className="border border-slate-900 p-4 rounded-xl mb-6 grid grid-cols-1 md:grid-cols-2 gap-y-2 text-[11px]">
-                <p><span className="font-bold">Razón Social / Nombres:</span> {notaDebito.razonSocialAdquirente}</p>
-                <p><span className="font-bold">Identificación:</span> {notaDebito.identificacionAdquirente}</p>
+                <p><span className="font-bold">Razón Social / Nombres:</span> {notaDebito.razonSocialComprador}</p>
+                <p><span className="font-bold">Identificación:</span> {notaDebito.identificacionComprador}</p>
                 <p><span className="font-bold">Fecha Emisión:</span> {notaDebito.fechaEmision}</p>
                 <p></p>
                 <p className="col-span-2 mt-2 pt-2 border-t border-slate-200">
@@ -300,10 +333,12 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
                     <h3 className="text-[10px] font-black uppercase tracking-widest border-b border-slate-200 pb-1 mb-2">Información Adicional</h3>
                     <div className="text-[9px] space-y-1">
                         <p><span className="font-bold uppercase">Tipo Identificación:</span> {
-                            notaDebito.tipoIdentificacionAdquirente === '04' ? 'RUC' :
-                                notaDebito.tipoIdentificacionAdquirente === '05' ? 'CÉDULA' :
-                                    notaDebito.tipoIdentificacionAdquirente === '06' ? 'PASAPORTE' : 'OTRO'
+                            notaDebito.tipoIdentificacionComprador === '04' ? 'RUC' :
+                                notaDebito.tipoIdentificacionComprador === '05' ? 'CÉDULA' :
+                                    notaDebito.tipoIdentificacionComprador === '06' ? 'PASAPORTE' : 'OTRO'
                         }</p>
+                        <p><span className="font-bold uppercase">Dirección:</span> {notaDebito.direccionComprador || 'N/A'}</p>
+                        <p><span className="font-bold uppercase">Email:</span> {notaDebito.emailComprador || 'N/A'}</p>
                     </div>
                 </div>
 

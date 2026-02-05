@@ -44,3 +44,15 @@ export function sriToIsoDate(sriDate: string): string {
     const [dia, mes, anio] = sriDate.split('/');
     return `${anio}-${mes}-${dia}`;
 }
+
+/**
+ * Obtiene la fecha actual en formato ISO local (YYYY-MM-DD)
+ * Evita problemas de zona horaria (UTC vs Local)
+ */
+export function getLocalDateIso(): string {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}

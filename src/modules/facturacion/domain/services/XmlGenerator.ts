@@ -23,11 +23,11 @@ export class XmlGenerator {
             xml += `    <contribuyenteEspecial>${data.infoFactura.contribuyenteEspecial}</contribuyenteEspecial>\n`;
         }
         xml += `    <obligadoContabilidad>${data.infoFactura.obligadoContabilidad}</obligadoContabilidad>\n`;
-        xml += `    <tipoIdentificacionAdquirente>${data.infoFactura.tipoIdentificacionAdquirente}</tipoIdentificacionAdquirente>\n`;
-        xml += `    <razonSocialAdquirente>${this.escapeXml(data.infoFactura.razonSocialAdquirente)}</razonSocialAdquirente>\n`;
-        xml += `    <identificacionAdquirente>${data.infoFactura.identificacionAdquirente}</identificacionAdquirente>\n`;
-        if (data.infoFactura.direccionAdquirente) {
-            xml += `    <direccionAdquirente>${this.escapeXml(data.infoFactura.direccionAdquirente)}</direccionAdquirente>\n`;
+        xml += `    <tipoIdentificacionComprador>${data.infoFactura.tipoIdentificacionComprador}</tipoIdentificacionComprador>\n`;
+        xml += `    <razonSocialComprador>${this.escapeXml(data.infoFactura.razonSocialComprador)}</razonSocialComprador>\n`;
+        xml += `    <identificacionComprador>${data.infoFactura.identificacionComprador}</identificacionComprador>\n`;
+        if (data.infoFactura.direccionComprador) {
+            xml += `    <direccionComprador>${this.escapeXml(data.infoFactura.direccionComprador)}</direccionComprador>\n`;
         }
         xml += `    <totalSinImpuestos>${data.infoFactura.totalSinImpuestos.toFixed(2)}</totalSinImpuestos>\n`;
         xml += `    <totalDescuento>${data.infoFactura.totalDescuento.toFixed(2)}</totalDescuento>\n`;
@@ -91,6 +91,10 @@ export class XmlGenerator {
             xml += '    </detalle>\n';
         });
         xml += '  </detalles>\n';
+
+        if (data.infoAdicional && data.infoAdicional.length > 0) {
+            xml += this.generateInfoAdicional(data.infoAdicional);
+        }
 
         xml += '</factura>';
         return xml;
@@ -180,6 +184,10 @@ export class XmlGenerator {
         });
         xml += '  </detalles>\n';
 
+        if (data.infoAdicional && data.infoAdicional.length > 0) {
+            xml += this.generateInfoAdicional(data.infoAdicional);
+        }
+
         xml += '</liquidacionCompra>';
         return xml;
     }
@@ -199,9 +207,9 @@ export class XmlGenerator {
         xml += '  <infoNotaCredito>\n';
         xml += `    <fechaEmision>${data.infoNotaCredito.fechaEmision}</fechaEmision>\n`;
         xml += `    <dirEstablecimiento>${this.escapeXml(data.infoNotaCredito.dirEstablecimiento)}</dirEstablecimiento>\n`;
-        xml += `    <tipoIdentificacionAdquirente>${data.infoNotaCredito.tipoIdentificacionAdquirente}</tipoIdentificacionAdquirente>\n`;
-        xml += `    <razonSocialAdquirente>${this.escapeXml(data.infoNotaCredito.razonSocialAdquirente)}</razonSocialAdquirente>\n`;
-        xml += `    <identificacionAdquirente>${data.infoNotaCredito.identificacionAdquirente}</identificacionAdquirente>\n`;
+        xml += `    <tipoIdentificacionComprador>${data.infoNotaCredito.tipoIdentificacionComprador}</tipoIdentificacionComprador>\n`;
+        xml += `    <razonSocialComprador>${this.escapeXml(data.infoNotaCredito.razonSocialComprador)}</razonSocialComprador>\n`;
+        xml += `    <identificacionComprador>${data.infoNotaCredito.identificacionComprador}</identificacionComprador>\n`;
         if (data.infoNotaCredito.contribuyenteEspecial) {
             xml += `    <contribuyenteEspecial>${data.infoNotaCredito.contribuyenteEspecial}</contribuyenteEspecial>\n`;
         }
@@ -254,6 +262,10 @@ export class XmlGenerator {
         });
         xml += '  </detalles>\n';
 
+        if (data.infoAdicional && data.infoAdicional.length > 0) {
+            xml += this.generateInfoAdicional(data.infoAdicional);
+        }
+
         xml += '</notaCredito>';
         return xml;
     }
@@ -273,9 +285,9 @@ export class XmlGenerator {
         xml += '  <infoNotaDebito>\n';
         xml += `    <fechaEmision>${data.infoNotaDebito.fechaEmision}</fechaEmision>\n`;
         xml += `    <dirEstablecimiento>${this.escapeXml(data.infoNotaDebito.dirEstablecimiento)}</dirEstablecimiento>\n`;
-        xml += `    <tipoIdentificacionAdquirente>${data.infoNotaDebito.tipoIdentificacionAdquirente}</tipoIdentificacionAdquirente>\n`;
-        xml += `    <razonSocialAdquirente>${this.escapeXml(data.infoNotaDebito.razonSocialAdquirente)}</razonSocialAdquirente>\n`;
-        xml += `    <identificacionAdquirente>${data.infoNotaDebito.identificacionAdquirente}</identificacionAdquirente>\n`;
+        xml += `    <tipoIdentificacionComprador>${data.infoNotaDebito.tipoIdentificacionComprador}</tipoIdentificacionComprador>\n`;
+        xml += `    <razonSocialComprador>${this.escapeXml(data.infoNotaDebito.razonSocialComprador)}</razonSocialComprador>\n`;
+        xml += `    <identificacionComprador>${data.infoNotaDebito.identificacionComprador}</identificacionComprador>\n`;
         if (data.infoNotaDebito.contribuyenteEspecial) {
             xml += `    <contribuyenteEspecial>${data.infoNotaDebito.contribuyenteEspecial}</contribuyenteEspecial>\n`;
         }
@@ -321,6 +333,10 @@ export class XmlGenerator {
         });
         xml += '  </motivos>\n';
 
+        if (data.infoAdicional && data.infoAdicional.length > 0) {
+            xml += this.generateInfoAdicional(data.infoAdicional);
+        }
+
         xml += '</notaDebito>';
         return xml;
     }
@@ -351,7 +367,7 @@ export class XmlGenerator {
             xml += `    <obligadoContabilidad>${data.infoCompRetencion.obligadoContabilidad}</obligadoContabilidad>\n`;
         }
         xml += `    <tipoIdentificacionSujetoRetenido>${data.infoCompRetencion.tipoIdentificacionSujetoRetenido}</tipoIdentificacionSujetoRetenido>\n`;
-        
+
         // IMPORTANTE: tipoSujetoRetenido solo se incluye para identificación del EXTERIOR
         // NO se debe incluir para RUC (04), Cédula (05), ni Consumidor Final (07)
         // Solo aplica para tipos: 06 (Pasaporte), 08 (Identificación exterior)
@@ -359,7 +375,7 @@ export class XmlGenerator {
         if (tipoIdExterior.includes(data.infoCompRetencion.tipoIdentificacionSujetoRetenido) && data.infoCompRetencion.tipoSujetoRetenido) {
             xml += `    <tipoSujetoRetenido>${data.infoCompRetencion.tipoSujetoRetenido}</tipoSujetoRetenido>\n`;
         }
-        
+
         // parteRel es obligatorio en v2.0.0
         xml += `    <parteRel>${data.infoCompRetencion.parteRel || 'NO'}</parteRel>\n`;
         xml += `    <razonSocialSujetoRetenido>${this.escapeXml(data.infoCompRetencion.razonSocialSujetoRetenido)}</razonSocialSujetoRetenido>\n`;
@@ -369,7 +385,7 @@ export class XmlGenerator {
 
         // Documentos Sustento (estructura v2.0.0)
         xml += '  <docsSustento>\n';
-        
+
         // Agrupar impuestos por documento sustento
         const docsSustentoMap = new Map<string, any[]>();
         data.impuestos.forEach((imp: any) => {
@@ -383,12 +399,12 @@ export class XmlGenerator {
         docsSustentoMap.forEach((retenciones, key) => {
             const [codDocSustento, numDocSustento, fechaEmisionDocSustento] = key.split('|');
             const primerImp = retenciones[0];
-            
+
             // Totales correctos del documento sustento (no dependen de retenciones)
             const totalSinImpuestos = Number(primerImp.totalSinImpuestosDocSustento ?? 0);
             const baseImponibleIvaDoc = Number(primerImp.baseImponibleIvaDocSustento ?? totalSinImpuestos);
             const importeTotal = Number(primerImp.importeTotalDocSustento ?? (totalSinImpuestos + (primerImp.ivaDocSustento || 0)));
-            
+
             xml += '    <docSustento>\n';
             xml += `      <codSustento>${primerImp.codSustento || '01'}</codSustento>\n`;
             xml += `      <codDocSustento>${codDocSustento.padStart(2, '0')}</codDocSustento>\n`;
@@ -403,7 +419,7 @@ export class XmlGenerator {
             xml += `      <pagoLocExt>${primerImp.pagoLocExt || '01'}</pagoLocExt>\n`;
             xml += `      <totalSinImpuestos>${totalSinImpuestos.toFixed(2)}</totalSinImpuestos>\n`;
             xml += `      <importeTotal>${importeTotal.toFixed(2)}</importeTotal>\n`;
-            
+
             // Impuestos del documento sustento
             // Impuestos del documento sustento - formato entero para tarifa según XSD
             xml += '      <impuestosDocSustento>\n';
@@ -416,7 +432,7 @@ export class XmlGenerator {
             xml += `          <valorImpuesto>${Number(primerImp.ivaDocSustento || 0).toFixed(2)}</valorImpuesto>\n`;
             xml += '        </impuestoDocSustento>\n';
             xml += '      </impuestosDocSustento>\n';
-            
+
             // Retenciones - porcentajeRetener debe ser entero según XSD
             xml += '      <retenciones>\n';
             retenciones.forEach((ret: any) => {
@@ -430,7 +446,7 @@ export class XmlGenerator {
                 xml += '        </retencion>\n';
             });
             xml += '      </retenciones>\n';
-            
+
             // Pagos (obligatorio en v2.0.0)
             xml += '      <pagos>\n';
             xml += '        <pago>\n';
@@ -438,11 +454,15 @@ export class XmlGenerator {
             xml += `          <total>${importeTotal.toFixed(2)}</total>\n`;
             xml += '        </pago>\n';
             xml += '      </pagos>\n';
-            
+
             xml += '    </docSustento>\n';
         });
-        
+
         xml += '  </docsSustento>\n';
+
+        if (data.infoAdicional && data.infoAdicional.length > 0) {
+            xml += this.generateInfoAdicional(data.infoAdicional);
+        }
 
         xml += '</comprobanteRetencion>';
         return xml;
@@ -504,6 +524,10 @@ export class XmlGenerator {
             xml += '    </destinatario>\n';
         });
         xml += '  </destinatarios>\n';
+
+        if (data.infoAdicional && data.infoAdicional.length > 0) {
+            xml += this.generateInfoAdicional(data.infoAdicional);
+        }
 
         xml += '</guiaRemision>';
         return xml;
@@ -587,5 +611,15 @@ export class XmlGenerator {
             }
         });
     }
-}
 
+    private static generateInfoAdicional(infoAdicional: any[]): string {
+        let xml = '  <infoAdicional>\n';
+        infoAdicional.forEach((item: any) => {
+            if (item.valor && item.valor !== 'N/A') {
+                xml += `    <campoAdicional nombre="${this.escapeXml(item.nombre)}">${this.escapeXml(item.valor)}</campoAdicional>\n`;
+            }
+        });
+        xml += '  </infoAdicional>\n';
+        return xml;
+    }
+}

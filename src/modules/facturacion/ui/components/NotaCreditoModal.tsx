@@ -10,6 +10,7 @@ import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Modal } from '@/shared/ui/Modal';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
+import { getLocalDateIso } from '@/shared/utils/dateUtils';
 
 interface ItemNotaCredito {
     id: string;
@@ -55,7 +56,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
     }, [puntosContext, puntoActivo]);
 
     const [motivo, setMotivo] = useState('');
-    const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaEmision, setFechaEmision] = useState(getLocalDateIso());
     const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
@@ -121,9 +122,9 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                 secuencial: secuencialResponse.secuencial,
                 dirMatriz: currentEmpresa.direccionMatriz,
                 fechaEmision,
-                tipoIdentificacionAdquirente: factura.tipoIdentificacionAdquirente,
-                razonSocialAdquirente: factura.razonSocialAdquirente,
-                identificacionAdquirente: factura.identificacionAdquirente,
+                tipoIdentificacionComprador: factura.tipoIdentificacionComprador,
+                razonSocialComprador: factura.razonSocialComprador,
+                identificacionComprador: factura.identificacionComprador,
                 codDocModificado: '01',
                 numDocModificado: factura.secuencial,
                 fechaEmisionDocSustento: factura.fechaEmision,
@@ -142,7 +143,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                 }))
             };
 
-            const jsonSri = SriStandardizer.standardizeNotaCredito(dataNC, parametros?.iva || 15);
+            const jsonSri = SriStandardizer.standardizeNotaCredito(dataNC);
 
             let sriResult = {
                 success: false,
@@ -167,9 +168,9 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
             await FacturacionUseCases.registrarComprobante({
                 tipoComprobante: 'NOTA_CREDITO',
                 fechaEmision,
-                clienteId: factura.identificacionAdquirente,
-                clienteNombre: factura.razonSocialAdquirente,
-                clienteIdentificacion: factura.identificacionAdquirente,
+                clienteId: factura.clienteId,
+                clienteNombre: factura.razonSocialComprador,
+                clienteIdentificacion: factura.identificacionComprador,
                 subtotal: subtotalDevolucion,
                 iva: ivaDevolucion,
                 total: totalDevolucion,
@@ -184,7 +185,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
             await ContabilidadUseCases.registrarAsiento({
                 numero: `AS-NC-${secuencialResponse.secuencial}`,
                 fecha: fechaEmision,
-                glosa: `P/R Nota de Crédito ${secuencialResponse.secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialAdquirente}`,
+                glosa: `P/R Nota de Crédito ${secuencialResponse.secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialComprador}`,
                 tipo: 'EGRESO',
                 detalles: [
                     { cuentaCodigo: parametros?.cuentaDevolucionVentas || '4.1.01.02', debe: subtotalDevolucion, haber: 0 },

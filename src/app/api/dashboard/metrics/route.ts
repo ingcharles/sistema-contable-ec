@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
                 SELECT COALESCE(SUM(total), 0) as total
                 FROM facturacion.comprobantes_electronicos
                 WHERE empresa_id = $1 
-                AND tipo_comprobante = 'FACTURA'
+                AND tipo_comprobante = '01'
                 AND fecha_emision = CURRENT_DATE
                 AND estado = 'AUTORIZADO'
             `, [context.empresaId]);
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
                 SELECT COALESCE(SUM(total), 0) as total
                 FROM facturacion.comprobantes_electronicos
                 WHERE empresa_id = $1 
-                AND tipo_comprobante = 'FACTURA'
+                AND tipo_comprobante = '01'
                 AND estado = 'AUTORIZADO'
                 AND date_trunc('month', fecha_emision) = date_trunc('month', CURRENT_DATE)
             `, [context.empresaId]);

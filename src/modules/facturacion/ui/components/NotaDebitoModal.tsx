@@ -11,6 +11,7 @@ import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/appl
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
+import { getLocalDateIso } from '@/shared/utils/dateUtils';
 
 interface MotivoNotaDebito {
     razon: string;
@@ -29,7 +30,7 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
     const { puntoActivo, puntosDisponibles: puntosContext } = usePuntoEmision();
     const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
     const [puntoEmisionId, setPuntoEmisionId] = useState(puntoActivo?.puntoEmisionId || '');
-    const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaEmision, setFechaEmision] = useState(getLocalDateIso());
     const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
@@ -106,9 +107,9 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
                 dirMatriz: currentEmpresa.direccionMatriz,
                 fechaEmision,
                 obligadoContabilidad: 'SI',
-                tipoIdentificacionAdquirente: factura.tipoIdentificacionAdquirente,
-                razonSocialAdquirente: factura.razonSocialAdquirente,
-                identificacionAdquirente: factura.identificacionAdquirente,
+                tipoIdentificacionComprador: factura.tipoIdentificacionComprador,
+                razonSocialComprador: factura.razonSocialComprador,
+                identificacionComprador: factura.identificacionComprador,
                 codDocModificado: '01',
                 numDocModificado: factura.secuencial,
                 fechaEmisionDocSustento: factura.fechaEmision,
@@ -145,9 +146,9 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
             await FacturacionUseCases.registrarComprobante({
                 tipoComprobante: 'NOTA_DEBITO',
                 fechaEmision,
-                clienteId: factura.identificacionAdquirente,
-                clienteNombre: factura.razonSocialAdquirente,
-                clienteIdentificacion: factura.identificacionAdquirente,
+                clienteId: factura.clienteId,
+                clienteNombre: factura.razonSocialComprador,
+                clienteIdentificacion: factura.identificacionComprador,
                 subtotal: subtotal,
                 iva: iva,
                 total: total,
@@ -162,7 +163,7 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
             await ContabilidadUseCases.registrarAsiento({
                 numero: `AS-ND-${secuencialResponse.secuencial}`,
                 fecha: fechaEmision,
-                glosa: `P/R Nota de Débito ${secuencialResponse.secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialAdquirente}`,
+                glosa: `P/R Nota de Débito ${secuencialResponse.secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialComprador}`,
                 tipo: 'INGRESO',
                 detalles: [
                     { cuentaCodigo: parametros?.cuentaCxcClientes || '1.1.02.01', debe: total, haber: 0 },

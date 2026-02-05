@@ -8,6 +8,7 @@ import { ContabilidadUseCases } from '@/modules/shared/application/useCases/syst
 import { Button } from '@/shared/ui/Button';
 import { useToast } from '@/shared/context/ToastContext';
 import { CuentaContable } from '@/shared/types';
+import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 export default function ParametrosConfigPage() {
     const { currentEmpresa } = useEmpresa();
@@ -15,6 +16,10 @@ export default function ParametrosConfigPage() {
     const { showToast } = useToast();
     const [planCuentasMovimiento, setPlanCuentasMovimiento] = useState<CuentaContable[]>([]);
 
+    // Cargar Catálogo IVA
+    const { getCatalogo } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA']);
+    const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
+    console.log("a", tarifasIVA);
     useEffect(() => {
         if (!currentEmpresa) return;
         cargarParametros();
@@ -63,13 +68,23 @@ export default function ParametrosConfigPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">IVA General (%)</label>
-                            <input
-                                type="number"
-                                value={parametros.iva}
-                                onChange={e => setParametros({ ...parametros, iva: Number(e.target.value) })}
-                                className="w-full border rounded-lg p-2.5 text-sm"
-                            />
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">
+                                    Tarifa de IVA por Defecto (Catálogo SRI)
+                                </label>
+                                <select
+                                    value={parametros.ivaCatalogoItemId || ''}
+                                    onChange={e => {
+                                        setParametros({ ...parametros, ivaCatalogoItemId: e.target.value })
+                                    }}
+                                    className="w-full border rounded-lg p-2.5 text-sm"
+                                >
+                                    {tarifasIVA.map(t => (
+                                        <option key={t.id} value={t.id}>{t.valor} ({t.codigo})</option>
+                                    ))}
+
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">Máximo Consumidor Final ($)</label>

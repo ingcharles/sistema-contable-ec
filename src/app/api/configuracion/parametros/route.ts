@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
             {
                 text: `
                     SELECT 
-                        sbu, iva, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
+                        sbu, iva_catalogo_item_id, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
                         cuenta_iva_compras, cuenta_ret_renta_por_pagar, cuenta_cxc_clientes,
                         cuenta_anticipo_clientes, cuenta_cxp_proveedores, cuenta_anticipo_proveedores,
                         cuenta_ventas, cuenta_devolucion_ventas, cuenta_compras, cuenta_inventario,
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
             // Valores por defecto si no existen
             return NextResponse.json({
                 sbu: 460,
-                iva: 15,
+                ivaCatalogoItemId: null,
                 maxConsumidorFinal: 50,
                 cuentaCaja: '1.1.01.01',
                 cuentaIvaVentas: '2.1.07.01',
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
         // CamelCase mapping
         return NextResponse.json({
             sbu: Number(row.sbu),
-            iva: Number(row.iva),
+            ivaCatalogoItemId: row.iva_catalogo_item_id,
             maxConsumidorFinal: Number(row.max_consumidor_final),
             cuentaCaja: row.cuenta_caja,
             cuentaIvaVentas: row.cuenta_iva_ventas,
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const {
-            sbu, iva, maxConsumidorFinal, cuentaCaja, cuentaIvaVentas,
+            sbu, ivaCatalogoItemId, maxConsumidorFinal, cuentaCaja, cuentaIvaVentas,
             cuentaIvaCompras, cuentaRetRentaPorPagar, cuentaCxcClientes,
             cuentaAnticipoClientes, cuentaCxpProveedores, cuentaAnticipoProveedores,
             cuentaVentas, cuentaDevolucionVentas, cuentaCompras, cuentaInventario,
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
             {
                 text: `
                     INSERT INTO configuracion.parametros (
-                        empresa_id, sbu, iva, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
+                        empresa_id, sbu, iva_catalogo_item_id, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
                         cuenta_iva_compras, cuenta_ret_renta_por_pagar, cuenta_cxc_clientes,
                         cuenta_anticipo_clientes, cuenta_cxp_proveedores, cuenta_anticipo_proveedores,
                         cuenta_ventas, cuenta_devolucion_ventas, cuenta_compras, cuenta_inventario,
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), $22)
                     ON CONFLICT (empresa_id) DO UPDATE SET
                         sbu = EXCLUDED.sbu,
-                        iva = EXCLUDED.iva,
+                        iva_catalogo_item_id = EXCLUDED.iva_catalogo_item_id,
                         max_consumidor_final = EXCLUDED.max_consumidor_final,
                         cuenta_caja = EXCLUDED.cuenta_caja,
                         cuenta_iva_ventas = EXCLUDED.cuenta_iva_ventas,
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
                         updated_by = EXCLUDED.updated_by
                 `,
                 values: [
-                    context.empresaId, sbu, iva, maxConsumidorFinal, cuentaCaja, cuentaIvaVentas,
+                    context.empresaId, sbu, ivaCatalogoItemId, maxConsumidorFinal, cuentaCaja, cuentaIvaVentas,
                     cuentaIvaCompras, cuentaRetRentaPorPagar, cuentaCxcClientes,
                     cuentaAnticipoClientes, cuentaCxpProveedores, cuentaAnticipoProveedores,
                     cuentaVentas, cuentaDevolucionVentas, cuentaCompras, cuentaInventario,

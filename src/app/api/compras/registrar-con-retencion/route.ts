@@ -4,7 +4,6 @@ import { db } from '@/shared/infrastructure/database/postgresql';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 import { SignatureService } from '@/modules/facturacion/domain/services/SignatureService';
 import { SriWebService } from '@/modules/facturacion/domain/services/SriWebService';
-import { SriEnvironment } from '@/shared/sri-constants';
 import { XsdValidator } from '@/modules/facturacion/domain/services/XsdValidator';
 import { SecurityAuditService } from '@/shared/services/SecurityAuditService';
 
@@ -333,7 +332,8 @@ export async function POST(req: NextRequest) {
                     const configResult = await client.query(`
                         SELECT 
                             sc.cert_p12_certificado, sc.cert_clave_certificado,
-                            sa.url_recepcion, sa.url_autorizacion
+                            sa.url_recepcion, sa.url_autorizacion,
+                            sa.valor as ambiente_sri
                         FROM configuracion.sri_certificados sc
                         INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
                         WHERE sc.empresa_id = $1 AND sa.codigo = $2 AND sc.activo = TRUE
@@ -343,6 +343,11 @@ export async function POST(req: NextRequest) {
                     if (configResult.rows.length > 0) {
                         const config = configResult.rows[0];
                         const p12Base64 = config.cert_p12_certificado?.toString('base64');
+
+                        // Asegurar que el ambiente en los datos sea el código numérico del SRI (1 o 2)
+                        if (datosRetencion.infoTributaria) {
+                            datosRetencion.infoTributaria.ambiente = config.ambiente_sri;
+                        }
 
                         // VALIDACIÓN DE SEGURIDAD: Verificar que el usuario tenga permiso para usar este punto de emisión
                         if (puntoEmisionId) {
@@ -403,11 +408,10 @@ export async function POST(req: NextRequest) {
                         await XsdValidator.validate(signedXml, codDoc);
 
                         // Enviar al SRI
-                        const sriEnv = ambiente === 'PRODUCCION' ? SriEnvironment.PRODUCCION : SriEnvironment.PRUEBAS;
-                        const recepcionResult = await SriWebService.enviarComprobante(signedXml, sriEnv);
+                        const recepcionResult = await SriWebService.enviarComprobante(signedXml, config.url_recepcion);
 
                         if (recepcionResult.estado === 'RECIBIDA') {
-                            const autorizacionResult = await SriWebService.autorizarComprobante(accessKey, sriEnv);
+                            const autorizacionResult = await SriWebService.autorizarComprobante(accessKey, config.url_autorizacion);
 
                             respuestaSri = {
                                 success: true,

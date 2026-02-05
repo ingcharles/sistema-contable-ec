@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
-import { SRI_URLS, SriEnvironment } from '@/shared/sri-constants';
 import { CertificateParser } from '@/modules/facturacion/domain/services/CertificateParser';
 
 /**
@@ -16,14 +15,6 @@ export async function GET(req: NextRequest) {
 
     try {
         const url = new URL(req.url);
-        const ambiente = url.searchParams.get('ambiente') || SriEnvironment.PRUEBAS;
-
-        if (![SriEnvironment.PRUEBAS, SriEnvironment.PRODUCCION].includes(ambiente as SriEnvironment)) {
-            return NextResponse.json(
-                { error: 'Ambiente debe ser PRUEBAS o PRODUCCION' },
-                { status: 400 }
-            );
-        }
 
         const result = await db.query(
             {
@@ -39,17 +30,17 @@ export async function GET(req: NextRequest) {
                         sc.activo, sc.created_at, sc.updated_at
                     FROM configuracion.sri_certificados sc
                     INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
-                    WHERE sc.empresa_id = $1 AND sa.codigo = $2 AND sc.activo = TRUE
+                    WHERE sc.empresa_id = $1 AND sc.activo = TRUE
                     LIMIT 1
                 `,
-                values: [context.empresaId, ambiente]
+                values: [context.empresaId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
         if (result.rows.length === 0) {
             return NextResponse.json(
-                { error: `No se encontró configuración SRI activa para ambiente ${ambiente}` },
+                { error: `No se encontró configuración SRI activa para ambiente` },
                 { status: 404 }
             );
         }
@@ -85,7 +76,7 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         const { ambiente, p12Base64, claveCertificado } = body;
 
-        if (!ambiente || ![SriEnvironment.PRUEBAS, SriEnvironment.PRODUCCION].includes(ambiente)) {
+        if (!ambiente || !['PRUEBAS', 'PRODUCCION'].includes(ambiente)) {
             return NextResponse.json(
                 { error: 'Ambiente requerido: PRUEBAS o PRODUCCION' },
                 { status: 400 }
@@ -95,10 +86,10 @@ export async function POST(req: NextRequest) {
         // Convert base64 to Buffer for BYTEA storage
         let p12Buffer = null;
         let certificateMetadata = null;
-        
+
         if (p12Base64) {
             p12Buffer = Buffer.from(p12Base64, 'base64');
-            
+
             // Parsear certificado y extraer metadatos
             try {
                 if (!claveCertificado) {
@@ -107,26 +98,26 @@ export async function POST(req: NextRequest) {
                         { status: 400 }
                     );
                 }
-                
+
                 certificateMetadata = CertificateParser.parseCertificateMetadata(
                     p12Buffer,
                     claveCertificado
                 );
-                
+
                 // Validar que el certificado esté vigente
                 if (!CertificateParser.isCertificateValid(certificateMetadata.certFechaExpiracion)) {
                     const daysExpired = Math.abs(
                         CertificateParser.getDaysUntilExpiration(certificateMetadata.certFechaExpiracion)
                     );
                     return NextResponse.json(
-                        { 
+                        {
                             error: `El certificado digital expiró hace ${daysExpired} días. Por favor, suba un certificado vigente.`,
                             fechaExpiracion: certificateMetadata.certFechaExpiracion
                         },
                         { status: 400 }
                     );
                 }
-                
+
                 // Advertir si el certificado está próximo a vencer (menos de 30 días)
                 const daysRemaining = CertificateParser.getDaysUntilExpiration(
                     certificateMetadata.certFechaExpiracion
@@ -136,11 +127,11 @@ export async function POST(req: NextRequest) {
                         `Advertencia: Certificado digital expira en ${daysRemaining} días para empresa ${context.empresaId}`
                     );
                 }
-                
+
             } catch (error: any) {
                 console.error('Error al parsear certificado P12:', error);
                 return NextResponse.json(
-                    { 
+                    {
                         error: error.message || 'Error al validar el certificado digital',
                         details: 'Verifique que el archivo P12 y la contraseña sean correctos'
                     },
@@ -192,7 +183,7 @@ export async function POST(req: NextRequest) {
                 context.usuarioId
             ]);
 
-            return { 
+            return {
                 id: insertResult.rows[0].id,
                 certFechaExpiracion: insertResult.rows[0].cert_fecha_expiracion
             };
@@ -205,7 +196,7 @@ export async function POST(req: NextRequest) {
             diasRestantes = CertificateParser.getDaysUntilExpiration(
                 new Date(result.certFechaExpiracion)
             );
-            
+
             if (diasRestantes <= 30) {
                 advertencia = `El certificado expira en ${diasRestantes} días. Considere renovarlo pronto.`;
             }

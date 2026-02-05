@@ -14,9 +14,11 @@ export async function GET(req: NextRequest) {
 
         let queryText = `
             SELECT 
+                ci.id,
                 ci.codigo, 
                 ci.valor, 
                 ci.descripcion,
+                ci.valor_numerico as "valorNumerico",
                 ci.padre_codigo as "padreCodigo"
             FROM configuracion.catalogos_items ci
             JOIN configuracion.catalogos_tipos ct ON ci.catalogo_codigo = ct.codigo

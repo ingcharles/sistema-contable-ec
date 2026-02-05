@@ -53,16 +53,16 @@ export default function FacturasEmitidasPage() {
         loadData();
     }, [currentEmpresa?.id]);
 
-    const handleSaveFactura = async (nuevaFactura: any) => {
+    const handleSaveFactura = async () => {
         if (!currentEmpresa) return;
 
         try {
-            await FacturacionUseCases.emitirFactura(nuevaFactura);
-            alert('Factura emitida y autorizada exitosamente por el SRI');
+            // Nota: FacturaForm ya llama a vender (que emite), 
+            // aquí solo refrescamos la lista y cerramos el modal.
             loadData();
             setShowModalFactura(false);
         } catch (error) {
-            alert('Error al emitir factura: ' + (error as Error).message);
+            console.error('Error al procesar guardado:', error);
         }
     };
 
@@ -172,7 +172,7 @@ export default function FacturasEmitidasPage() {
                         <div className="flex-1 overflow-y-auto p-8 bg-slate-100">
                             <div className="bg-white shadow-lg mx-auto max-w-[21cm] min-h-[29.7cm]">
                                 {(() => {
-                                    const tipoDoc = facturaVerRide.tipoComprobante || facturaVerRide.tipo || facturaVerRide.codDoc;
+                                    const tipoDoc = facturaVerRide.tipoComprobante;
                                     const xmlFirmado = facturaVerRide.xmlFirmado;
 
                                     // Si tiene XML firmado, usar los componentes específicos que parsean XML
@@ -219,13 +219,26 @@ export default function FacturasEmitidasPage() {
                                                     />
                                                 );
                                             default:
-                                                // Para facturas (01) y otros, usar el componente genérico
-                                                return <FacturaRIDE factura={facturaVerRide as any} />;
+                                                // Para facturas (01) y otros
+                                                return (
+                                                    <FacturaRIDE
+                                                        xmlFirmado={xmlFirmado}
+                                                        factura={facturaVerRide}
+                                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
+                                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
+                                                    />
+                                                );
                                         }
                                     }
 
-                                    // Sin XML firmado, usar el componente genérico
-                                    return <FacturaRIDE factura={facturaVerRide as any} />;
+                                    // Sin XML firmado, usar el componente genérico con datos de la DB
+                                    return (
+                                        <FacturaRIDE
+                                            factura={facturaVerRide}
+                                            numeroAutorizacion={facturaVerRide.numeroAutorizacion}
+                                            fechaAutorizacion={facturaVerRide.fechaAutorizacion}
+                                        />
+                                    );
                                 })()}
                             </div>
                         </div>

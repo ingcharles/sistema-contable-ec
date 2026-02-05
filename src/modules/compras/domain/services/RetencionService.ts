@@ -35,13 +35,13 @@ export class RetencionService {
                     t.direccion as prov_direccion, t.email as prov_email,
                     t.tipo_identificacion as prov_tipo,
                     e.ruc as emp_ruc, e.razon_social as emp_razon, e.nombre_comercial as emp_nombre_comercial,
-                    e.direccion_matriz as emp_dir, e.obligado_contabilidad as emp_obligado,
+                    e.direccion as emp_dir, e.obligado_contabilidad as emp_obligado,
                     e.contribuyente_especial as emp_cont_esp, e.agente_retencion as emp_agente_ret,
                     e.ambiente_sri as emp_ambiente, e.firma_electronica, e.clave_firma,
                     s.codigo as estab, pe.codigo as pto_emi
                 FROM compras.compras c
                 JOIN directorio.terceros t ON c.proveedor_id = t.id
-                JOIN configuracion.empresas e ON c.empresa_id = e.id
+                JOIN seguridad.empresas e ON c.empresa_id = e.id
                 LEFT JOIN configuracion.sucursales s ON e.id = s.empresa_id AND s.es_matriz = true
                 LEFT JOIN configuracion.puntos_emision pe ON s.id = pe.sucursal_id AND pe.activo = true
                 WHERE c.id = $1 AND c.empresa_id = $2
@@ -189,12 +189,12 @@ export class RetencionService {
     private static formatNumDocSustento(numDoc: string): string {
         // Quitar guiones y espacios
         const cleaned = numDoc.replace(/[-\s]/g, '');
-        
+
         // Si ya tiene 15 dígitos, retornar
         if (cleaned.length === 15 && /^\d+$/.test(cleaned)) {
             return cleaned;
         }
-        
+
         // Si tiene formato con guiones (XXX-XXX-XXXXXXXXX)
         const partes = numDoc.split('-');
         if (partes.length === 3) {
@@ -203,12 +203,12 @@ export class RetencionService {
             const sec = partes[2].padStart(9, '0');
             return estab + pto + sec;
         }
-        
+
         // Si es solo números, asumimos que es el secuencial y usamos 001-001
         if (/^\d+$/.test(cleaned)) {
             return '001001' + cleaned.padStart(9, '0');
         }
-        
+
         // Fallback: rellenar con ceros a la izquierda hasta 15 dígitos
         return cleaned.padStart(15, '0');
     }

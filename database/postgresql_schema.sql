@@ -756,7 +756,7 @@ COMMENT ON COLUMN cartera.cartera_anticipos.created_at IS 'Fecha de creación';
 
 -- Tipos ENUM del módulo facturacion
 CREATE TYPE facturacion.tipo_comprobante_sri AS ENUM ('01', '03', '04', '05', '06', '07');
-CREATE TYPE facturacion.estado_comprobante AS ENUM ('BORRADOR', 'DEVUELTA', 'AUTORIZADO', 'RECHAZADO', 'ANULADO','ERROR','NO AUTORIZADO');
+CREATE TYPE facturacion.estado_comprobante AS ENUM ('DEVUELTA', 'AUTORIZADO', 'RECHAZADO', 'ANULADO','ERROR','NO AUTORIZADO');
 
 -- Tabla: facturacion.comprobantes_electronicos
 CREATE TABLE facturacion.comprobantes_electronicos (
@@ -765,7 +765,7 @@ CREATE TABLE facturacion.comprobantes_electronicos (
     usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id),
     tipo_comprobante facturacion.tipo_comprobante_sri NOT NULL,
     punto_emision_id UUID REFERENCES configuracion.puntos_emision(id),
-    secuencial INTEGER NOT NULL,
+    secuencial VARCHAR(20) NOT NULL,
     clave_acceso VARCHAR(49) UNIQUE,
     numero_autorizacion VARCHAR(49),
     fecha_emision DATE NOT NULL,
@@ -819,6 +819,12 @@ COMMENT ON COLUMN facturacion.comprobantes_electronicos.placa_vehiculo IS 'Placa
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.xml_firmado IS 'Contenido XML firmado (Base64 o texto raw)';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.created_at IS 'Fecha de creación';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.updated_at IS 'Fecha de última actualización';
+
+ALTER TABLE facturacion.comprobantes_electronicos 
+ADD CONSTRAINT unq_comprobante_punto_secuencial 
+UNIQUE(empresa_id, tipo_comprobante, punto_emision_id, secuencial);
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.punto_emision_id IS 'Referencia al punto de emisión utilizado';
+
 
 -- Tabla: facturacion.comprobantes_detalles
 CREATE TABLE facturacion.comprobantes_detalles (
@@ -1273,7 +1279,7 @@ COMMENT ON COLUMN configuracion.codigos_retencion.tipo IS 'Tipo de retención: R
 CREATE TABLE configuracion.parametros (
     empresa_id UUID PRIMARY KEY REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
     sbu NUMERIC(15,2) DEFAULT 460,
-    iva NUMERIC(5,2) DEFAULT 15,
+    iva_catalogo_item_id UUID REFERENCES configuracion.catalogos_items(id),
     max_consumidor_final NUMERIC(15,2) DEFAULT 50,
     cuenta_caja VARCHAR(20),
     cuenta_iva_ventas VARCHAR(20),
@@ -1299,7 +1305,7 @@ CREATE TABLE configuracion.parametros (
 COMMENT ON TABLE configuracion.parametros IS 'Parámetros contables y de configuración por empresa.';
 COMMENT ON COLUMN configuracion.parametros.empresa_id IS 'ID de la empresa (PK)';
 COMMENT ON COLUMN configuracion.parametros.sbu IS 'Salario Básico Unificado vigente';
-COMMENT ON COLUMN configuracion.parametros.iva IS 'Porcentaje de IVA general vigente (ej: 15)';
+COMMENT ON COLUMN configuracion.parametros.iva_catalogo_item_id IS 'Referencia al item del catálogo SRI_TIPO_IMPUESTO_IVA que define el IVA por defecto (Relaciona con configuracion.catalogos_items.id)';
 COMMENT ON COLUMN configuracion.parametros.max_consumidor_final IS 'Monto máximo permitido para facturar a Consumidor Final sin datos';
 COMMENT ON COLUMN configuracion.parametros.cuenta_caja IS 'Cuenta contable por defecto para Caja';
 COMMENT ON COLUMN configuracion.parametros.cuenta_iva_ventas IS 'Cuenta contable para IVA en ventas';
@@ -1383,7 +1389,7 @@ COMMENT ON COLUMN configuracion.sri_certificados.cert_numero_serie IS 'Número d
 
 -- Tabla: configuracion.catalogos_tipos
 CREATE TABLE configuracion.catalogos_tipos (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     codigo VARCHAR(50) NOT NULL UNIQUE,
     nombre VARCHAR(100) NOT NULL,
     descripcion TEXT,
@@ -1403,11 +1409,12 @@ COMMENT ON COLUMN configuracion.catalogos_tipos.created_at IS 'Fecha de creació
 
 -- Tabla: configuracion.categoryos_items
 CREATE TABLE configuracion.catalogos_items (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     catalogo_codigo VARCHAR(50) NOT NULL REFERENCES configuracion.catalogos_tipos(codigo) ON DELETE CASCADE,
     codigo VARCHAR(20) NOT NULL,
     valor VARCHAR(255) NOT NULL,
     descripcion TEXT,
+    valor_numerico NUMERIC(10,2),
     padre_codigo VARCHAR(20),
     orden INTEGER DEFAULT 0,
     activo BOOLEAN DEFAULT TRUE,
@@ -1430,7 +1437,9 @@ COMMENT ON COLUMN configuracion.catalogos_items.created_at IS 'Fecha de creació
 -- Vista de acceso rápido para catálogos SRI
 CREATE OR REPLACE VIEW v_catalogos_sri AS
 SELECT 
+    ct.id as tipo_catalogo_id,
     ct.codigo as tipo_catalogo,
+    ci.id as item_id,
     ci.codigo as codigo_sri,
     ci.valor as descripcion,
     ci.activo

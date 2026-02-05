@@ -62,7 +62,7 @@ export class ServicioSeguimientoUso {
                         ON ci.codigo = $2 
                     AND ci.catalogo_codigo = 'SRI_TIPO_COMPROBANTE'
                     WHERE u.id = $1 
-                    AND pc.tipo_documento = $2;
+                    AND pc.tipo_documento = $2::facturacion.tipo_comprobante_sri;
                 `,
                 values: [usuarioId, tipoDoc]
             });
@@ -71,7 +71,7 @@ export class ServicioSeguimientoUso {
                 // Si no hay configuración explícita en el plan para este tipo de documento
                 // Consultamos al menos el nombre para el mensaje de error, si existe en catálogo
                 const catResult = await db.querySimple({
-                    text: 'SELECT nombre FROM facturacion.tipos_comprobante WHERE codigo = $1',
+                    text: 'SELECT nombre FROM facturacion.tipos_comprobante WHERE codigo = $1::facturacion.tipo_comprobante_sri',
                     values: [tipoDoc]
                 });
                 const nombreDoc = catResult.rows[0]?.nombre || 'Documento';
@@ -92,7 +92,7 @@ export class ServicioSeguimientoUso {
                 text: `
                     SELECT COALESCE(cantidad, 0) as cantidad
                     FROM seguridad.usuario_estadisticas_uso
-                    WHERE usuario_id = $1 AND periodo = $2 AND tipo_documento = $3
+                    WHERE usuario_id = $1 AND periodo = $2 AND tipo_documento = $3::facturacion.tipo_comprobante_sri
                 `,
                 values: [usuarioId, periodo, tipoDoc]
             });
@@ -141,7 +141,7 @@ export class ServicioSeguimientoUso {
             await db.querySimple({
                 text: `
                     INSERT INTO seguridad.usuario_estadisticas_uso (usuario_id, periodo, tipo_documento, cantidad)
-                    VALUES ($1, $2, $3, 1)
+                    VALUES ($1, $2, $3::facturacion.tipo_comprobante_sri, 1)
                     ON CONFLICT (usuario_id, periodo, tipo_documento)
                     DO UPDATE SET 
                         cantidad = seguridad.usuario_estadisticas_uso.cantidad + 1,
@@ -172,7 +172,7 @@ export class ServicioSeguimientoUso {
                     FROM seguridad.usuarios u
                     JOIN seguridad.planes p ON p.id = u.plan_id
                     JOIN seguridad.plan_caracteristicas pc ON pc.plan_id = p.id
-                    LEFT JOIN facturacion.tipos_comprobante tc ON tc.codigo = pc.tipo_documento
+                    LEFT JOIN facturacion.tipos_comprobante tc ON tc.codigo::text = pc.tipo_documento::text
                     LEFT JOIN seguridad.usuario_estadisticas_uso us ON 
                         us.usuario_id = u.id AND 
                         us.periodo = $2 AND

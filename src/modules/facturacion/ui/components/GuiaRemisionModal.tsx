@@ -12,6 +12,7 @@ import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { SriStandardizer } from '../../domain/services/SriStandardizer';
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { getLocalDateIso } from '@/shared/utils/dateUtils';
 
 interface GuiaRemisionModalProps {
     facturaReferencia?: any;
@@ -29,8 +30,8 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     const [puntoEmisionId, setPuntoEmisionId] = useState(puntoActivo?.puntoEmisionId || '');
     const [puntoPartida, setPuntoPartida] = useState('Matriz / Bodega Principal');
     const [puntoDestino, setPuntoDestino] = useState(facturaReferencia?.direccion || '');
-    const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().split('T')[0]);
-    const [fechaFin, setFechaFin] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaInicio, setFechaInicio] = useState(getLocalDateIso());
+    const [fechaFin, setFechaFin] = useState(getLocalDateIso());
     const [motivo, setMotivo] = useState(MotivoTraslado.VENTA);
     const [showNuevoTransportista, setShowNuevoTransportista] = useState(false);
     const [guardando, setGuardando] = useState(false);
@@ -96,10 +97,10 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
 
             const savedGuiaResponse = await FacturacionUseCases.guardarGuiaRemision({
                 tipoComprobante: '06',
-                fechaEmision: new Date().toISOString().split('T')[0],
+                fechaEmision: getLocalDateIso(),
                 clienteId: facturaReferencia?.terceroId || '9999999999999',
                 clienteNombre: facturaReferencia?.terceroNombre || 'CONSUMIDOR FINAL',
-                clienteIdentificacion: facturaReferencia?.identificacionAdquirente || '9999999999999',
+                clienteIdentificacion: facturaReferencia?.identificacionComprador || '9999999999999',
                 subtotal: 0,
                 iva: 0,
                 total: 0,
@@ -145,14 +146,14 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                 placa: transportista.placa,
                 destinatarios: [
                     {
-                        identificacionDestinatario: facturaReferencia?.identificacionAdquirente || '9999999999999',
-                        razonSocialDestinatario: facturaReferencia?.razonSocialAdquirente || 'CONSUMIDOR FINAL',
+                        identificacionDestinatario: facturaReferencia?.identificacionComprador || '9999999999999',
+                        razonSocialDestinatario: facturaReferencia?.razonSocialComprador || 'CONSUMIDOR FINAL',
                         dirDestinatario: puntoDestino,
                         motivoTraslado: motivo,
                         codDocSustento: '01',
                         numDocSustento: (facturaReferencia?.secuencial || '001-001-000000001').replace(/-/g, ''),
                         numAutDocSustento: facturaReferencia?.numeroAutorizacion || '1234567890123456789012345678901234567',
-                        fechaEmisionDocSustento: facturaReferencia?.fechaEmision || new Date().toISOString().split('T')[0],
+                        fechaEmisionDocSustento: facturaReferencia?.fechaEmision || getLocalDateIso(),
                         detalles: detalles
                     }
                 ]

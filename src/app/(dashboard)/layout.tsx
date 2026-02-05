@@ -228,7 +228,9 @@ export default function DashboardLayout({
                                         <div className="flex items-center gap-2 mt-1">
                                             <span className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">RUC: {currentEmpresa.ruc}</span>
                                             <span className="h-1 w-1 rounded-full bg-slate-300" />
-                                            <span className="text-[9px] font-bold text-sri-blue/60 bg-sri-blue/5 px-1.5 py-0.5 rounded uppercase">Producción</span>
+                                            <span className="text-[9px] font-bold text-sri-blue/60 bg-sri-blue/5 px-1.5 py-0.5 rounded uppercase">
+                                                {currentEmpresa.ambienteSriNombre || 'No Configurado'}
+                                            </span>
                                         </div>
                                     </div>
                                     <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isEmpresaMenuOpen ? 'rotate-180' : ''}`} />

@@ -15,7 +15,7 @@ export class IessExporter {
     static async generarPlanillaAportes(empresaId: string, periodo: string): Promise<string> {
         // 1. Obtener datos de la empresa
         const empresaResult = await db.querySimple<any>({
-            text: `SELECT ruc, razon_social FROM configuracion.empresas WHERE id = $1`,
+            text: `SELECT ruc, razon_social FROM seguridad.empresas WHERE id = $1`,
             values: [empresaId]
         });
 

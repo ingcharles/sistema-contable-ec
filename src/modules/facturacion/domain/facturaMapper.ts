@@ -56,10 +56,10 @@ export const facturaMapper = {
             fechaEmision: viewModel.fechaEmision,
             cliente: {
                 id: '', // No disponible en el ViewModel actual
-                ruc: viewModel.identificacionAdquirente,
-                razonSocial: viewModel.razonSocialAdquirente,
-                direccion: viewModel.direccionAdquirente || '',
-                email: viewModel.emailAdquirente,
+                ruc: viewModel.identificacionComprador,
+                razonSocial: viewModel.razonSocialComprador,
+                direccion: viewModel.direccionComprador || '',
+                email: viewModel.emailComprador,
             },
             detalles: viewModel.detalles.map((detalle) => ({
                 id: detalle.id,
@@ -105,11 +105,11 @@ export const facturaMapper = {
             dirMatriz: '',
             fechaEmision: dto.fechaEmision,
             obligadoContabilidad: 'NO',
-            tipoIdentificacionAdquirente: '05', // Default cédula
-            razonSocialAdquirente: dto.cliente.razonSocial,
-            identificacionAdquirente: dto.cliente.ruc,
-            direccionAdquirente: dto.cliente.direccion,
-            emailAdquirente: dto.cliente.email,
+            tipoIdentificacionComprador: '05', // Default cédula
+            razonSocialComprador: dto.cliente.razonSocial,
+            identificacionComprador: dto.cliente.ruc,
+            direccionComprador: dto.cliente.direccion,
+            emailComprador: dto.cliente.email,
             detalles: dto.detalles.map((detalle) => ({
                 id: detalle.id,
                 productoId: detalle.productoId,

@@ -28,10 +28,13 @@ export async function GET(request: NextRequest) {
                 e.logo_url AS "logoUrl",
                 e.es_obligado_contabilidad AS "obligadoContabilidad",
                 e.es_contribuyente_especial AS "contribuyenteEspecial",
+                sa.nombre AS "ambienteSriNombre",
                 e.created_at AS "createdAt",
                 e.updated_at AS "updatedAt"
             FROM seguridad.empresas e
             INNER JOIN seguridad.usuarios_empresas ue ON e.id = ue.empresa_id
+            LEFT JOIN configuracion.sri_certificados sc ON e.id = sc.empresa_id AND sc.activo = true
+            LEFT JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
             WHERE e.activa = true 
               AND ue.usuario_id = $1
               AND ue.activo = true

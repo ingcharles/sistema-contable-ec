@@ -130,9 +130,9 @@ export async function POST(req: NextRequest) {
         const empresaResult = await db.query(
             {
                 text: `
-                    SELECT e.ruc, e.razon_social, e.ambiente_sri, e.direccion_matriz,
+                    SELECT e.ruc, e.razon_social, e.ambiente_sri, e.direccion,
                            s.codigo as estab_code, pe.codigo as pto_emi_code, pes.secuencial_actual
-                    FROM configuracion.empresas e
+                    FROM seguridad.empresas e
                     LEFT JOIN configuracion.sucursales s ON e.id = s.empresa_id AND s.es_matriz = true
                     LEFT JOIN configuracion.puntos_emision pe ON (pe.id = $2 OR (s.id = pe.sucursal_id AND pe.activo = true))
                     LEFT JOIN configuracion.puntos_emision_secuenciales pes ON pe.id = pes.punto_emision_id AND pes.tipo_comprobante = '06'

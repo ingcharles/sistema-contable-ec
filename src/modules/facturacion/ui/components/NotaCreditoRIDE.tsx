@@ -27,9 +27,11 @@ export interface NotaCreditoData {
     dirEstablecimiento?: string;
     contribuyenteEspecial?: string;
     obligadoContabilidad: string;
-    tipoIdentificacionAdquirente: string;
-    razonSocialAdquirente: string;
-    identificacionAdquirente: string;
+    tipoIdentificacionComprador: string;
+    razonSocialComprador: string;
+    identificacionComprador: string;
+    direccionComprador?: string;
+    emailComprador?: string;
     codDocModificado: string;
     numDocModificado: string;
     fechaEmisionDocSustento: string;
@@ -151,7 +153,7 @@ function parseNotaCreditoXml(xml: string): NotaCreditoData | null {
             }
         }
 
-        return {
+        const parsedData: NotaCreditoData = {
             ambiente: getTextContent(infoTributaria, 'ambiente'),
             tipoEmision: getTextContent(infoTributaria, 'tipoEmision'),
             razonSocial: getTextContent(infoTributaria, 'razonSocial'),
@@ -167,9 +169,9 @@ function parseNotaCreditoXml(xml: string): NotaCreditoData | null {
             dirEstablecimiento: getTextContent(infoNotaCredito, 'dirEstablecimiento'),
             contribuyenteEspecial: getTextContent(infoNotaCredito, 'contribuyenteEspecial'),
             obligadoContabilidad: getTextContent(infoNotaCredito, 'obligadoContabilidad'),
-            tipoIdentificacionAdquirente: getTextContent(infoNotaCredito, 'tipoIdentificacionAdquirente'),
-            razonSocialAdquirente: getTextContent(infoNotaCredito, 'razonSocialAdquirente'),
-            identificacionAdquirente: getTextContent(infoNotaCredito, 'identificacionAdquirente'),
+            tipoIdentificacionComprador: getTextContent(infoNotaCredito, 'tipoIdentificacionComprador'),
+            razonSocialComprador: getTextContent(infoNotaCredito, 'razonSocialComprador'),
+            identificacionComprador: getTextContent(infoNotaCredito, 'identificacionComprador'),
             codDocModificado: getTextContent(infoNotaCredito, 'codDocModificado'),
             numDocModificado: getTextContent(infoNotaCredito, 'numDocModificado'),
             fechaEmisionDocSustento: getTextContent(infoNotaCredito, 'fechaEmisionDocSustento'),
@@ -180,6 +182,22 @@ function parseNotaCreditoXml(xml: string): NotaCreditoData | null {
             totalConImpuestos,
             detalles,
         };
+
+        // Parsear Información Adicional
+        const infoAdicionalElements = doc.getElementsByTagName('campoAdicional');
+        for (let i = 0; i < infoAdicionalElements.length; i++) {
+            const campo = infoAdicionalElements[i];
+            const nombre = campo.getAttribute('nombre');
+            const valor = campo.textContent || '';
+
+            if (nombre === 'Direccion') {
+                parsedData.direccionComprador = valor;
+            } else if (nombre === 'Email') {
+                parsedData.emailComprador = valor;
+            }
+        }
+
+        return parsedData;
     } catch (error) {
         console.error('Error parseando XML de nota de crédito:', error);
         return null;
@@ -275,8 +293,8 @@ export function NotaCreditoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizac
 
             {/* Datos del Adquirente y Documento Modificado */}
             <div className="border border-slate-900 p-4 rounded-xl mb-6 grid grid-cols-1 md:grid-cols-2 gap-y-2 text-[11px]">
-                <p><span className="font-bold">Razón Social / Nombres:</span> {notaCredito.razonSocialAdquirente}</p>
-                <p><span className="font-bold">Identificación:</span> {notaCredito.identificacionAdquirente}</p>
+                <p><span className="font-bold">Razón Social / Nombres:</span> {notaCredito.razonSocialComprador}</p>
+                <p><span className="font-bold">Identificación:</span> {notaCredito.identificacionComprador}</p>
                 <p><span className="font-bold">Fecha Emisión:</span> {notaCredito.fechaEmision}</p>
                 <p><span className="font-bold">Moneda:</span> {notaCredito.moneda}</p>
                 <p className="col-span-2 mt-2 pt-2 border-t border-slate-200">
@@ -328,10 +346,12 @@ export function NotaCreditoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizac
                     <h3 className="text-[10px] font-black uppercase tracking-widest border-b border-slate-200 pb-1 mb-2">Información Adicional</h3>
                     <div className="text-[9px] space-y-1">
                         <p><span className="font-bold uppercase">Tipo Identificación:</span> {
-                            notaCredito.tipoIdentificacionAdquirente === '04' ? 'RUC' :
-                                notaCredito.tipoIdentificacionAdquirente === '05' ? 'CÉDULA' :
-                                    notaCredito.tipoIdentificacionAdquirente === '06' ? 'PASAPORTE' : 'OTRO'
+                            notaCredito.tipoIdentificacionComprador === '04' ? 'RUC' :
+                                notaCredito.tipoIdentificacionComprador === '05' ? 'CÉDULA' :
+                                    notaCredito.tipoIdentificacionComprador === '06' ? 'PASAPORTE' : 'OTRO'
                         }</p>
+                        <p><span className="font-bold uppercase">Dirección:</span> {notaCredito.direccionComprador || 'N/A'}</p>
+                        <p><span className="font-bold uppercase">Email:</span> {notaCredito.emailComprador || 'N/A'}</p>
                     </div>
                 </div>
 

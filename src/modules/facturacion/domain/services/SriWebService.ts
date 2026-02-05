@@ -1,9 +1,8 @@
 import { DOMParser } from '@xmldom/xmldom';
-import { SriEnvironment, SRI_URLS } from '@/shared/sri-constants';
 
 interface SriResponse {
     claveAcceso?: string;
-    estado: 'RECIBIDA' | 'DEVUELTA' | 'AUTORIZADO' | 'NO AUTORIZADO' | 'EN PROCESO';
+    estado: 'RECIBIDA' | 'DEVUELTA' | 'AUTORIZADO' | 'NO AUTORIZADO' | 'EN PROCESO' | 'ERROR';
     mensajes?: { identificador: string; mensaje: string; tipo: string }[];
     numeroAutorizacion?: string;
     fechaAutorizacion?: string;
@@ -19,8 +18,7 @@ export class SriWebService {
     /**
      * Envía un XML firmado al WS de Recepción del SRI
      */
-    static async enviarComprobante(xmlSigned: string, ambiente: SriEnvironment): Promise<SriResponse> {
-        const url = SRI_URLS[ambiente].recepcion;
+    static async enviarComprobante(xmlSigned: string, url: string): Promise<SriResponse> {
         const base64Xml = Buffer.from(xmlSigned).toString('base64');
 
         const soapEnvelope = `
@@ -57,9 +55,7 @@ export class SriWebService {
     /**
      * Consulta el estado de autorización de un comprobante por su Clave de Acceso
      */
-    static async autorizarComprobante(claveAcceso: string, ambiente: SriEnvironment): Promise<SriResponse> {
-        const url = SRI_URLS[ambiente].autorizacion;
-
+    static async autorizarComprobante(claveAcceso: string, url: string): Promise<SriResponse> {
         const soapEnvelope = `
             <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ec="http://ec.gob.sri.ws.autorizacion">
                <soapenv:Header/>

@@ -2,13 +2,12 @@
 
 import { FileText, Send } from 'lucide-react';
 import { FacturaForm } from './FacturaForm';
-import { FacturaViewModel } from '../../domain/FacturaViewModel';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 
 interface NuevaFacturaModalProps {
     onClose: () => void;
-    onSave: (factura: FacturaViewModel) => void;
+    onSave: () => void;
 }
 
 export function NuevaFacturaModal({ onClose, onSave }: NuevaFacturaModalProps) {
@@ -50,8 +49,8 @@ export function NuevaFacturaModal({ onClose, onSave }: NuevaFacturaModalProps) {
         >
             <FacturaForm
                 id="nueva-factura-form"
-                onSubmit={(factura) => {
-                    onSave(factura);
+                onSubmit={() => {
+                    onSave();
                     onClose();
                 }}
                 onCancel={onClose}

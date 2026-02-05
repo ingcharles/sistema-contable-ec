@@ -37,20 +37,20 @@ function generarClaveAcceso(
   const fechaParts = fechaEmision.split('/');
   const fechaFormateada = fechaParts[0] + fechaParts[1] + fechaParts[2];
 
-  const base = 
-    fechaFormateada +          
-    tipoComprobante +          
-    ruc +                      
-    ambiente +                 
-    serie +                    
-    numeroComprobante +        
-    codigoNumerico +           
-    tipoEmision;               
+  const base =
+    fechaFormateada +
+    tipoComprobante +
+    ruc +
+    ambiente +
+    serie +
+    numeroComprobante +
+    codigoNumerico +
+    tipoEmision;
 
   const coeficientes = [2, 3, 4, 5, 6, 7];
   let suma = 0;
   let coefIndex = 0;
-  
+
   for (let i = base.length - 1; i >= 0; i--) {
     suma += parseInt(base[i]) * coeficientes[coefIndex];
     coefIndex = (coefIndex + 1) % 6;
@@ -72,7 +72,7 @@ function generarXmlRetencionV2(
   datosRetencion: any
 ): string {
   const ambiente = empresa.sri_ambiente === 'PRODUCCION' ? '2' : '1';
-  
+
   const impuestosXml = datosRetencion.impuestos.map((imp: any) => `
     <docSustento>
       <codSustento>${imp.codDocSustento}</codSustento>
@@ -121,7 +121,7 @@ function generarXmlRetencionV2(
     <estab>${establecimiento.codigo}</estab>
     <ptoEmi>${puntoEmision.codigo}</ptoEmi>
     <secuencial>${secuencial.toString().padStart(9, '0')}</secuencial>
-    <dirMatriz>${empresa.direccion_matriz || 'N/A'}</dirMatriz>
+    <dirMatriz>${empresa.direccion || 'N/A'}</dirMatriz>
   </infoTributaria>
   <infoCompRetencion>
     <fechaEmision>${datosRetencion.fechaEmision}</fechaEmision>
@@ -145,7 +145,7 @@ function generarXmlRetencionV2(
 async function enviarSRI(xmlFirmado: string, ambiente: 'pruebas' | 'produccion' = 'pruebas') {
   const urls = SRI_URLS[ambiente];
   const xmlBase64 = Buffer.from(xmlFirmado, 'utf-8').toString('base64');
-  
+
   const soapEnvelope = `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ec="http://ec.gob.sri.ws.recepcion">
   <soapenv:Header/>
@@ -157,7 +157,7 @@ async function enviarSRI(xmlFirmado: string, ambiente: 'pruebas' | 'produccion' 
 </soapenv:Envelope>`;
 
   console.log('\n📤 Enviando al SRI (recepción)...');
-  
+
   const response = await fetch(urls.recepcion, {
     method: 'POST',
     headers: {
@@ -170,26 +170,26 @@ async function enviarSRI(xmlFirmado: string, ambiente: 'pruebas' | 'produccion' 
   const responseText = await response.text();
   console.log('\n=== RESPUESTA RECEPCIÓN ===');
   console.log(responseText);
-  
+
   const estadoMatch = responseText.match(/<estado>([^<]+)<\/estado>/);
   const estado = estadoMatch ? estadoMatch[1] : 'UNKNOWN';
-  
+
   console.log(`\n📊 Estado: ${estado}`);
-  
+
   const mensajes: any[] = [];
   const mensajeMatches = responseText.matchAll(/<mensaje>([\s\S]*?)<\/mensaje>/g);
   for (const match of mensajeMatches) {
     const idMatch = match[1].match(/<identificador>([^<]+)<\/identificador>/);
     const msgMatch = match[1].match(/<mensaje>([^<]+)<\/mensaje>/);
     const infoMatch = match[1].match(/<informacionAdicional>([^<]+)<\/informacionAdicional>/);
-    
+
     mensajes.push({
       identificador: idMatch?.[1] || '',
       mensaje: msgMatch?.[1] || match[1],
       informacionAdicional: infoMatch?.[1] || ''
     });
   }
-  
+
   if (mensajes.length > 0) {
     console.log('\n📋 Mensajes:');
     mensajes.forEach(m => {
@@ -197,13 +197,13 @@ async function enviarSRI(xmlFirmado: string, ambiente: 'pruebas' | 'produccion' 
       if (m.informacionAdicional) console.log(`      ↳ ${m.informacionAdicional}`);
     });
   }
-  
+
   return { estado, mensajes, responseXml: responseText };
 }
 
 async function consultarAutorizacion(claveAcceso: string, ambiente: 'pruebas' | 'produccion' = 'pruebas') {
   const urls = SRI_URLS[ambiente];
-  
+
   const soapEnvelope = `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ec="http://ec.gob.sri.ws.autorizacion">
   <soapenv:Header/>
@@ -215,7 +215,7 @@ async function consultarAutorizacion(claveAcceso: string, ambiente: 'pruebas' | 
 </soapenv:Envelope>`;
 
   console.log('\n📤 Consultando autorización...');
-  
+
   const response = await fetch(urls.autorizacion, {
     method: 'POST',
     headers: {
@@ -228,10 +228,10 @@ async function consultarAutorizacion(claveAcceso: string, ambiente: 'pruebas' | 
   const responseText = await response.text();
   console.log('\n=== RESPUESTA AUTORIZACIÓN ===');
   console.log(responseText);
-  
+
   const estadoMatch = responseText.match(/<estado>([^<]+)<\/estado>/);
   const autorizacionMatch = responseText.match(/<numeroAutorizacion>([^<]+)<\/numeroAutorizacion>/);
-  
+
   return {
     estado: estadoMatch?.[1] || 'UNKNOWN',
     numeroAutorizacion: autorizacionMatch?.[1] || null,
@@ -241,12 +241,12 @@ async function consultarAutorizacion(claveAcceso: string, ambiente: 'pruebas' | 
 
 async function main() {
   let client;
-  
+
   try {
     console.log('🚀 Test de firma v3 con C14N correcto\n');
-    
+
     client = await pool.connect();
-    
+
     // 1. Obtener empresa y certificado
     const empresaResult = await client.query(`
       SELECT e.*, s.id as sucursal_id, s.codigo as sucursal_codigo, s.nombre as sucursal_nombre,
@@ -259,26 +259,26 @@ async function main() {
     `);
 
     if (empresaResult.rows.length === 0) throw new Error('Empresa no encontrada');
-    
+
     const row = empresaResult.rows[0];
     const empresa = {
       id: row.id,
       ruc: row.ruc,
       razon_social: row.razon_social,
       nombre_comercial: row.nombre_comercial,
-      direccion_matriz: row.direccion_matriz,
+      direccion: row.direccion,
       sri_ambiente: row.sri_ambiente,
       contribuyente_especial: row.contribuyente_especial,
       obligado_contabilidad: row.obligado_contabilidad,
       certificado_digital_p12: row.certificado_digital_p12,
       certificado_password: row.certificado_password
     };
-    
+
     const establecimiento = {
       id: row.sucursal_id,
       codigo: row.sucursal_codigo || '001'
     };
-    
+
     const puntoEmision = {
       id: row.punto_id,
       codigo: row.punto_codigo || '001',
@@ -374,10 +374,10 @@ async function main() {
     if (resultadoRecepcion.estado === 'RECIBIDA') {
       console.log('\n⏳ Esperando 10 segundos para consultar autorización...');
       await new Promise(resolve => setTimeout(resolve, 10000));
-      
+
       const resultadoAutorizacion = await consultarAutorizacion(claveAcceso, 'pruebas');
       console.log(`\n📊 Estado autorización: ${resultadoAutorizacion.estado}`);
-      
+
       if (resultadoAutorizacion.numeroAutorizacion) {
         console.log(`🎉 ¡AUTORIZADO! Número: ${resultadoAutorizacion.numeroAutorizacion}`);
       }

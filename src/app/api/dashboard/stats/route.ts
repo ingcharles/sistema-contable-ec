@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
                 SELECT COALESCE(SUM(total), 0) as total 
                 FROM facturacion.comprobantes_electronicos 
                 WHERE empresa_id = $1 
-                AND tipo_comprobante = 'FACTURA' 
-                AND estado IN ('AUTORIZADO', 'BORRADOR')
+                AND tipo_comprobante = '01' 
+                AND estado IN ('AUTORIZADO')
                 AND fecha_emision >= $2 AND fecha_emision <= $3
             `,
             values: [empresaId, inicioMes, finMes]
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
                 )
                 SELECT 
                     to_char(m.mes, 'Mon') as name,
-                    (SELECT COALESCE(SUM(total), 0) FROM facturacion.comprobantes_electronicos WHERE empresa_id = $1 AND date_trunc('month', fecha_emision) = m.mes AND estado IN ('AUTORIZADO', 'BORRADOR')) as ingresos,
+                    (SELECT COALESCE(SUM(total), 0) FROM facturacion.comprobantes_electronicos WHERE empresa_id = $1 AND tipo_comprobante = '01' AND date_trunc('month', fecha_emision) = m.mes AND estado IN ('AUTORIZADO', 'BORRADOR')) as ingresos,
                     (SELECT COALESCE(SUM(total), 0) FROM compras.compras WHERE empresa_id = $1 AND date_trunc('month', fecha_emision) = m.mes) as compras,
                 (SELECT COALESCE(SUM(neto_pagar + aporte_patronal + decimo_tercero + decimo_cuarto + fondos_reserva + vacaciones), 0) FROM nomina.nomina_roles WHERE empresa_id = $1 AND periodo = to_char(m.mes, 'YYYY-MM')) as nomina
             FROM meses m

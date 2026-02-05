@@ -16,14 +16,15 @@ import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search, CheckCirc
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
+import { useToast } from '@/shared/context/ToastContext';
 
 // Repositorios para integración
-import { InventarioUseCases, FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { InventarioUseCases, FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Producto } from '@/modules/inventario/domain/types';
-import { SriStandardizer } from '../../domain/services/SriStandardizer';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
+import { getLocalDateIso } from '@/shared/utils/dateUtils';
 
 export interface FacturaFormProps {
     factura?: Partial<FacturaViewModel>;
@@ -37,6 +38,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     const { currentEmpresa } = useEmpresa();
     const { parametros, cargarParametros } = useConfiguracion();
     const { puntoActivo } = usePuntoEmision();
+    const { showToast } = useToast();
 
     useEffect(() => {
         cargarParametros();
@@ -59,6 +61,13 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
     const formasPago = getCatalogo('SRI_FORMA_PAGO');
 
+    // Determinar IVA por defecto desde parámetros
+    const defaultIVA = useMemo(() => {
+        if (!parametros?.ivaCatalogoItemId || !tarifasIVA.length) return '4'; // Fallback a 15% (código 4)
+        const item = tarifasIVA.find(t => t.id === parametros.ivaCatalogoItemId);
+        return item ? item.codigo : '4';
+    }, [parametros?.ivaCatalogoItemId, tarifasIVA]);
+
     // Cargar datos de otros módulos
     useEffect(() => {
         if (currentEmpresa) {
@@ -70,19 +79,19 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
 
                 const listaProductos: Producto[] = productosData.map((p: any) => ({
                     id: p.id,
-                    empresaId: p.empresa_id || currentEmpresa.id,
-                    codigoPrincipal: p.codigo_principal,
-                    codigoAuxiliar: p.codigo_auxiliar || '',
+                    empresaId: p.empresaId || currentEmpresa.id,
+                    codigoPrincipal: p.codigoPrincipal,
+                    codigoAuxiliar: p.codigoAuxiliar || '',
                     nombre: p.nombre,
-                    categoriaId: p.categoria_id,
-                    categoriaNombre: p.categoria_nombre || '',
-                    stockActual: Number(p.stock_actual),
-                    costoPromedio: Number(p.costo_promedio),
-                    precioVenta: Number(p.precio_venta),
-                    grabaIva: p.graba_iva,
-                    stockMinimo: Number(p.stock_minimo),
-                    createdAt: p.created_at || '',
-                    updatedAt: p.updated_at || '',
+                    categoriaId: p.categoriaId,
+                    categoriaNombre: p.categoriaNombre || '',
+                    stockActual: Number(p.stockActual),
+                    costoPromedio: Number(p.costoPromedio),
+                    precioVenta: Number(p.precioVenta),
+                    grabaIva: p.grabaIva,
+                    stockMinimo: Number(p.stockMinimo),
+                    createdAt: p.createdAt || '',
+                    updatedAt: p.updatedAt || '',
                     createdBy: ''
                 }));
 
@@ -93,21 +102,23 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     }, [currentEmpresa?.id]);
 
     // Datos del Cliente
-    const [tipoIdentificacion, setTipoIdentificacion] = useState(factura?.tipoIdentificacionAdquirente || '04');
-    const [identificacion, setIdentificacion] = useState(factura?.identificacionAdquirente || '');
-    const [razonSocial, setRazonSocial] = useState(factura?.razonSocialAdquirente || '');
-    const [direccion, setDireccion] = useState(factura?.direccionAdquirente || '');
-    const [email, setEmail] = useState(factura?.emailAdquirente || '');
+    const [tipoIdentificacion, setTipoIdentificacion] = useState(factura?.tipoIdentificacionComprador || '04');
+    const [identificacion, setIdentificacion] = useState(factura?.identificacionComprador || '');
+    const [razonSocial, setRazonSocial] = useState(factura?.razonSocialComprador || '');
+    const [direccion, setDireccion] = useState(factura?.direccionComprador || '');
+    const [email, setEmail] = useState(factura?.emailComprador || '');
+    const [clienteId, setClienteId] = useState<string | undefined>(undefined);
 
     // Estado de validación
     const [errorIdentificacion, setErrorIdentificacion] = useState('');
     const [identificacionValida, setIdentificacionValida] = useState(false);
+    const [errorSubmit, setErrorSubmit] = useState<string | null>(null);
 
     // Datos del Comprobante
     const [estab, setEstab] = useState(factura?.estab || puntoActivo?.codigoEstablecimiento);
     const [ptoEmi, setPtoEmi] = useState(factura?.ptoEmi || puntoActivo?.codigoPunto);
     const [secuencial, setSecuencial] = useState(factura?.secuencial);
-    const [fechaEmision, setFechaEmision] = useState(factura?.fechaEmision || new Date().toISOString().split('T')[0]);
+    const [fechaEmision, setFechaEmision] = useState(factura?.fechaEmision || getLocalDateIso());
 
     // Actualizar estab y ptoEmi cuando cambie el punto activo
     useEffect(() => {
@@ -143,7 +154,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         cantidad: 1,
         precioUnitario: 0,
         descuento: 0,
-        codigoIVA: '2', // Default 12%/15%
+        codigoIVA: defaultIVA,
         baseImponible: 0,
         valorIVA: 0,
         total: 0,
@@ -171,43 +182,32 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         setRazonSocial(cliente.razonSocial);
         setDireccion(cliente.direccion);
         setEmail(cliente.email);
+        setClienteId(cliente.id);
         setBusquedaCliente('');
         setMostrarListaClientes(false);
+        setTipoIdentificacion(cliente.tipoIdentificacion);
 
-        if (cliente.identificacion === '9999999999999') {
-            setTipoIdentificacion('07'); // Consumidor Final
-        } else if (cliente.identificacion.length === 10) {
-            setTipoIdentificacion('05'); // Cédula
-        } else if (cliente.identificacion.length === 13) {
-            setTipoIdentificacion('04'); // RUC
-        }
     };
 
     // Validar identificación en tiempo real
     useEffect(() => {
-        if (!identificacion || tipoIdentificacion === '07') {
+        if (!identificacion) {
             setErrorIdentificacion('');
-            setIdentificacionValida(tipoIdentificacion === '07');
             return;
         }
+        const resultado = validarIdentificacion(
+            tipoIdentificacion as '04' | '05' | '06' | '07' | '08',
+            identificacion
+        );
 
-        if (identificacion.length >= 5) {
-            const resultado = validarIdentificacion(
-                tipoIdentificacion as '04' | '05' | '06' | '07' | '08',
-                identificacion
-            );
-
-            if (!resultado.isValid) {
-                setErrorIdentificacion(resultado.error || 'Identificación inválida');
-                setIdentificacionValida(false);
-            } else {
-                setErrorIdentificacion('');
-                setIdentificacionValida(true);
-            }
+        if (!resultado.isValid) {
+            setErrorIdentificacion(resultado.error || 'Identificación inválida');
+            setIdentificacionValida(false);
         } else {
             setErrorIdentificacion('');
-            setIdentificacionValida(false);
+            setIdentificacionValida(true);
         }
+
     }, [identificacion, tipoIdentificacion]);
 
     // Efecto para manejar el cambio manual a Consumidor Final
@@ -228,7 +228,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             cantidad: 1,
             precioUnitario: 0,
             descuento: 0,
-            codigoIVA: '2', // Default
+            codigoIVA: parametros?.codigo_iva || '2',
             baseImponible: 0,
             valorIVA: 0,
             total: 0,
@@ -249,7 +249,8 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                 detalle.productoId = producto.id;
                 detalle.descripcion = producto.nombre;
                 detalle.precioUnitario = producto.precioVenta;
-                detalle.codigoIVA = producto.grabaIva ? '2' : '0';
+                // If product is taxable, use default IVA from params
+                detalle.codigoIVA = producto.grabaIva ? defaultIVA : '0';
             }
         }
 
@@ -259,8 +260,8 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         const tarifaSeleccionada = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
 
         if (tarifaSeleccionada) {
-            if (detalle.codigoIVA === '2') {
-                porcentajeIVA = (parametros?.iva || 15) / 100;
+            if (tarifaSeleccionada.valorNumerico !== undefined) {
+                porcentajeIVA = tarifaSeleccionada.valorNumerico / 100;
             } else {
                 const match = tarifaSeleccionada.valor.match(/(\d+)%/);
                 if (match) {
@@ -319,9 +320,11 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         const totalPagos = pagos.reduce((sum, p) => sum + (Number(p.total) || 0), 0);
 
         if (Math.abs(totalPagos - totales.importeTotal) > 0.02) {
-            alert(`El total de las formas de pago ($${totalPagos.toFixed(2)}) debe ser igual al importe total de la factura ($${totales.importeTotal.toFixed(2)})`);
+            setErrorSubmit(`El total de las formas de pago ($${totalPagos.toFixed(2)}) debe ser igual al importe total de la factura ($${totales.importeTotal.toFixed(2)})`);
             return;
         }
+
+        setErrorSubmit(null);
 
         const nuevaFactura: FacturaViewModel = {
             id: factura?.id,
@@ -336,11 +339,11 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             secuencial: secuencial || '',
             dirMatriz: currentEmpresa.direccionMatriz,
             fechaEmision,
-            tipoIdentificacionAdquirente: tipoIdentificacion,
-            razonSocialAdquirente: razonSocial,
-            identificacionAdquirente: identificacion,
-            direccionAdquirente: direccion,
-            emailAdquirente: email,
+            tipoIdentificacionComprador: tipoIdentificacion,
+            razonSocialComprador: razonSocial,
+            identificacionComprador: identificacion,
+            direccionComprador: direccion,
+            emailComprador: email,
             detalles,
             ...totales,
             pagos,
@@ -348,76 +351,30 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
         };
 
-        const dataSri = SriStandardizer.standardizeFactura(nuevaFactura, parametros?.iva || 15);
-
-        let sriResult = {
-            success: false,
-            status: 'BORRADOR',
-            numeroAutorizacion: null as string | null,
-            claveAcceso: null as string | null
-        };
-
         try {
-            const emisionRes = await FacturacionUseCases.emitirFactura(dataSri);
-            sriResult = {
-                success: true,
-                status: emisionRes.status || 'AUTORIZADO',
-                numeroAutorizacion: emisionRes.numeroAutorizacion,
-                claveAcceso: emisionRes.claveAcceso
-            };
-        } catch (sriError: any) {
-            console.error('Error SRI:', sriError);
-            sriResult.status = 'ERROR SRI';
-        }
-
-        try {
-            const resLocal = await FacturacionUseCases.registrarComprobante({
-                tipoComprobante: 'FACTURA',
-                fechaEmision,
-                clienteId: identificacion,
+            const res = await FacturacionUseCases.vender({
+                ...nuevaFactura,
+                ambiente: parametros?.ambienteSri || 'PRUEBAS',
+                puntoEmisionId: puntoActivo?.puntoEmisionId,
+                clienteId: clienteId || identificacion,
                 clienteNombre: razonSocial,
                 clienteIdentificacion: identificacion,
-                subtotal: totales.totalSinImpuestos,
-                iva: totales.totalIVA,
-                total: totales.importeTotal,
-                totalDescuento: totales.totalDescuento,
-                detalles: detalles.map(d => ({
-                    codigoPrincipal: d.codigoPrincipal,
-                    descripcion: d.descripcion,
-                    cantidad: d.cantidad,
-                    precioUnitario: d.precioUnitario,
-                    descuento: d.descuento,
-                    total: d.total,
-                    codigoIVA: d.codigoIVA
-                })),
-                secuencial: parseInt(secuencial),
-                claveAcceso: sriResult.claveAcceso,
-                numeroAutorizacion: sriResult.numeroAutorizacion,
-                estado: sriResult.status
+                ivaRate: parametros?.iva || 15,
+                // Pass the configured code to the backend use case if needed, 
+                // though the standardizer will handle it based on detail codes now.
             });
 
-            await ContabilidadUseCases.registrarAsiento({
-                numero: `AS-VTA-${secuencial}`,
-                fecha: fechaEmision,
-                glosa: `P/R Venta Factura ${estab}-${ptoEmi}-${secuencial} - ${razonSocial}`,
-                tipo: 'INGRESO',
-                detalles: [
-                    { cuentaCodigo: parametros?.cuentaCxcClientes || parametros?.cuentaCaja || '1.1.01.01', debe: totales.importeTotal, haber: 0 },
-                    { cuentaCodigo: parametros?.cuentaVentas || '4.1.01.01', debe: 0, haber: totales.totalSinImpuestos },
-                    { cuentaCodigo: parametros?.cuentaIvaPorPagar || parametros?.cuentaIvaVentas || '2.1.05.01', debe: 0, haber: totales.totalIVA }
-                ]
-            });
-
-            if (sriResult.success) {
-                alert(`Factura emitida y autorizada: ${sriResult.numeroAutorizacion}`);
-            } else {
-                alert(`Factura guardada localmente. Error SRI: ${sriResult.status}. Deberá reintentar el envío después.`);
+            if (res.success) {
+                if (res.estado === 'AUTORIZADO') {
+                    showToast(`Factura emitida y autorizada: ${res.numeroAutorizacion}`, 'success');
+                } else {
+                    showToast(`Factura guardada localmente. Estado SRI: ${res.estado}. Deberá reintentar el envío después.`, 'success');
+                }
+                onSubmit({ ...nuevaFactura, id: res.id, estado: res.estado });
             }
-
-            onSubmit({ ...nuevaFactura, id: resLocal.id, estado: sriResult.status as any });
         } catch (error: any) {
-            console.error('Error al guardar localmente:', error);
-            alert(`Error al guardar la factura: ${error.message}`);
+            console.error('Error en proceso de venta:', error);
+            setErrorSubmit(`Error al procesar la venta: ${error.message}`);
         }
     };
 
@@ -452,7 +409,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm relative">
                 <div className="flex justify-between items-center">
                     <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <User size={16} /> Datos del Adquirente
+                        <User size={16} /> Datos del Comprador
                     </h4>
                     <div className="relative w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -627,21 +584,15 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                                         />
                                     </td>
                                     <td className="px-4 py-3">
-                                        <select
-                                            value={detalle.codigoIVA}
-                                            onChange={(e) => actualizarDetalle(index, 'codigoIVA', e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-sri-blue/10"
-                                        >
-                                            {tarifasIVA && tarifasIVA.length > 0 ? (
-                                                tarifasIVA.map(tarifa => (
-                                                    <option key={tarifa.codigo} value={tarifa.codigo}>
-                                                        {tarifa.codigo === '2' ? `${parametros?.iva || 15}%` : tarifa.valor}
-                                                    </option>
-                                                ))
-                                            ) : (
-                                                <option value="2">{parametros?.iva || 15}%</option>
-                                            )}
-                                        </select>
+                                        <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-bold text-center text-slate-600">
+                                            {(() => {
+                                                const tarifa = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
+                                                if (detalle.codigoIVA === '2') return `${parametros?.iva || 15}%`;
+                                                if (detalle.codigoIVA === '4') return '15%';
+                                                if (detalle.codigoIVA === '0') return '0%';
+                                                return tarifa ? tarifa.valor : '0%';
+                                            })()}
+                                        </div>
                                     </td>
                                     <td className="px-4 py-3 text-right font-black text-slate-900">
                                         ${(Number(detalle.total) || 0).toFixed(2)}
@@ -762,6 +713,14 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                     </div>
                 </div>
             </div>
+
+            {/* Alerta de Error de Envío */}
+            {errorSubmit && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                    <AlertCircle size={20} className="shrink-0" />
+                    <p className="text-sm font-medium">{errorSubmit}</p>
+                </div>
+            )}
 
             {/* Botones de Acción */}
             {showButtons && (

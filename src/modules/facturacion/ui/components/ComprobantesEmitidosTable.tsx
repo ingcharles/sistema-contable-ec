@@ -41,7 +41,7 @@ export function ComprobantesEmitidosTable({
             className: 'text-sm'
         },
         { header: 'Secuencial', accessorKey: 'secuencial', className: 'font-mono font-bold' },
-        { header: 'Cliente', accessorKey: 'terceroNombre', className: 'font-medium' },
+        { header: 'Cliente', accessorKey: 'razonSocialComprador', className: 'font-medium' },
         {
             header: 'Total',
             accessorKey: 'importeTotal',

@@ -74,11 +74,12 @@ export async function GET(req: NextRequest) {
                         c.secuencial,
                         c.clave_acceso AS "claveAcceso",
                         c.numero_autorizacion AS "numeroAutorizacion",
-                        c.fecha_emision AS "fechaEmision",
+                        to_char(c.created_at, 'YYYY-MM-DD HH24:MI') AS "fechaEmision",
                         c.fecha_autorizacion AS "fechaAutorizacion",
                         c.cliente_id AS "clienteId",
-                        c.cliente_nombre AS "terceroNombre",
-                        c.cliente_identificacion AS "terceroRuc",
+                        c.cliente_nombre AS "razonSocialComprador",
+                        c.cliente_identificacion AS "identificacionComprador",
+                        t.tipo_identificacion AS "tipoIdentificacionComprador",
                         c.subtotal AS "totalSinImpuestos",
                         c.iva AS "totalIVA",
                         c.total_descuento AS "totalDescuento",
@@ -111,6 +112,7 @@ export async function GET(req: NextRequest) {
                         ) AS pagos
                     FROM facturacion.comprobantes_electronicos c
                     LEFT JOIN configuracion.catalogos_items ci ON ci.catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND ci.codigo = c.tipo_comprobante::text
+                    LEFT JOIN directorio.terceros t ON t.id = c.cliente_id
                     WHERE ${whereClause}
                     ORDER BY c.fecha_emision DESC, c.secuencial DESC
                     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -149,7 +151,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const {
-            tipoComprobante,
+            tipoComprobante: tipoComprobanteRaw,
             fechaEmision,
             clienteId,
             clienteNombre,
@@ -166,10 +168,12 @@ export async function POST(req: NextRequest) {
             estado = 'BORRADOR',
             ambienteSri = '1',
             tipoEmisionSri = '1',
+            pagos = []
         } = body;
 
         // ===== VALIDACIÓN DE CUOTA DE DOCUMENTOS =====
         // Verificar si el usuario puede emitir este tipo de documento
+        // ===== MAPEO DE TIPO DE COMPROBANTE A CÓDIGO SRI =====
         const tipoDocMap: Record<string, TipoComprobanteSri> = {
             'FACTURA': TipoComprobanteEnum.FACTURA,
             'NOTA_CREDITO': TipoComprobanteEnum.NOTA_CREDITO,
@@ -177,7 +181,9 @@ export async function POST(req: NextRequest) {
             'GUIA_REMISION': TipoComprobanteEnum.GUIA_REMISION
         };
 
-        const tipoDocParaCuota = tipoDocMap[tipoComprobante];
+        const tipoComprobante = tipoDocMap[tipoComprobanteRaw] || tipoComprobanteRaw as TipoComprobanteSri;
+
+        const tipoDocParaCuota = tipoComprobante;
         if (tipoDocParaCuota && context.usuarioId) {
             const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(
                 context.usuarioId,
@@ -220,7 +226,7 @@ export async function POST(req: NextRequest) {
         const cliente = terceroResult.rows[0];
 
         // Validar límite de crédito si es Factura
-        if (tipoComprobante === 'FACTURA') {
+        if (tipoComprobante === TipoComprobanteEnum.FACTURA) {
             const deudaActualResult = await db.query(
                 {
                     text: 'SELECT SUM(saldo_pendiente) as total_deuda FROM cartera.cartera_documentos WHERE tercero_id = $1 AND tipo_cartera = $2 AND empresa_id = $3',
@@ -232,7 +238,10 @@ export async function POST(req: NextRequest) {
             const totalDeuda = parseFloat(deudaActualResult.rows[0].total_deuda || '0');
             const limiteCredito = parseFloat(cliente.limite_credito || '0');
 
-            if (limiteCredito > 0 && (totalDeuda + total) > limiteCredito) {
+            // Determinar si es una factura a crédito (algún pago con plazo > 0)
+            const esCredito = pagos.some((p: any) => parseInt(p.plazo) > 0) || (cliente.dias_credito > 0 && pagos.length === 0);
+
+            if (esCredito && limiteCredito > 0 && (totalDeuda + total) > limiteCredito) {
                 return NextResponse.json({
                     error: 'Excede límite de crédito',
                     details: `Límite: $${limiteCredito}, Deuda actual: $${totalDeuda}, Nueva factura: $${total} `
@@ -251,41 +260,53 @@ export async function POST(req: NextRequest) {
             }
 
             const puntoActivo = puntoActivoResult.rows[0];
-            let secuencial = secuencialManual;
+            let secuencial;
 
-            // Si no viene secuencial, generar el siguiente
-            if (!secuencial) {
-                // Obtener siguiente secuencial del punto de emisión
-                // Primero intentar obtener de la tabla de secuenciales
+            // Si viene secuencial manual, lo usamos pero actualizamos el contador para que el siguiente sea mayor
+            if (secuencialManual) {
+                const secuencialInt = parseInt(secuencialManual);
+                secuencial = secuencialInt.toString().padStart(9, '0');
+
+                // Actualizar el secuencial para que el próximo autogenerado sea mayor al manual
+                await client.query(`
+                    INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante, secuencial_actual, created_by)
+                    VALUES($1, $2, $3 + 1, $4)
+                    ON CONFLICT(punto_emision_id, tipo_comprobante)
+                    DO UPDATE SET 
+                        secuencial_actual = GREATEST(configuracion.puntos_emision_secuenciales.secuencial_actual, $3 + 1), 
+                        updated_at = NOW()
+                `, [puntoActivo.punto_emision_id, tipoComprobante, secuencialInt, context.usuarioId]);
+            } else {
+                // Generar automáticamente el siguiente secuencial
                 const secuencialConfigResult = await client.query(`
                     SELECT secuencial_actual 
                     FROM configuracion.puntos_emision_secuenciales
                     WHERE punto_emision_id = $1 AND tipo_comprobante = $2
                     FOR UPDATE
-            `, [puntoActivo.punto_emision_id, tipoComprobante]);
+                `, [puntoActivo.punto_emision_id, tipoComprobante]);
 
                 let nextSecuencialInt = 1;
 
                 if (secuencialConfigResult.rows.length > 0) {
                     nextSecuencialInt = secuencialConfigResult.rows[0].secuencial_actual;
                 } else {
-                    // Si no existe registro, crearlo (empezar en 1)
+                    // Si no existe registro, crearlo (el primero será 1 y el siguiente será 2)
                     await client.query(`
-                        INSERT INTO configuracion.puntos_emision_secuenciales
-            (punto_emision_id, tipo_comprobante, secuencial_actual, created_by)
-        VALUES($1, $2, 1, $3)
-            `, [puntoActivo.punto_emision_id, tipoComprobante, context.usuarioId]);
+                        INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante, secuencial_actual, created_by)
+                        VALUES($1, $2, 2, $3)
+                    `, [puntoActivo.punto_emision_id, tipoComprobante, context.usuarioId]);
                 }
 
-                // Actualizar el secuencial para el siguiente uso (+1)
-                await client.query(`
-                    INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante, secuencial_actual, created_by)
-        VALUES($1, $2, $3 + 1, $4)
-                    ON CONFLICT(punto_emision_id, tipo_comprobante)
-                    DO UPDATE SET secuencial_actual = configuracion.puntos_emision_secuenciales.secuencial_actual + 1, updated_at = NOW()
-            `, [puntoActivo.punto_emision_id, tipoComprobante, nextSecuencialInt, context.usuarioId]);
+                if (secuencialConfigResult.rows.length > 0) {
+                    // Actualizar el secuencial para el siguiente uso (+1)
+                    await client.query(`
+                        UPDATE configuracion.puntos_emision_secuenciales
+                        SET secuencial_actual = secuencial_actual + 1, updated_at = NOW()
+                        WHERE punto_emision_id = $1 AND tipo_comprobante = $2
+                    `, [puntoActivo.punto_emision_id, tipoComprobante]);
+                }
 
-                // Formatear secuencial (9 dígitos)
+                // Formatear secuencial actual (9 dígitos)
                 secuencial = nextSecuencialInt.toString().padStart(9, '0');
             }
 
@@ -355,7 +376,7 @@ export async function POST(req: NextRequest) {
             }
 
             // --- 3. REGISTRO EN CARTERA ---
-            if (tipoComprobante === 'FACTURA') {
+            if (tipoComprobante === TipoComprobanteEnum.FACTURA) {
                 const fechaVencimiento = new Date(fechaEmision);
                 fechaVencimiento.setDate(fechaVencimiento.getDate() + (cliente.dias_credito || 0));
 

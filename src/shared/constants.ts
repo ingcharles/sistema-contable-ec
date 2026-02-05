@@ -24,13 +24,6 @@ export const ICON_MAP: Record<string, LucideIcon> = {
     Settings
 };
 
-export interface NavItem {
-    label: string;
-    icon: LucideIcon;
-    path: string;
-    requiredRoles?: ('SUPERADMIN' | 'ADMIN' | 'CONTADOR' | 'AUDITOR' | 'ASISTENTE')[];
-    minPlan?: 'GRATUITO' | 'PROFESIONAL' | 'EMPRESARIAL';
-}
 
 // export const MOCK_EMPRESAS: Empresa[] = [
 //     {

@@ -6,6 +6,7 @@ import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Save, Plus, Trash2 } from 'lucide-react';
 import { formatMoney } from '@/shared/utils/formatearDinero';
+import { getLocalDateIso } from '@/shared/utils/dateUtils';
 
 interface ProformaModalProps {
     open: boolean;
@@ -19,7 +20,7 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
 
     // Form state
     const [clienteId, setClienteId] = useState('');
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalDateIso());
     const [validezDias, setValidezDias] = useState(15);
     const [observaciones, setObservaciones] = useState('');
     const [items, setItems] = useState<any[]>([]);
@@ -41,7 +42,7 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
                 setItems(proforma.detalles || []);
             } else {
                 setClienteId('');
-                setFecha(new Date().toISOString().split('T')[0]);
+                setFecha(getLocalDateIso());
                 setValidezDias(15);
                 setObservaciones('');
                 setItems([]);

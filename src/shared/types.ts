@@ -57,6 +57,7 @@ export interface Empresa {
     rimpe: 'NEGOCIO_POPULAR' | 'EMPRENDEDOR' | null;
     logoUrl?: string;
     ambienteSri?: number;
+    ambienteSriNombre?: string;
 }
 
 export interface Usuario {
@@ -92,13 +93,16 @@ export interface ComprobanteElectronico {
     tipo: TipoComprobante;
     secuencial: string;
     fechaEmision: string;
-    terceroNombre: string;
+    terceroNombre: string; // Deprecated: use razonSocialComprador
+    razonSocialComprador: string;
     terceroId: string;
+    identificacionComprador: string;
     totalSinImpuestos: number;
     totalImpuestos: number;
     importeTotal: number;
     estado: EstadoSRI;
     claveAcceso: string;
+    tipoIdentificacionComprador?: string;
 }
 
 export interface CuentaContable {
@@ -120,10 +124,14 @@ export interface Factura extends Auditable {
     tipoComprobanteNombre?: string;
     secuencial: string;
     fechaEmision: string;
-    terceroNombre: string;
+    terceroNombre: string; // Deprecated: use razonSocialComprador
+    razonSocialComprador: string;
     terceroId?: string;
-    terceroRuc?: string;
-    terceroEmail?: string;
+    terceroRuc?: string; // Deprecated: use identificacionComprador
+    identificacionComprador: string;
+    terceroEmail?: string; // Deprecated: use emailComprador
+    emailComprador?: string;
+    tipoIdentificacionComprador?: string;
     subtotal?: number;
     descuento?: number;
     iva?: number;
@@ -136,6 +144,7 @@ export interface Factura extends Auditable {
     xmlFirmado?: string;
     documentoModificadoId?: string;
     motivoModificacion?: string;
+    direccionComprador?: string;
 }
 
 export interface GuiaRemision extends Auditable {

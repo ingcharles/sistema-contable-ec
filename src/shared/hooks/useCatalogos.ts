@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 
 export interface CatalogoItem {
+    id: string;
     codigo: string;
     valor: string;
+    valorNumerico?: number;
     descripcion?: string;
 }
 
