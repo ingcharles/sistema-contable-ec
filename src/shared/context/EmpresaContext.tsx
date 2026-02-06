@@ -29,6 +29,12 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const savedId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : null;
                 const savedEmpresa = data.find((e: Empresa) => e.id === savedId) || data[0];
                 _setCurrentEmpresa(savedEmpresa);
+            } else if (currentEmpresa && data.length > 0) {
+                // Si ya hay una empresa seleccionada, actualizarla con los datos más recientes
+                const updatedEmpresa = data.find((e: Empresa) => e.id === currentEmpresa.id);
+                if (updatedEmpresa) {
+                    _setCurrentEmpresa(updatedEmpresa);
+                }
             }
         } catch (error) {
             console.error('Error al cargar empresas:', error);

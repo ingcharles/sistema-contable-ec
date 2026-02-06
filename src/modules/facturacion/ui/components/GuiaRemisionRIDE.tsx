@@ -1,4 +1,5 @@
-'use client';
+import { Factura } from '@/shared/types';
+import { useBrandColors } from '@/shared/hooks/useBrandColors';
 
 /**
  * Componente GuiaRemisionRIDE
@@ -66,10 +67,22 @@ export interface DetalleGuia {
 }
 
 interface GuiaRemisionRIDEProps {
-    xmlFirmado: string;
-    numeroAutorizacion?: string;
-    fechaAutorizacion?: string;
+    comprobante: Factura;
 }
+
+/**
+ * Mapeo local de tipos de identificación (Fallback)
+ */
+const getNombreTipoIdentificacionLocal = (tipo: string) => {
+    const tipos: Record<string, string> = {
+        '04': 'RUC',
+        '05': 'CEDULA',
+        '06': 'PASAPORTE',
+        '07': 'VENTA A CONSUMIDOR FINAL',
+        '08': 'IDENTIFICACION DE EXTERIOR',
+    };
+    return tipos[tipo] || 'OTROS';
+};
 
 /**
  * Parsea el XML de guía de remisión firmado y extrae los datos
@@ -175,8 +188,10 @@ function getNombreTipoDocumento(codigo: string): string {
     return tipos[codigo] || 'DOCUMENTO';
 }
 
-export function GuiaRemisionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacion }: GuiaRemisionRIDEProps) {
-    const guia = parseGuiaRemisionXml(xmlFirmado);
+export function GuiaRemisionRIDE({ comprobante }: GuiaRemisionRIDEProps) {
+    const colors = useBrandColors();
+    const xmlFirmado = comprobante.xmlFirmado;
+    const guia = xmlFirmado ? parseGuiaRemisionXml(xmlFirmado) : null;
 
     if (!guia) {
         return (
@@ -211,10 +226,10 @@ export function GuiaRemisionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutoriza
                 </div>
 
                 {/* Lado Derecho: Info Tributaria Comprobante */}
-                <div className="border-2 border-teal-600 p-6 rounded-2xl space-y-3">
+                <div className="border-2 p-6 rounded-2xl space-y-3" style={{ borderColor: colors.primary }}>
                     <div className="space-y-1">
                         <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{guia.ruc}</span></p>
-                        <p className="text-xl font-black uppercase bg-teal-600 text-white px-3 py-1 inline-block rounded-md">
+                        <p className="text-xl font-black uppercase text-white px-3 py-1 inline-block rounded-md" style={{ backgroundColor: colors.primary }}>
                             GUÍA DE REMISIÓN
                         </p>
                         <p className="text-sm font-bold">No. {guia.estab}-{guia.ptoEmi}-{guia.secuencial}</p>
@@ -222,8 +237,8 @@ export function GuiaRemisionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutoriza
 
                     <div className="text-[10px] space-y-1">
                         <p><span className="font-bold">NÚMERO DE AUTORIZACIÓN:</span></p>
-                        <p className="font-mono break-all text-xs">{numeroAutorizacion || guia.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
-                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {fechaAutorizacion || 'PENDIENTE'}</p>
+                        <p className="font-mono break-all text-xs">{comprobante.numeroAutorizacion || guia.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
+                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {comprobante.fechaAutorizacion || 'PENDIENTE'}</p>
                         <p><span className="font-bold">AMBIENTE:</span> {guia.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}</p>
                         <p><span className="font-bold">EMISIÓN:</span> NORMAL</p>
                     </div>
@@ -231,7 +246,7 @@ export function GuiaRemisionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutoriza
                     <div className="space-y-1 pt-2">
                         <p className="text-[10px] font-bold">CLAVE DE ACCESO:</p>
                         <div className="bg-slate-50 p-2 border border-slate-200 rounded-lg">
-                            <div className="h-8 w-full bg-slate-900 flex items-center justify-center mb-1 overflow-hidden">
+                            <div className="h-8 w-full flex items-center justify-center mb-1 overflow-hidden" style={{ backgroundColor: colors.primary }}>
                                 <div className="w-full h-full flex gap-[1px]">
                                     {Array.from({ length: 100 }).map((_, i) => (
                                         <div key={i} className="bg-white" style={{ width: `${Math.random() * 3}px` }}></div>
@@ -245,11 +260,11 @@ export function GuiaRemisionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutoriza
             </div>
 
             {/* Datos del Transporte */}
-            <div className="border border-teal-600 bg-teal-50 p-4 rounded-xl mb-6 grid grid-cols-1 md:grid-cols-2 gap-y-2 text-[11px]">
-                <p className="col-span-2 font-bold text-teal-700 text-xs mb-2 border-b border-teal-200 pb-1">DATOS DEL TRANSPORTE</p>
+            <div className="border p-4 rounded-xl mb-6 grid grid-cols-1 md:grid-cols-2 gap-y-2 text-[11px]" style={{ borderColor: colors.primary, backgroundColor: `${colors.primary}10` }}>
+                <p className="col-span-2 font-bold text-xs mb-2 pb-1" style={{ color: colors.primary, borderBottom: `1px solid ${colors.primary}30` }}>DATOS DEL TRANSPORTE</p>
                 <p><span className="font-bold">Razón Social Transportista:</span> {guia.razonSocialTransportista}</p>
                 <p><span className="font-bold">RUC/CI Transportista:</span> {guia.rucTransportista}</p>
-                <p><span className="font-bold">Placa:</span> <span className="bg-teal-600 text-white px-2 py-0.5 rounded font-mono font-bold">{guia.placa}</span></p>
+                <p><span className="font-bold">Placa:</span> <span className="text-white px-2 py-0.5 rounded font-mono font-bold" style={{ backgroundColor: colors.primary }}>{guia.placa}</span></p>
                 <p><span className="font-bold">Fecha Inicio Transporte:</span> {guia.fechaIniTransporte}</p>
                 <p><span className="font-bold">Fecha Fin Transporte:</span> {guia.fechaFinTransporte}</p>
                 <p className="col-span-2"><span className="font-bold">Dirección Partida:</span> {guia.dirPartida}</p>
@@ -281,7 +296,7 @@ export function GuiaRemisionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutoriza
 
                     {/* Tabla de Detalles */}
                     <table className="w-full text-[10px] text-left">
-                        <thead className="bg-teal-600 text-white font-bold uppercase tracking-wider">
+                        <thead className="text-white font-bold uppercase tracking-wider" style={{ backgroundColor: colors.primary }}>
                             <tr>
                                 <th className="px-3 py-2 border-r border-white/10 w-28">Código</th>
                                 <th className="px-3 py-2 border-r border-white/10">Descripción</th>
@@ -306,9 +321,7 @@ export function GuiaRemisionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutoriza
                 <h3 className="text-[10px] font-black uppercase tracking-widest border-b border-slate-200 pb-1 mb-2">Información Adicional</h3>
                 <div className="text-[9px] space-y-1">
                     <p><span className="font-bold uppercase">Tipo Identificación Transportista:</span> {
-                        guia.tipoIdentificacionTransportista === '04' ? 'RUC' :
-                            guia.tipoIdentificacionTransportista === '05' ? 'CÉDULA' :
-                                guia.tipoIdentificacionTransportista === '06' ? 'PASAPORTE' : 'OTRO'
+                        getNombreTipoIdentificacionLocal(guia.tipoIdentificacionTransportista)
                     }</p>
                     {guia.rise && <p><span className="font-bold uppercase">RISE:</span> {guia.rise}</p>}
                 </div>

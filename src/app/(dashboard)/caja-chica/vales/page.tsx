@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Download, Receipt, Wallet, ArrowRightLeft, Trash2, X, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Download, Receipt, Wallet, ArrowRightLeft, Trash2, X } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { ValeCajaChica } from '@/modules/caja-chica/domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
@@ -15,7 +15,6 @@ export default function ValesCajaPage() {
     const { caja, vales, loading, cargarTodo } = useCajaChica();
     const { anularVale } = useCajaChicaMutations();
 
-    const [searchTerm, setSearchTerm] = useState('');
     const [selectedVale, setSelectedVale] = useState<ValeCajaChica | null>(null);
     const [showVerModal, setShowVerModal] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -44,19 +43,12 @@ export default function ValesCajaPage() {
         setShowVerModal(true);
     };
 
-    const filteredVales = useMemo(() => {
-        return vales.filter(v =>
-            v.beneficiario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            v.concepto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            v.numero.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [vales, searchTerm]);
 
     const handleExportExcel = () => {
-        if (filteredVales.length === 0) return;
+        if (vales.length === 0) return;
 
         const headers = ['Número', 'Fecha', 'Beneficiario', 'Concepto', 'Monto', 'Estado'];
-        const rows = filteredVales.map(v => [
+        const rows = vales.map(v => [
             v.numero,
             v.fecha,
             `"${v.beneficiario.replace(/"/g, '""')}"`,
@@ -178,7 +170,7 @@ export default function ValesCajaPage() {
 
             <div className="space-y-4">
                 <DataTable
-                    data={filteredVales}
+                    data={vales}
                     columns={columns}
                     loading={loading}
                     itemsPerPage={10}

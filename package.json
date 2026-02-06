@@ -15,6 +15,7 @@
     "@peculiar/webcrypto": "^1.5.0",
     "@prisma/client": "5.22.0",
     "@xmldom/xmldom": "^0.8.11",
+    "date-fns": "^4.1.0",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",

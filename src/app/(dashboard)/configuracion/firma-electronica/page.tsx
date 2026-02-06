@@ -6,7 +6,7 @@ import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { useAuth } from '@/shared/context/AuthContext';
 import { Button } from '@/shared/ui/Button';
 import { useToast } from '@/shared/context/ToastContext';
-import { fileToBase64 } from '@/shared/utils/fileHelpers';
+import { SriUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import type { CertificadoMetadata } from '@/shared/types/certificado.types';
 
 export default function FirmaElectronicaConfigPage() {
@@ -33,35 +33,11 @@ export default function FirmaElectronicaConfigPage() {
     const loadSRIConfig = async () => {
         if (!currentEmpresa || !user) return;
         try {
-            const ambiente = ambienteSRI === '1' ? 'PRUEBAS' : 'PRODUCCION';
-            const response = await fetch(`/api/configuracion/sri/metadata?ambiente=${ambiente}`, {
-                headers: {
-                    'x-empresa-id': currentEmpresa.id,
-                    'x-usuario-id': user.id
-                }
+            const data = await SriUseCases.obtenerMetadata();
+            setCertificadoInfo({
+                ...data,
+                ambiente: data.ambiente || 'PRUEBAS'
             });
-            if (response.ok) {
-                const metadata = await response.json();
-                setCertificadoInfo({
-                    fechaEmision: metadata.fechaEmision?.split('T')[0] || null,
-                    fechaExpiracion: metadata.fechaExpiracion?.split('T')[0] || null,
-                    sujeto: metadata.sujeto || null,
-                    emisor: metadata.emisor || null,
-                    numeroSerie: metadata.numeroSerie || null,
-                    diasRestantes: metadata.diasRestantes,
-                    estado: metadata.tieneCertificado ? (metadata.estado || 'VIGENTE') : 'SIN_CERTIFICADO'
-                });
-            } else {
-                setCertificadoInfo({
-                    fechaEmision: null,
-                    fechaExpiracion: null,
-                    sujeto: null,
-                    emisor: null,
-                    numeroSerie: null,
-                    diasRestantes: null,
-                    estado: 'SIN_CERTIFICADO'
-                });
-            }
         } catch (error) {
             console.error('Error al cargar config SRI:', error);
             setCertificadoInfo(prev => ({ ...prev, estado: 'SIN_CERTIFICADO' }));
@@ -84,38 +60,36 @@ export default function FirmaElectronicaConfigPage() {
         if (!currentEmpresa || !user) return;
 
         try {
-            const p12Base64 = firmaFile ? await fileToBase64(firmaFile) : '';
+            // Extraer solo la parte base64 del data URL
+            const base64 = firmaFile ? await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(firmaFile);
+                reader.onload = () => {
+                    const result = reader.result as string;
+                    const base64Content = result.split(',')[1];
+                    resolve(base64Content);
+                };
+                reader.onerror = error => reject(error);
+            }) : '';
+
             const ambiente = ambienteSRI === '1' ? 'PRUEBAS' : 'PRODUCCION';
 
-            const response = await fetch('/api/configuracion/sri', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-empresa-id': currentEmpresa.id,
-                    'x-usuario-id': user.id
-                },
-                body: JSON.stringify({
-                    ambiente,
-                    p12Base64,
-                    claveCertificado: firmaPassword,
-                })
+            const data = await SriUseCases.guardarConfiguracion({
+                ambiente,
+                p12Base64: base64,
+                claveCertificado: firmaPassword
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                let mensaje = `Configuración de firma guardada exitosamente.\nAmbiente: ${ambiente}`;
-                if (data.advertencia) mensaje += `\n⚠️ ${data.advertencia}`;
-                showToast(mensaje, data.advertencia ? 'warning' : 'success');
+            let mensaje = `Configuración de firma guardada exitosamente.\nAmbiente: ${ambiente}`;
+            if (data.advertencia) mensaje += `\n⚠️ ${data.advertencia}`;
+            showToast(mensaje, data.advertencia ? 'warning' : 'success');
 
-                await loadSRIConfig();
-                setFirmaFile(null);
-                setFirmaPassword('');
-            } else {
-                const error = await response.json();
-                showToast(`Error: ${error.error || 'No se pudo guardar la configuración'}`, 'error');
-            }
-        } catch (error) {
-            showToast('Error al guardar la configuración de firma', 'error');
+            await loadSRIConfig();
+            setFirmaFile(null);
+            setFirmaPassword('');
+        } catch (error: any) {
+            console.error('Error al guardar firma:', error);
+            showToast(error.message || 'Error al guardar la configuración de firma', 'error');
         }
     };
 
@@ -140,17 +114,24 @@ export default function FirmaElectronicaConfigPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Ambiente SRI</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Activar en Ambiente SRI</label>
                                 <div className="flex gap-4">
-                                    <label className="flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:bg-slate-50 flex-1">
+                                    <label className="flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:bg-slate-50 flex-1 bg-white">
                                         <input type="radio" name="ambiente" value="1" checked={ambienteSRI === '1'} onChange={() => setAmbienteSRI('1')} className="text-sri-blue" />
-                                        <span className="text-sm font-medium">Pruebas</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold">Pruebas</span>
+                                            <span className="text-[10px] text-slate-400">Certificación/Testing</span>
+                                        </div>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:bg-slate-50 flex-1">
+                                    <label className="flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:bg-slate-50 flex-1 bg-white">
                                         <input type="radio" name="ambiente" value="2" checked={ambienteSRI === '2'} onChange={() => setAmbienteSRI('2')} className="text-sri-blue" />
-                                        <span className="text-sm font-medium">Producción</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold">Producción</span>
+                                            <span className="text-[10px] text-slate-400">Válidez legal</span>
+                                        </div>
                                     </label>
                                 </div>
+                                <p className="text-[10px] text-slate-400 mt-2 italic">* El certificado subido se marcará como ACTIVO para el ambiente seleccionado, desactivando los anteriores.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Archivo de Firma (.p12)</label>
@@ -177,6 +158,7 @@ export default function FirmaElectronicaConfigPage() {
                             </div>
                             <Button onClick={handleGuardarFirma} className="w-full">Guardar Configuración</Button>
                         </div>
+
                         <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
                             <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
                                 <Shield size={18} className={certificadoInfo.estado === 'VIGENTE' ? 'text-green-600' : certificadoInfo.estado === 'PROXIMO_A_VENCER' ? 'text-yellow-600' : certificadoInfo.estado === 'EXPIRADO' ? 'text-red-600' : 'text-slate-400'} />
@@ -185,10 +167,16 @@ export default function FirmaElectronicaConfigPage() {
                             {certificadoInfo.estado !== 'SIN_CERTIFICADO' ? (
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                                        <span className="text-sm text-slate-500">Ambiente Activo</span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${certificadoInfo.ambiente === 'PRODUCCION' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
+                                            {certificadoInfo.ambiente}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-slate-200">
                                         <span className="text-sm text-slate-500">Estado</span>
                                         <span className={`px-2 py-1 rounded text-xs font-bold ${certificadoInfo.estado === 'VIGENTE' ? 'bg-green-100 text-green-700' :
-                                                certificadoInfo.estado === 'PROXIMO_A_VENCER' ? 'bg-yellow-101 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
+                                            certificadoInfo.estado === 'PROXIMO_A_VENCER' ? 'bg-yellow-101 text-yellow-700' :
+                                                'bg-red-100 text-red-700'
                                             }`}>
                                             {certificadoInfo.estado}
                                         </span>

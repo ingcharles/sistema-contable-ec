@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowUpCircle, Plus, Trash2, FileText, Calendar, AlertCircle, Hash } from 'lucide-react';
+import { ArrowUpCircle, AlertCircle, Hash, Calendar, FileText, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { Button } from '@/shared/ui/Button';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
-import { SriStandardizer } from '../../domain/services/SriStandardizer';
-import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
@@ -31,11 +30,9 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
     const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
     const [puntoEmisionId, setPuntoEmisionId] = useState(puntoActivo?.puntoEmisionId || '');
     const [fechaEmision, setFechaEmision] = useState(getLocalDateIso());
-    const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
     const [motivos, setMotivos] = useState<MotivoNotaDebito[]>([{ razon: '', valor: 0 }]);
-    const [formaPago] = useState('20');
 
     useEffect(() => {
         cargarParametros();
@@ -81,105 +78,37 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
         setErrorValidacion(null);
         try {
             const puntoEmi = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
-            if (!puntoEmi) {
-                throw new Error('Debe seleccionar un punto de emisión válido');
-            }
+            if (!puntoEmi) throw new Error('Debe seleccionar un punto de emisión válido');
 
-            // Obtener el siguiente secuencial para ND
-            const secuencialResponse = await FacturacionUseCases.obtenerSiguienteSecuencial(
+            const payload = {
                 puntoEmisionId,
-                '05' // Tipo comprobante: Nota de Débito
-            );
-
-            if (!secuencialResponse.success) {
-                throw new Error(secuencialResponse.error || 'Error al obtener secuencial');
-            }
-
-            const dataND = {
-                ambiente: '1',
-                tipoEmision: '1',
-                razonSocial: currentEmpresa.razonSocial,
-                nombreComercial: currentEmpresa.nombreComercial,
-                ruc: currentEmpresa.ruc,
-                estab: (puntoEmi.sucursalCodigo || puntoEmi.codigoEstablecimiento),
-                ptoEmi: (puntoEmi.codigo || puntoEmi.codigoPunto),
-                secuencial: secuencialResponse.secuencial,
-                dirMatriz: currentEmpresa.direccionMatriz,
                 fechaEmision,
-                obligadoContabilidad: 'SI',
-                tipoIdentificacionComprador: factura.tipoIdentificacionComprador,
-                razonSocialComprador: factura.razonSocialComprador,
-                identificacionComprador: factura.identificacionComprador,
+                clienteId: factura.clienteId,
+                motivo: motivos.map(m => m.razon).join(' / '),
                 codDocModificado: '01',
                 numDocModificado: factura.secuencial,
                 fechaEmisionDocSustento: factura.fechaEmision,
-                totalSinImpuestos: subtotal,
-                codigoIVA: '4',
-                valorIVA: iva,
-                valorTotal: total,
-                pagos: [{ formaPago, total }],
-                motivos: motivos
+                detalles: motivos.map(m => ({
+                    razon: m.razon,
+                    baseImponible: m.valor,
+                    valorIVA: m.valor * ivaPorcentaje,
+                    codigoIVA: '4' // SRI 15% (ajustar según params si es dinámico)
+                }))
             };
 
-            const jsonSri = SriStandardizer.standardizeNotaDebito(dataND);
+            const res = await FacturacionUseCases.emitirNotaDebito(payload);
 
-            let sriResult = {
-                success: false,
-                status: 'BORRADOR',
-                numeroAutorizacion: null as string | null,
-                claveAcceso: null as string | null
-            };
-
-            try {
-                const emisionRes = await FacturacionUseCases.emitirFactura(jsonSri);
-                sriResult = {
-                    success: true,
-                    status: emisionRes.status || 'AUTORIZADO',
-                    numeroAutorizacion: emisionRes.numeroAutorizacion,
-                    claveAcceso: emisionRes.claveAcceso
-                };
-            } catch (sriError: any) {
-                console.error('Error SRI:', sriError);
-                sriResult.status = 'ERROR SRI';
-            }
-
-            await FacturacionUseCases.registrarComprobante({
-                tipoComprobante: 'NOTA_DEBITO',
-                fechaEmision,
-                clienteId: factura.clienteId,
-                clienteNombre: factura.razonSocialComprador,
-                clienteIdentificacion: factura.identificacionComprador,
-                subtotal: subtotal,
-                iva: iva,
-                total: total,
-                detalles: motivos.map(m => ({ descripcion: m.razon, total: m.valor })),
-                secuencial: parseInt(secuencialResponse.secuencial),
-                puntoEmisionId: puntoEmisionId,
-                claveAcceso: sriResult.claveAcceso,
-                numeroAutorizacion: sriResult.numeroAutorizacion,
-                estado: sriResult.status
-            });
-
-            await ContabilidadUseCases.registrarAsiento({
-                numero: `AS-ND-${secuencialResponse.secuencial}`,
-                fecha: fechaEmision,
-                glosa: `P/R Nota de Débito ${secuencialResponse.secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialComprador}`,
-                tipo: 'INGRESO',
-                detalles: [
-                    { cuentaCodigo: parametros?.cuentaCxcClientes || '1.1.02.01', debe: total, haber: 0 },
-                    { cuentaCodigo: parametros?.cuentaVentas || '4.1.01.01', debe: 0, haber: subtotal },
-                    { cuentaCodigo: parametros?.cuentaIvaPorPagar || parametros?.cuentaIvaVentas || '2.1.05.01', debe: 0, haber: iva }
-                ]
-            });
-
-            if (sriResult.success) {
-                alert(`Nota de Débito autorizada: ${sriResult.numeroAutorizacion}`);
+            if (res.success) {
+                if (res.estado === 'AUTORIZADO') {
+                    alert(`Nota de Débito autorizada: ${res.secuencial}`);
+                } else {
+                    alert(`Nota de Débito guardada con estado: ${res.estado}`);
+                }
+                onSave();
+                onClose();
             } else {
-                alert(`Nota de Débito guardada localmente. Estado: ${sriResult.status}`);
+                throw new Error(res.error || 'Error al procesar la Nota de Débito');
             }
-
-            onSave();
-            onClose();
         } catch (error: any) {
             console.error('Error ND:', error);
             setErrorValidacion(`Error: ${error.message}`);
@@ -236,31 +165,16 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <Hash size={14} className="text-sri-blue" /> Secuencial ND *
-                        </label>
-                        <input
-                            type="text"
-                            value={secuencial}
-                            onChange={e => setSecuencial(e.target.value.replace(/\D/g, ''))}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-sri-blue outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
-                            placeholder="000000001"
-                            maxLength={9}
-                        />
-                    </div>
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <Calendar size={14} className="text-sri-blue" /> Fecha Emisión
-                        </label>
-                        <input
-                            type="date"
-                            value={fechaEmision}
-                            onChange={e => setFechaEmision(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
-                        />
-                    </div>
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <Calendar size={14} className="text-sri-blue" /> Fecha Emisión
+                    </label>
+                    <input
+                        type="date"
+                        value={fechaEmision}
+                        onChange={e => setFechaEmision(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
+                    />
                 </div>
 
                 <div className="space-y-4">

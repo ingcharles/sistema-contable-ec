@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Factura } from '@/shared/types';
+import { Factura, TipoComprobante } from '@/shared/types';
 import { Receipt, RotateCw, X } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 
 // Modals y Componentes
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { ComprobantesEmitidosTable } from '@/modules/facturacion/ui/components/ComprobantesEmitidosTable';
-import { FacturaRIDE } from '@/modules/facturacion/ui/components/FacturaRIDE';
-import { NotaCreditoRIDE } from '@/modules/facturacion/ui/components/NotaCreditoRIDE';
+import {
+    NotaCreditoRIDE
+} from '@/modules/facturacion/ui/components';
 import { XmlModal } from '@/modules/facturacion/ui/components/XmlModal';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
 
@@ -29,7 +30,7 @@ export default function NotasCreditoPage() {
             const allComprobantes = result?.data || result || [];
             // Filtrar solo notas de crédito (Código 04)
             const filteredNC = allComprobantes.filter((c: Factura) =>
-                c.tipoComprobante === '04' || c.tipo === 'NOTA_CREDITO'
+                c.tipoComprobante === '04' || c.tipo === TipoComprobante.NOTA_CREDITO
             );
             setNotas(filteredNC);
         } catch (error) {
@@ -46,7 +47,7 @@ export default function NotasCreditoPage() {
     const handleReemitir = async (row: any) => {
         try {
             setLoading(true);
-            const dataSri = SriStandardizer.standardizeNotaCredito(row, 15); // Asumiendo IVA 15 default o tomando de parám
+            const dataSri = SriStandardizer.standardizeNotaCredito(row);
             const res = await FacturacionUseCases.emitirFactura(dataSri);
 
             if (res.estado === 'AUTORIZADO') {
@@ -108,15 +109,7 @@ export default function NotasCreditoPage() {
                         </div>
                         <div className="flex-1 overflow-y-auto p-8 bg-slate-100">
                             <div className="bg-white shadow-lg mx-auto max-w-[21cm] min-h-[29.7cm]">
-                                {facturaVerRide.xmlFirmado ? (
-                                    <NotaCreditoRIDE
-                                        xmlFirmado={facturaVerRide.xmlFirmado}
-                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                    />
-                                ) : (
-                                    <FacturaRIDE factura={facturaVerRide as any} />
-                                )}
+                                <NotaCreditoRIDE comprobante={facturaVerRide} />
                             </div>
                         </div>
                     </div>

@@ -1,4 +1,5 @@
-'use client';
+import { Factura } from '@/shared/types';
+import { useBrandColors } from '@/shared/hooks/useBrandColors';
 
 /**
  * Componente RetencionRIDE
@@ -77,9 +78,7 @@ export interface Pago {
 }
 
 interface RetencionRIDEProps {
-    xmlFirmado: string;
-    numeroAutorizacion?: string;
-    fechaAutorizacion?: string;
+    comprobante: Factura;
 }
 
 /**
@@ -240,8 +239,10 @@ function formatNumDocSustento(num: string): string {
     return num;
 }
 
-export function RetencionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacion }: RetencionRIDEProps) {
-    const retencion = parseRetencionXml(xmlFirmado);
+export function RetencionRIDE({ comprobante }: RetencionRIDEProps) {
+    const colors = useBrandColors();
+    const xmlFirmado = comprobante.xmlFirmado;
+    const retencion = xmlFirmado ? parseRetencionXml(xmlFirmado) : null;
 
     if (!retencion) {
         return (
@@ -287,10 +288,10 @@ export function RetencionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacio
                 </div>
 
                 {/* Lado Derecho: Info Tributaria Comprobante */}
-                <div className="border-2 border-slate-900 p-6 rounded-2xl space-y-3">
+                <div className="border-2 p-6 rounded-2xl space-y-3" style={{ borderColor: colors.primary }}>
                     <div className="space-y-1">
                         <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{retencion.ruc}</span></p>
-                        <p className="text-xl font-black uppercase bg-slate-900 text-white px-3 py-1 inline-block rounded-md">
+                        <p className="text-xl font-black uppercase text-white px-3 py-1 inline-block rounded-md" style={{ backgroundColor: colors.primary }}>
                             COMPROBANTE DE RETENCIÓN
                         </p>
                         <p className="text-sm font-bold">No. {retencion.estab}-{retencion.ptoEmi}-{retencion.secuencial}</p>
@@ -298,8 +299,8 @@ export function RetencionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacio
 
                     <div className="text-[10px] space-y-1">
                         <p><span className="font-bold">NÚMERO DE AUTORIZACIÓN:</span></p>
-                        <p className="font-mono break-all text-xs">{numeroAutorizacion || retencion.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
-                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {fechaAutorizacion || 'PENDIENTE'}</p>
+                        <p className="font-mono break-all text-xs">{comprobante.numeroAutorizacion || retencion.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
+                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {comprobante.fechaAutorizacion || 'PENDIENTE'}</p>
                         <p><span className="font-bold">AMBIENTE:</span> {retencion.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}</p>
                         <p><span className="font-bold">EMISIÓN:</span> NORMAL</p>
                     </div>
@@ -348,7 +349,7 @@ export function RetencionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacio
 
                     {/* Tabla de Retenciones */}
                     <table className="w-full text-[10px] text-left">
-                        <thead className="bg-slate-900 text-white font-bold uppercase tracking-wider">
+                        <thead className="text-white font-bold uppercase tracking-wider" style={{ backgroundColor: colors.primary }}>
                             <tr>
                                 <th className="px-3 py-2 border-r border-white/10">Ejercicio Fiscal</th>
                                 <th className="px-3 py-2 border-r border-white/10">Base Imponible</th>
@@ -386,11 +387,7 @@ export function RetencionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacio
                     <div className="text-[9px] space-y-1">
                         <p><span className="font-bold uppercase">Parte Relacionada:</span> {retencion.parteRel}</p>
                         <p><span className="font-bold uppercase">Tipo Identificación:</span> {
-                            retencion.tipoIdentificacionSujetoRetenido === '04' ? 'RUC' :
-                                retencion.tipoIdentificacionSujetoRetenido === '05' ? 'CÉDULA' :
-                                    retencion.tipoIdentificacionSujetoRetenido === '06' ? 'PASAPORTE' :
-                                        retencion.tipoIdentificacionSujetoRetenido === '07' ? 'CONSUMIDOR FINAL' :
-                                            retencion.tipoIdentificacionSujetoRetenido === '08' ? 'IDENTIFICACIÓN EXTERIOR' : 'OTRO'
+                            comprobante.tipoIdentificacionCompradorNombre || 'N/A'
                         }</p>
                     </div>
                 </div>
@@ -407,7 +404,7 @@ export function RetencionRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacio
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Total Retención IVA</td>
                                 <td className="px-3 py-1.5 text-right font-bold">${totalRetencionIVA.toFixed(2)}</td>
                             </tr>
-                            <tr className="bg-slate-900 text-white">
+                            <tr className="text-white" style={{ backgroundColor: colors.primary }}>
                                 <td className="px-3 py-2 font-black uppercase text-xs">Total Retenciones</td>
                                 <td className="px-3 py-2 text-right font-black text-xs">${totalRetenciones.toFixed(2)}</td>
                             </tr>

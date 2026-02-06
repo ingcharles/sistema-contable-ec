@@ -28,6 +28,9 @@ export async function GET(request: NextRequest) {
                 e.logo_url AS "logoUrl",
                 e.es_obligado_contabilidad AS "obligadoContabilidad",
                 e.es_contribuyente_especial AS "contribuyenteEspecial",
+                e.color_primario AS "colorPrimario",
+                e.color_secundario AS "colorSecundario",
+                e.color_acento AS "colorAcento",
                 sa.nombre AS "ambienteSriNombre",
                 e.created_at AS "createdAt",
                 e.updated_at AS "updatedAt"

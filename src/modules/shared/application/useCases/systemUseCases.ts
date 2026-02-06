@@ -67,6 +67,12 @@ export class ContabilidadUseCases extends BaseUseCase {
     static async listarCentrosCostos() {
         return this.request('/api/contabilidad/centros-costos');
     }
+
+    static async eliminarCentroCosto(id: string) {
+        return this.request(`/api/contabilidad/centros-costos/${id}`, {
+            method: 'DELETE'
+        });
+    }
     static async obtenerBalanceGeneral(fechaCorte: string) {
         return this.request(`/api/contabilidad/reportes/balance?fecha=${fechaCorte}`);
     }
@@ -230,6 +236,50 @@ export class NominaUseCases extends BaseUseCase {
     static async eliminarEmpleado(id: string) {
         return this.request(`/api/nomina/empleados/${id}`, {
             method: 'DELETE'
+        });
+    }
+
+    // --- ASISTENCIA ---
+    static async listarAsistencia(desde: string, hasta: string) {
+        return this.request(`/api/nomina/asistencia?desde=${desde}&hasta=${hasta}`);
+    }
+    static async guardarAsistencia(asistencia: any) {
+        return this.request('/api/nomina/asistencia', {
+            method: 'POST',
+            body: JSON.stringify(asistencia)
+        });
+    }
+
+    // --- VACACIONES ---
+    static async listarVacaciones() {
+        return this.request('/api/nomina/vacaciones');
+    }
+    static async solicitarVacaciones(solicitud: any) {
+        return this.request('/api/nomina/vacaciones', {
+            method: 'POST',
+            body: JSON.stringify(solicitud)
+        });
+    }
+
+    // --- PRESTAMOS ---
+    static async listarPrestamos() {
+        return this.request('/api/nomina/prestamos');
+    }
+    static async registrarPrestamo(prestamo: any) {
+        return this.request('/api/nomina/prestamos', {
+            method: 'POST',
+            body: JSON.stringify(prestamo)
+        });
+    }
+
+    // --- LIQUIDACIONES ---
+    static async listarLiquidaciones() {
+        return this.request('/api/nomina/liquidaciones');
+    }
+    static async procesarLiquidacion(liquidacion: any) {
+        return this.request('/api/nomina/liquidaciones', {
+            method: 'POST',
+            body: JSON.stringify(liquidacion)
         });
     }
 }
@@ -447,16 +497,39 @@ export class ConfiguracionUseCases extends BaseUseCase {
  * MÓDULO: FACTURACIÓN / SRI
  */
 export class FacturacionUseCases extends BaseUseCase {
-    static async emitirFactura(factura: any) {
-        return this.request('/api/facturacion/emitir', {
-            method: 'POST',
-            body: JSON.stringify(factura)
-        });
-    }
-    static async vender(venta: any) {
+    static async vender(data: any) {
         return this.request('/api/facturacion/vender', {
             method: 'POST',
-            body: JSON.stringify(venta)
+            body: JSON.stringify(data)
+        });
+    }
+
+    static async emitirNotaCredito(data: any) {
+        return this.request('/api/facturacion/notas-credito/emitir', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    static async emitirNotaDebito(data: any) {
+        return this.request('/api/facturacion/notas-debito/emitir', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    static async emitirGuia(data: any) {
+        return this.request('/api/facturacion/guias/emitir', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    static async emitirFactura(data: any) {
+        // Mantenemos este para compatibilidad o re-emisión simple
+        return this.request('/api/facturacion/emitir', {
+            method: 'POST',
+            body: JSON.stringify(data)
         });
     }
     static async registrarComprobante(comprobante: any) {
@@ -746,5 +819,25 @@ export class TercerosUseCases extends BaseUseCase {
             method: tercero.id ? 'PUT' : 'POST',
             body: JSON.stringify(tercero)
         });
+    }
+}
+
+/**
+ * MÓDULO: SRI / CONFIGURACIÓN
+ */
+export class SriUseCases extends BaseUseCase {
+    static async obtenerMetadata() {
+        return this.request('/api/configuracion/sri/metadata');
+    }
+
+    static async guardarConfiguracion(data: any) {
+        return this.request('/api/configuracion/sri', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    static async obtenerAmbientes() {
+        return this.request('/api/configuracion/sri/ambientes');
     }
 }

@@ -1,6 +1,7 @@
 /**
  * Utilidades para manejo de fechas en formato SRI
  */
+import { parseISO, format, isValid } from 'date-fns';
 
 /**
  * Formatea una fecha en formato DD/MM/YYYY (estándar SRI Ecuador)
@@ -26,13 +27,44 @@ export function obtenerPeriodoFiscal(date: Date = new Date()): string {
 }
 
 /**
- * Convierte una fecha de formato ISO (YYYY-MM-DD) a formato SRI (DD/MM/YYYY)
- * @param isoDate Fecha en formato ISO (YYYY-MM-DD)
+ * Convierte una fecha de formato ISO o similar a formato SRI (DD/MM/YYYY)
+ * @param isoDate Fecha en formato ISO, timestamp o string
  * @returns Fecha en formato DD/MM/YYYY
  */
-export function isoToSriDate(isoDate: string): string {
-    const date = new Date(isoDate + 'T00:00:00');
-    return formatearFechaSri(date);
+export function isoToSriDate(isoDate: any): string {
+    if (!isoDate) return '';
+
+    try {
+        // Si ya es un objeto Date
+        if (isoDate instanceof Date) {
+            return isValid(isoDate) ? format(isoDate, 'dd/MM/yyyy') : '';
+        }
+
+        const dateStr = String(isoDate).trim();
+
+        // Si ya está en formato SRI (DD/MM/YYYY), no re-formatear
+        if (/^\d{2}\/\d{2}\/\d{4}/.test(dateStr)) return dateStr.substring(0, 10);
+
+        // Intentar parsear como ISO
+        let parsed = parseISO(dateStr);
+        if (isValid(parsed)) return format(parsed, 'dd/MM/yyyy');
+
+        // Si tiene espacio (ej: '2026-02-04 22:33'), intentar parsear solo la fecha
+        if (dateStr.includes(' ')) {
+            const datePart = dateStr.split(' ')[0];
+            parsed = parseISO(datePart);
+            if (isValid(parsed)) return format(parsed, 'dd/MM/yyyy');
+        }
+
+        // Intento final con Date nativo (maneja formatos como '2026-02-04 22:33' mejor en algunos entornos)
+        const nativeDate = new Date(isoDate);
+        if (isValid(nativeDate)) return format(nativeDate, 'dd/MM/yyyy');
+
+    } catch (error) {
+        console.error('Error al formatear fecha para SRI:', isoDate, error);
+    }
+
+    return String(isoDate);
 }
 
 /**

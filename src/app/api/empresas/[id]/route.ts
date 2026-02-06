@@ -19,7 +19,10 @@ export async function PUT(
             email,
             logoUrl,
             obligadoContabilidad,
-            contribuyenteEspecial
+            contribuyenteEspecial,
+            colorPrimario,
+            colorSecundario,
+            colorAcento
         } = body;
 
         // Obtener usuario y empresa desde headers
@@ -36,8 +39,11 @@ export async function PUT(
                 logo_url = $4,
                 es_obligado_contabilidad = $5,
                 es_contribuyente_especial = $6,
+                color_primario = $7,
+                color_secundario = $8,
+                color_acento = $9,
                 updated_at = NOW()
-            WHERE id = $7
+            WHERE id = $10
             RETURNING 
                 id,
                 ruc,
@@ -48,6 +54,9 @@ export async function PUT(
                 logo_url AS "logoUrl",
                 es_obligado_contabilidad AS "obligadoContabilidad",
                 es_contribuyente_especial AS "contribuyenteEspecial",
+                color_primario AS "colorPrimario",
+                color_secundario AS "colorSecundario",
+                color_acento AS "colorAcento",
                 created_at AS "createdAt",
                 updated_at AS "updatedAt"
         `;
@@ -61,6 +70,9 @@ export async function PUT(
                 logoUrl || '',
                 obligadoContabilidad,
                 contribuyenteEspecial,
+                colorPrimario || null,
+                colorSecundario || null,
+                colorAcento || null,
                 empresaId
             ]
         }, {

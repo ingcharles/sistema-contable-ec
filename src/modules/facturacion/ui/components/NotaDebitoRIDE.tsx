@@ -1,4 +1,5 @@
-'use client';
+import { Factura } from '@/shared/types';
+import { useBrandColors } from '@/shared/hooks/useBrandColors';
 
 /**
  * Componente NotaDebitoRIDE
@@ -73,9 +74,7 @@ export interface PagoND {
 }
 
 interface NotaDebitoRIDEProps {
-    xmlFirmado: string;
-    numeroAutorizacion?: string;
-    fechaAutorizacion?: string;
+    comprobante: Factura;
 }
 
 /**
@@ -191,9 +190,9 @@ function parseNotaDebitoXml(xml: string): NotaDebitoData | null {
             const nombre = campo.getAttribute('nombre');
             const valor = campo.textContent || '';
 
-            if (nombre === 'Direccion') {
+            if (nombre === 'Direccion' || nombre === 'Dirección' || nombre === 'DIRECCION') {
                 parsedData.direccionComprador = valor;
-            } else if (nombre === 'Email') {
+            } else if (nombre === 'Email' || nombre === 'EMAIL' || nombre === 'E-mail' || nombre === 'Mail') {
                 parsedData.emailComprador = valor;
             }
         }
@@ -205,21 +204,13 @@ function parseNotaDebitoXml(xml: string): NotaDebitoData | null {
     }
 }
 
-/**
- * Obtiene el nombre del tipo de documento según el código SRI
- */
-function getNombreTipoDocumento(codigo: string): string {
-    const tipos: Record<string, string> = {
-        '01': 'FACTURA',
-        '03': 'LIQUIDACIÓN DE COMPRA',
-        '04': 'NOTA DE CRÉDITO',
-        '05': 'NOTA DE DÉBITO',
-    };
-    return tipos[codigo] || 'DOCUMENTO';
-}
 
-export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacion }: NotaDebitoRIDEProps) {
-    const notaDebito = parseNotaDebitoXml(xmlFirmado);
+// Eliminado getNombreTipoDocumento anterior
+
+export function NotaDebitoRIDE({ comprobante }: NotaDebitoRIDEProps) {
+    const colors = useBrandColors();
+    const xmlFirmado = comprobante.xmlFirmado;
+    const notaDebito = xmlFirmado ? parseNotaDebitoXml(xmlFirmado) : null;
 
     if (!notaDebito) {
         return (
@@ -259,10 +250,10 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
                 </div>
 
                 {/* Lado Derecho: Info Tributaria Comprobante */}
-                <div className="border-2 border-blue-600 p-6 rounded-2xl space-y-3">
+                <div className="border-2 p-6 rounded-2xl space-y-3" style={{ borderColor: colors.primary }}>
                     <div className="space-y-1">
                         <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{notaDebito.ruc}</span></p>
-                        <p className="text-xl font-black uppercase bg-blue-600 text-white px-3 py-1 inline-block rounded-md">
+                        <p className="text-xl font-black uppercase text-white px-3 py-1 inline-block rounded-md" style={{ backgroundColor: colors.primary }}>
                             NOTA DE DÉBITO
                         </p>
                         <p className="text-sm font-bold">No. {notaDebito.estab}-{notaDebito.ptoEmi}-{notaDebito.secuencial}</p>
@@ -270,8 +261,8 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
 
                     <div className="text-[10px] space-y-1">
                         <p><span className="font-bold">NÚMERO DE AUTORIZACIÓN:</span></p>
-                        <p className="font-mono break-all text-xs">{numeroAutorizacion || notaDebito.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
-                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {fechaAutorizacion || 'PENDIENTE'}</p>
+                        <p className="font-mono break-all text-xs">{comprobante.numeroAutorizacion || notaDebito.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
+                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {comprobante.fechaAutorizacion || 'PENDIENTE'}</p>
                         <p><span className="font-bold">AMBIENTE:</span> {notaDebito.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}</p>
                         <p><span className="font-bold">EMISIÓN:</span> NORMAL</p>
                     </div>
@@ -279,7 +270,7 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
                     <div className="space-y-1 pt-2">
                         <p className="text-[10px] font-bold">CLAVE DE ACCESO:</p>
                         <div className="bg-slate-50 p-2 border border-slate-200 rounded-lg">
-                            <div className="h-8 w-full bg-slate-900 flex items-center justify-center mb-1 overflow-hidden">
+                            <div className="h-8 w-full flex items-center justify-center mb-1 overflow-hidden" style={{ backgroundColor: colors.primary }}>
                                 <div className="w-full h-full flex gap-[1px]">
                                     {Array.from({ length: 100 }).map((_, i) => (
                                         <div key={i} className="bg-white" style={{ width: `${Math.random() * 3}px` }}></div>
@@ -300,8 +291,8 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
                 <p></p>
                 <p className="col-span-2 mt-2 pt-2 border-t border-slate-200">
                     <span className="font-bold">Comprobante que modifica:</span>{' '}
-                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-mono">
-                        {getNombreTipoDocumento(notaDebito.codDocModificado)} {notaDebito.numDocModificado}
+                    <span className="px-2 py-0.5 rounded font-mono" style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}>
+                        DOCUMENTO {notaDebito.numDocModificado}
                     </span>
                     <span className="text-slate-500 ml-2">(Emitido: {notaDebito.fechaEmisionDocSustento})</span>
                 </p>
@@ -310,7 +301,7 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
             {/* Tabla de Motivos */}
             <div className="border border-slate-900 rounded-xl overflow-hidden mb-8">
                 <table className="w-full text-[10px] text-left">
-                    <thead className="bg-blue-600 text-white font-bold uppercase tracking-wider">
+                    <thead className="text-white font-bold uppercase tracking-wider" style={{ backgroundColor: colors.primary }}>
                         <tr>
                             <th className="px-3 py-2 border-r border-white/10">Razón / Motivo</th>
                             <th className="px-3 py-2 text-right w-32">Valor</th>
@@ -333,9 +324,7 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
                     <h3 className="text-[10px] font-black uppercase tracking-widest border-b border-slate-200 pb-1 mb-2">Información Adicional</h3>
                     <div className="text-[9px] space-y-1">
                         <p><span className="font-bold uppercase">Tipo Identificación:</span> {
-                            notaDebito.tipoIdentificacionComprador === '04' ? 'RUC' :
-                                notaDebito.tipoIdentificacionComprador === '05' ? 'CÉDULA' :
-                                    notaDebito.tipoIdentificacionComprador === '06' ? 'PASAPORTE' : 'OTRO'
+                            comprobante.tipoIdentificacionCompradorNombre || 'N/A'
                         }</p>
                         <p><span className="font-bold uppercase">Dirección:</span> {notaDebito.direccionComprador || 'N/A'}</p>
                         <p><span className="font-bold uppercase">Email:</span> {notaDebito.emailComprador || 'N/A'}</p>
@@ -361,7 +350,7 @@ export function NotaDebitoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizaci
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA 15%</td>
                                 <td className="px-3 py-1.5 text-right font-bold">{totalIVA.toFixed(2)}</td>
                             </tr>
-                            <tr className="bg-blue-600 text-white">
+                            <tr className="text-white" style={{ backgroundColor: colors.primary }}>
                                 <td className="px-3 py-2 font-black uppercase text-xs">Valor Total</td>
                                 <td className="px-3 py-2 text-right font-black text-xs">{notaDebito.valorTotal.toFixed(2)}</td>
                             </tr>

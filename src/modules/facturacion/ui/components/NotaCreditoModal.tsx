@@ -4,16 +4,17 @@ import { useState, useEffect } from 'react';
 import { RotateCcw, AlertCircle, Hash } from 'lucide-react';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
-import { SriStandardizer } from '../../domain/services/SriStandardizer';
-import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Modal } from '@/shared/ui/Modal';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { getLocalDateIso } from '@/shared/utils/dateUtils';
+import { useCatalogos } from '@/shared/hooks/useCatalogos';
 
 interface ItemNotaCredito {
     id: string;
+    codigoPrincipal: string;
     nombre: string;
     cantidadOriginal: number;
     precio: number;
@@ -55,15 +56,18 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
         cargarPuntos();
     }, [puntosContext, puntoActivo]);
 
+    const { getCatalogo } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA']);
+    const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
+
     const [motivo, setMotivo] = useState('');
     const [fechaEmision, setFechaEmision] = useState(getLocalDateIso());
-    const [secuencial, setSecuencial] = useState('');
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     const [items, setItems] = useState<ItemNotaCredito[]>(
         factura.detalles?.map((item: any, index: number) => ({
             id: item.id || `item-${index}`,
+            codigoPrincipal: item.codigoPrincipal || item.codigo || '',
             nombre: item.descripcion,
             cantidadOriginal: item.cantidad,
             precio: item.precioUnitario,
@@ -79,9 +83,24 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
         if (errorValidacion) setErrorValidacion(null);
     };
 
+    const getTarifaIVA = (codigoIVA: string) => {
+        const tarifaSeleccionada = tarifasIVA.find(t => t.codigo === codigoIVA);
+        if (tarifaSeleccionada) {
+            if (tarifaSeleccionada.valorNumerico !== undefined) {
+                return tarifaSeleccionada.valorNumerico / 100;
+            }
+            const match = tarifaSeleccionada.valor.match(/(\d+)%/);
+            if (match) return parseInt(match[1]) / 100;
+        }
+        // Fallback robusto
+        if (codigoIVA === '2') return (parametros?.iva || 15) / 100;
+        if (codigoIVA === '4') return 0.15;
+        return 0;
+    };
+
     const subtotalDevolucion = items.reduce((acc, item) => acc + (item.cantidadDevolver * item.precio), 0);
     const ivaDevolucion = items.reduce((acc, item) => {
-        const tarifa = SriStandardizer.getTarifaValue(item.codigoIVA, parametros?.iva || 15) / 100;
+        const tarifa = getTarifaIVA(item.codigoIVA);
         return acc + (item.cantidadDevolver * item.precio * tarifa);
     }, 0);
     const totalDevolucion = subtotalDevolucion + ivaDevolucion;
@@ -97,111 +116,50 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
         setErrorValidacion(null);
         try {
             const puntoEmi = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
-            if (!puntoEmi) {
-                throw new Error('Debe seleccionar un punto de emisión válido');
-            }
+            if (!puntoEmi) throw new Error('Debe seleccionar un punto de emisión válido');
 
-            // Obtener el siguiente secuencial para NC
-            const secuencialResponse = await FacturacionUseCases.obtenerSiguienteSecuencial(
+            const fullNumDocModificado = factura.secuencial.includes('-')
+                ? factura.secuencial
+                : `${factura.estab || '001'}-${factura.ptoEmi || '001'}-${factura.secuencial}`;
+
+            const payload = {
                 puntoEmisionId,
-                '04' // Tipo comprobante: Nota de Crédito
-            );
-
-            if (!secuencialResponse.success) {
-                throw new Error(secuencialResponse.error || 'Error al obtener secuencial');
-            }
-
-            const dataNC = {
-                ambiente: '1',
-                tipoEmision: '1',
-                razonSocial: currentEmpresa.razonSocial,
-                nombreComercial: currentEmpresa.nombreComercial,
-                ruc: currentEmpresa.ruc,
-                estab: puntoEmi.sucursalCodigo || puntoEmi.codigoEstablecimiento,
-                ptoEmi: puntoEmi.codigo || puntoEmi.codigoPunto,
-                secuencial: secuencialResponse.secuencial,
-                dirMatriz: currentEmpresa.direccionMatriz,
-                fechaEmision,
-                tipoIdentificacionComprador: factura.tipoIdentificacionComprador,
-                razonSocialComprador: factura.razonSocialComprador,
-                identificacionComprador: factura.identificacionComprador,
-                codDocModificado: '01',
-                numDocModificado: factura.secuencial,
-                fechaEmisionDocSustento: factura.fechaEmision,
-                totalSinImpuestos: subtotalDevolucion,
-                valorModificacion: totalDevolucion,
-                motivo,
-                detalles: items.filter(i => i.cantidadDevolver > 0).map(i => ({
-                    codigoPrincipal: i.id,
-                    descripcion: i.nombre,
-                    cantidad: i.cantidadDevolver,
-                    precioUnitario: i.precio,
-                    descuento: 0,
-                    baseImponible: i.cantidadDevolver * i.precio,
-                    valorIVA: i.cantidadDevolver * i.precio * (SriStandardizer.getTarifaValue(i.codigoIVA, parametros?.iva || 15) / 100),
-                    codigoIVA: i.codigoIVA
-                }))
-            };
-
-            const jsonSri = SriStandardizer.standardizeNotaCredito(dataNC);
-
-            let sriResult = {
-                success: false,
-                status: 'BORRADOR',
-                numeroAutorizacion: null as string | null,
-                claveAcceso: null as string | null
-            };
-
-            try {
-                const emisionRes = await FacturacionUseCases.emitirFactura(jsonSri);
-                sriResult = {
-                    success: true,
-                    status: emisionRes.status || 'AUTORIZADO',
-                    numeroAutorizacion: emisionRes.numeroAutorizacion,
-                    claveAcceso: emisionRes.claveAcceso
-                };
-            } catch (sriError: any) {
-                console.error('Error SRI:', sriError);
-                sriResult.status = 'ERROR SRI';
-            }
-
-            await FacturacionUseCases.registrarComprobante({
-                tipoComprobante: 'NOTA_CREDITO',
                 fechaEmision,
                 clienteId: factura.clienteId,
-                clienteNombre: factura.razonSocialComprador,
-                clienteIdentificacion: factura.identificacionComprador,
-                subtotal: subtotalDevolucion,
-                iva: ivaDevolucion,
-                total: totalDevolucion,
-                detalles: dataNC.detalles,
-                secuencial: parseInt(secuencialResponse.secuencial),
-                puntoEmisionId: puntoEmisionId,
-                claveAcceso: sriResult.claveAcceso,
-                numeroAutorizacion: sriResult.numeroAutorizacion,
-                estado: sriResult.status
-            });
+                motivo,
+                codDocModificado: '01', // Factura
+                numDocModificado: fullNumDocModificado,
+                fechaEmisionDocSustento: factura.fechaEmision,
+                detalles: items.filter(i => i.cantidadDevolver > 0).map(i => {
+                    const tarifa = getTarifaIVA(i.codigoIVA);
+                    return {
+                        id: i.id,
+                        codigoPrincipal: i.codigoPrincipal,
+                        descripcion: i.nombre,
+                        cantidad: i.cantidadDevolver,
+                        precioUnitario: i.precio,
+                        descuento: 0,
+                        baseImponible: i.cantidadDevolver * i.precio,
+                        valorIVA: i.cantidadDevolver * i.precio * tarifa,
+                        codigoIVA: i.codigoIVA,
+                        tarifa: tarifa * 100
+                    };
+                })
+            };
 
-            await ContabilidadUseCases.registrarAsiento({
-                numero: `AS-NC-${secuencialResponse.secuencial}`,
-                fecha: fechaEmision,
-                glosa: `P/R Nota de Crédito ${secuencialResponse.secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialComprador}`,
-                tipo: 'EGRESO',
-                detalles: [
-                    { cuentaCodigo: parametros?.cuentaDevolucionVentas || '4.1.01.02', debe: subtotalDevolucion, haber: 0 },
-                    { cuentaCodigo: parametros?.cuentaIvaPorPagar || parametros?.cuentaIvaVentas || '2.1.05.01', debe: ivaDevolucion, haber: 0 },
-                    { cuentaCodigo: parametros?.cuentaCxcClientes || '1.1.02.01', debe: 0, haber: totalDevolucion }
-                ]
-            });
+            const res = await FacturacionUseCases.emitirNotaCredito(payload);
 
-            if (sriResult.success) {
-                alert(`Nota de Crédito emitida y autorizada: ${sriResult.numeroAutorizacion}`);
+            if (res.success) {
+                if (res.estadoSri === 'AUTORIZADO') {
+                    alert(`Nota de Crédito autorizada: ${res.secuencial}`);
+                } else {
+                    alert(`Nota de Crédito guardada con estado: ${res.estadoSri}`);
+                }
+                onSave();
+                onClose();
             } else {
-                alert(`Nota de Crédito guardada localmente. Error SRI: ${sriResult.status}`);
+                throw new Error(res.error || 'Error al procesar la Nota de Crédito');
             }
-
-            onSave();
-            onClose();
         } catch (error: any) {
             console.error('Error al emitir NC:', error);
             setErrorValidacion(`Error: ${error.message}`);
@@ -258,17 +216,6 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Secuencial NC *</label>
-                        <input
-                            type="text"
-                            value={secuencial}
-                            onChange={e => setSecuencial(e.target.value.replace(/\D/g, ''))}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono"
-                            placeholder="000000001"
-                            maxLength={9}
-                        />
-                    </div>
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-1">Fecha Emisión *</label>
                         <input type="date" value={fechaEmision} onChange={e => setFechaEmision(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all" />

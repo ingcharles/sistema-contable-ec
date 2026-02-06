@@ -179,65 +179,23 @@ export default function FacturasEmitidasPage() {
                                     if (xmlFirmado) {
                                         switch (tipoDoc) {
                                             case '03':
-                                                return (
-                                                    <LiquidacionCompraRIDE
-                                                        xmlFirmado={xmlFirmado}
-                                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                                    />
-                                                );
+                                                return <LiquidacionCompraRIDE comprobante={facturaVerRide} />;
                                             case '04':
-                                                return (
-                                                    <NotaCreditoRIDE
-                                                        xmlFirmado={xmlFirmado}
-                                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                                    />
-                                                );
+                                                return <NotaCreditoRIDE comprobante={facturaVerRide} />;
                                             case '05':
-                                                return (
-                                                    <NotaDebitoRIDE
-                                                        xmlFirmado={xmlFirmado}
-                                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                                    />
-                                                );
+                                                return <NotaDebitoRIDE comprobante={facturaVerRide} />;
                                             case '06':
-                                                return (
-                                                    <GuiaRemisionRIDE
-                                                        xmlFirmado={xmlFirmado}
-                                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                                    />
-                                                );
+                                                return <GuiaRemisionRIDE comprobante={facturaVerRide} />;
                                             case '07':
-                                                return (
-                                                    <RetencionRIDE
-                                                        xmlFirmado={xmlFirmado}
-                                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                                    />
-                                                );
+                                                return <RetencionRIDE comprobante={facturaVerRide} />;
                                             default:
-                                                // Para facturas (01) y otros
-                                                return (
-                                                    <FacturaRIDE
-                                                        xmlFirmado={xmlFirmado}
-                                                        factura={facturaVerRide}
-                                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                                    />
-                                                );
+                                                return <FacturaRIDE comprobante={facturaVerRide} />;
                                         }
                                     }
 
                                     // Sin XML firmado, usar el componente genérico con datos de la DB
                                     return (
-                                        <FacturaRIDE
-                                            factura={facturaVerRide}
-                                            numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                            fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                        />
+                                        <FacturaRIDE comprobante={facturaVerRide} />
                                     );
                                 })()}
                             </div>

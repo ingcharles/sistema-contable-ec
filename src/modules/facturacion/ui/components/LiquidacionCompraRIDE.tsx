@@ -1,4 +1,5 @@
-'use client';
+import { Factura } from '@/shared/types';
+import { useBrandColors } from '@/shared/hooks/useBrandColors';
 
 /**
  * Componente LiquidacionCompraRIDE
@@ -89,9 +90,7 @@ export interface PagoLiq {
 }
 
 interface LiquidacionCompraRIDEProps {
-    xmlFirmado: string;
-    numeroAutorizacion?: string;
-    fechaAutorizacion?: string;
+    comprobante: Factura;
 }
 
 /**
@@ -179,7 +178,7 @@ function parseLiquidacionCompraXml(xml: string): LiquidacionCompraData | null {
             }
         }
 
-        return {
+        const parsedData: LiquidacionCompraData = {
             ambiente: getTextContent(infoTributaria, 'ambiente'),
             tipoEmision: getTextContent(infoTributaria, 'tipoEmision'),
             razonSocial: getTextContent(infoTributaria, 'razonSocial'),
@@ -207,14 +206,32 @@ function parseLiquidacionCompraXml(xml: string): LiquidacionCompraData | null {
             detalles,
             pagos,
         };
+
+        // Parsear Información Adicional
+        const infoAdicionalElements = doc.getElementsByTagName('campoAdicional');
+        for (let i = 0; i < infoAdicionalElements.length; i++) {
+            const campo = infoAdicionalElements[i];
+            const nombre = campo.getAttribute('nombre');
+            const valor = campo.textContent || '';
+
+            if (nombre === 'Direccion' || nombre === 'Dirección' || nombre === 'DIRECCION') {
+                parsedData.direccionProveedor = valor;
+            }
+        }
+
+        return parsedData;
     } catch (error) {
         console.error('Error parseando XML de liquidación de compra:', error);
         return null;
     }
 }
 
-export function LiquidacionCompraRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacion }: LiquidacionCompraRIDEProps) {
-    const liquidacion = parseLiquidacionCompraXml(xmlFirmado);
+// Eliminado getNombreTipoDocumento anterior
+
+export function LiquidacionCompraRIDE({ comprobante }: LiquidacionCompraRIDEProps) {
+    const colors = useBrandColors();
+    const xmlFirmado = comprobante.xmlFirmado;
+    const liquidacion = xmlFirmado ? parseLiquidacionCompraXml(xmlFirmado) : null;
 
     if (!liquidacion) {
         return (
@@ -254,10 +271,10 @@ export function LiquidacionCompraRIDE({ xmlFirmado, numeroAutorizacion, fechaAut
                 </div>
 
                 {/* Lado Derecho: Info Tributaria Comprobante */}
-                <div className="border-2 border-purple-600 p-6 rounded-2xl space-y-3">
+                <div className="border-2 p-6 rounded-2xl space-y-3" style={{ borderColor: colors.primary }}>
                     <div className="space-y-1">
                         <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{liquidacion.ruc}</span></p>
-                        <p className="text-lg font-black uppercase bg-purple-600 text-white px-3 py-1 inline-block rounded-md">
+                        <p className="text-lg font-black uppercase text-white px-3 py-1 inline-block rounded-md" style={{ backgroundColor: colors.primary }}>
                             LIQUIDACIÓN DE COMPRA
                         </p>
                         <p className="text-sm font-bold">No. {liquidacion.estab}-{liquidacion.ptoEmi}-{liquidacion.secuencial}</p>
@@ -265,8 +282,8 @@ export function LiquidacionCompraRIDE({ xmlFirmado, numeroAutorizacion, fechaAut
 
                     <div className="text-[10px] space-y-1">
                         <p><span className="font-bold">NÚMERO DE AUTORIZACIÓN:</span></p>
-                        <p className="font-mono break-all text-xs">{numeroAutorizacion || liquidacion.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
-                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {fechaAutorizacion || 'PENDIENTE'}</p>
+                        <p className="font-mono break-all text-xs">{comprobante.numeroAutorizacion || liquidacion.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
+                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {comprobante.fechaAutorizacion || 'PENDIENTE'}</p>
                         <p><span className="font-bold">AMBIENTE:</span> {liquidacion.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}</p>
                         <p><span className="font-bold">EMISIÓN:</span> NORMAL</p>
                     </div>
@@ -274,7 +291,7 @@ export function LiquidacionCompraRIDE({ xmlFirmado, numeroAutorizacion, fechaAut
                     <div className="space-y-1 pt-2">
                         <p className="text-[10px] font-bold">CLAVE DE ACCESO:</p>
                         <div className="bg-slate-50 p-2 border border-slate-200 rounded-lg">
-                            <div className="h-8 w-full bg-slate-900 flex items-center justify-center mb-1 overflow-hidden">
+                            <div className="h-8 w-full flex items-center justify-center mb-1 overflow-hidden" style={{ backgroundColor: colors.primary }}>
                                 <div className="w-full h-full flex gap-[1px]">
                                     {Array.from({ length: 100 }).map((_, i) => (
                                         <div key={i} className="bg-white" style={{ width: `${Math.random() * 3}px` }}></div>
@@ -301,7 +318,7 @@ export function LiquidacionCompraRIDE({ xmlFirmado, numeroAutorizacion, fechaAut
             {/* Tabla de Detalles */}
             <div className="border border-slate-900 rounded-xl overflow-hidden mb-8">
                 <table className="w-full text-[10px] text-left">
-                    <thead className="bg-purple-600 text-white font-bold uppercase tracking-wider">
+                    <thead className="text-white font-bold uppercase tracking-wider" style={{ backgroundColor: colors.primary }}>
                         <tr>
                             <th className="px-3 py-2 border-r border-white/10">Cod. Principal</th>
                             <th className="px-3 py-2 border-r border-white/10">Cant</th>
@@ -332,9 +349,7 @@ export function LiquidacionCompraRIDE({ xmlFirmado, numeroAutorizacion, fechaAut
                     <h3 className="text-[10px] font-black uppercase tracking-widest border-b border-slate-200 pb-1 mb-2">Información Adicional</h3>
                     <div className="text-[9px] space-y-1">
                         <p><span className="font-bold uppercase">Tipo Identificación Proveedor:</span> {
-                            liquidacion.tipoIdentificacionProveedor === '04' ? 'RUC' :
-                                liquidacion.tipoIdentificacionProveedor === '05' ? 'CÉDULA' :
-                                    liquidacion.tipoIdentificacionProveedor === '06' ? 'PASAPORTE' : 'OTRO'
+                            comprobante.tipoIdentificacionCompradorNombre || 'N/A'
                         }</p>
                     </div>
                 </div>
@@ -362,7 +377,7 @@ export function LiquidacionCompraRIDE({ xmlFirmado, numeroAutorizacion, fechaAut
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA 15%</td>
                                 <td className="px-3 py-1.5 text-right font-bold">{totalIVA.toFixed(2)}</td>
                             </tr>
-                            <tr className="bg-purple-600 text-white">
+                            <tr className="text-white" style={{ backgroundColor: colors.primary }}>
                                 <td className="px-3 py-2 font-black uppercase text-xs">Total</td>
                                 <td className="px-3 py-2 text-right font-black text-xs">{liquidacion.importeTotal.toFixed(2)}</td>
                             </tr>

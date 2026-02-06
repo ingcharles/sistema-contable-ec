@@ -8,8 +8,9 @@ import { validateContext } from '@/shared/middleware/authContext';
  */
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     const context = validateContext(req);
     if (!context.isValid) return NextResponse.json({ error: context.error }, { status: 401 });
 
@@ -23,7 +24,7 @@ export async function PATCH(
                 SET estado = $1, updated_at = NOW()
                 WHERE id = $2 AND empresa_id = $3
             `,
-            values: [estado, params.id, context.empresaId]
+            values: [estado, id, context.empresaId]
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
         return NextResponse.json({ success: true });

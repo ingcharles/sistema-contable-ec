@@ -8,9 +8,7 @@ import { Button } from '@/shared/ui/Button';
 import { MotivoTraslado } from '../../domain/guias';
 import { useTransportistas } from '../../hooks/useTransportistas';
 import { TransportistaModal } from './TransportistaModal';
-import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
-import { SriStandardizer } from '../../domain/services/SriStandardizer';
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { getLocalDateIso } from '@/shared/utils/dateUtils';
 
@@ -87,108 +85,47 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
         setGuardando(true);
         setErrorValidacion(null);
         try {
-            // 1. Registrar BORRADOR en backend (Obtiene Secuencial y Clave Acceso reales)
-            const detalles = facturaReferencia?.items?.map((i: any) => ({
-                codigoInterno: i.codigo || i.codigoPrincipal || 'S/N',
-                descripcion: i.nombre || i.descripcion,
-                cantidad: i.cantidad || 1,
-                unidadMedida: i.unidadMedida || 'UND'
-            })) || [];
+            const transportista = transportistas.find(t => t.id === transportistaId);
+            const puntoEmi = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
 
-            const savedGuiaResponse = await FacturacionUseCases.guardarGuiaRemision({
-                tipoComprobante: '06',
+            if (!transportista) throw new Error('Seleccione un transportista válido');
+            if (!puntoEmi) throw new Error('Debe seleccionar un punto de emisión válido');
+
+            const payload = {
+                puntoEmisionId,
+                transportistaId,
                 fechaEmision: getLocalDateIso(),
-                clienteId: facturaReferencia?.terceroId || '9999999999999',
-                clienteNombre: facturaReferencia?.terceroNombre || 'CONSUMIDOR FINAL',
-                clienteIdentificacion: facturaReferencia?.identificacionComprador || '9999999999999',
-                subtotal: 0,
-                iva: 0,
-                total: 0,
-                puntoEmisionId: puntoEmisionId,
-                direccionPartida: puntoPartida,
-                direccionDestino: puntoDestino,
-                transportistaNombre: transportista.razonSocial,
-                transportistaIdentificacion: transportista.identificacion || transportista.ruc,
-                placaVehiculo: transportista.placa,
-                detalles: detalles.map((d: any) => ({
-                    codigoPrincipal: d.codigoInterno,
-                    descripcion: d.descripcion,
-                    cantidad: d.cantidad,
-                    unidadMedida: d.unidadMedida,
-                    precioUnitario: 0,
-                    total: 0
-                }))
-            });
-
-            if (!savedGuiaResponse.success) {
-                throw new Error(savedGuiaResponse.error || 'Error al guardar el borrador de la guía');
-            }
-
-            // 2. Preparar datos para SRI usando el secuencial generado por backend
-            const dataGuia = {
-                ambiente: currentEmpresa.ambienteSri,
-                tipoEmision: '1',
-                razonSocial: currentEmpresa.razonSocial,
-                nombreComercial: currentEmpresa.nombreComercial,
-                ruc: currentEmpresa.ruc,
-                estab: (puntoEmi.sucursalCodigo || puntoEmi.codigoEstablecimiento),
-                ptoEmi: (puntoEmi.codigo || puntoEmi.codigoPunto),
-                secuencial: savedGuiaResponse.secuencial,
-                dirMatriz: currentEmpresa.direccionMatriz,
                 dirPartida: puntoPartida,
-                razonSocialTransportista: transportista.razonSocial,
-                tipoIdentificacionTransportista: transportista.tipoIdentificacion,
-                rucTransportista: transportista.ruc || transportista.identificacion,
-                obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
-                contribuyenteEspecial: currentEmpresa.contribuyenteEspecial,
-                fechaIniTraslado: fechaInicio,
-                fechaFinTraslado: fechaFin,
-                placa: transportista.placa,
                 destinatarios: [
                     {
-                        identificacionDestinatario: facturaReferencia?.identificacionComprador || '9999999999999',
-                        razonSocialDestinatario: facturaReferencia?.razonSocialComprador || 'CONSUMIDOR FINAL',
-                        dirDestinatario: puntoDestino,
-                        motivoTraslado: motivo,
-                        codDocSustento: '01',
-                        numDocSustento: (facturaReferencia?.secuencial || '001-001-000000001').replace(/-/g, ''),
-                        numAutDocSustento: facturaReferencia?.numeroAutorizacion || '1234567890123456789012345678901234567',
+                        identificacion: facturaReferencia?.identificacionComprador || '9999999999999',
+                        nombre: facturaReferencia?.razonSocialComprador || 'CONSUMIDOR FINAL',
+                        direccion: puntoDestino,
+                        motivo: motivo,
+                        numDocSustento: facturaReferencia?.secuencial?.replace(/-/g, ''),
                         fechaEmisionDocSustento: facturaReferencia?.fechaEmision || getLocalDateIso(),
-                        detalles: detalles
+                        detalles: facturaReferencia?.items?.map((i: any) => ({
+                            codigoPrincipal: i.codigo || i.codigoPrincipal || 'S/N',
+                            descripcion: i.nombre || i.descripcion,
+                            cantidad: i.cantidad || 1
+                        })) || []
                     }
                 ]
             };
 
-            const guiaStandard = SriStandardizer.standardizeGuia(dataGuia);
+            const res = await FacturacionUseCases.emitirGuia(payload);
 
-            // 3. Emitir al SRI
-            let resSri;
-            try {
-                resSri = await FacturacionUseCases.emitirFactura(guiaStandard);
-            } catch (e: any) {
-                console.error('Error SRI Guía:', e);
-                setErrorValidacion(`Guía guardada como BORRADOR, pero falló SRI: ${e.message}`);
-                // No cerramos el modal, dejamos que el usuario vea el error.
-                // Podría intentar re-enviar desde otra pantalla.
-                setGuardando(false);
-                return;
-            }
-
-            // 4. Actualizar estado si fue autorizado
-            if (resSri?.status === 'AUTORIZADO' || resSri?.success) {
-                await FacturacionUseCases.actualizarGuia({
-                    id: savedGuiaResponse.id,
-                    estado: resSri.status || 'AUTORIZADO',
-                    numeroAutorizacion: resSri.numeroAutorizacion,
-                    fechaAutorizacion: resSri.fechaAutorizacion,
-                    claveAcceso: resSri.claveAcceso
-                });
+            if (res.success) {
+                if (res.estado === 'AUTORIZADO') {
+                    alert(`Guía de Remisión autorizada: ${res.secuencial}`);
+                } else {
+                    alert(`Guía guardada con estado: ${res.estado}`);
+                }
                 onSave();
                 onClose();
             } else {
-                setErrorValidacion(`SRI Respondió: ${resSri?.status || 'Error desconocido'}`);
+                throw new Error(res.error || 'Error al procesar la Guía de Remisión');
             }
-
         } catch (error: any) {
             console.error('Error al procesar guía:', error);
             setErrorValidacion(error.message || 'Error al procesar la guía de remisión');

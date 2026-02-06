@@ -194,128 +194,38 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         setGuardando(true);
         setErrorValidacion(null);
         try {
-            const fullSecuencial = `${estab}-${ptoEmi}-${secuencial.padStart(9, '0')}`;
-
-            const dataSri = SriStandardizer.standardizeLiquidacion({
-                ambiente: catalogoAmbiente.find(a => a.codigo === 'PRUEBAS')?.valor.toString() || '1',
-                tipoEmision: catalogoTipoEmision.find(e => e.valor === 'NORMAL')?.codigo || '1',
-                razonSocial: currentEmpresa?.razonSocial || '',
-                nombreComercial: currentEmpresa?.nombreComercial || '',
-                ruc: currentEmpresa?.ruc || '',
-                estab,
-                ptoEmi,
-                secuencial: secuencial.padStart(9, '0'),
-                codDoc: catalogoTipoComprobante.find(c => c.valor === 'LIQUIDACIÓN DE COMPRA')?.codigo || '03',
-                codigoImpuestoIva: catalogoCodigoImpuesto.find(i => i.valor === 'IVA')?.codigo || '2',
-                dirMatriz: currentEmpresa?.direccionMatriz || '',
+            const payload = {
+                puntoEmisionId: puntoActivo?.puntoEmisionId || '',
                 fechaEmision,
-                tipoIdentificacionProveedor: tipoIdentificacion,
-                razonSocialProveedor: nombre,
-                identificacionProveedor: identificacion,
-                direccionProveedor: direccion,
-                obligadoContabilidad: currentEmpresa?.obligadoContabilidad || 'NO',
-                totalSinImpuestos: totales.totalSinImpuestos,
-                totalDescuento: totales.totalDescuento,
-                importeTotal: totales.importeTotal,
+                proveedor: {
+                    tipoIdentificacion,
+                    identificacion,
+                    nombre,
+                    direccion
+                },
                 detalles: detalles.map(d => ({
                     ...d,
-                    codigoImpuesto: catalogoCodigoImpuesto.find(i => i.valor === 'IVA')?.codigo || '2',
-                    baseImponible: d.baseImponible,
-                    valorIVA: d.valorIVA
+                    codigoImpuesto: catalogoCodigoImpuesto.find(i => i.valor === 'IVA')?.codigo || '2'
                 })),
                 pagos
-            });
-
-            let sriResult = {
-                success: false,
-                status: 'FALLIDO',
-                numeroAutorizacion: null as string | null,
-                claveAcceso: null as string | null,
-                mensaje: ''
             };
 
-            try {
-                const emisionRes = await FacturacionUseCases.emitirFactura(dataSri);
-                sriResult = {
-                    success: emisionRes.status === 'AUTORIZADO',
-                    status: emisionRes.status || 'AUTORIZADO',
-                    numeroAutorizacion: emisionRes.numeroAutorizacion,
-                    claveAcceso: emisionRes.claveAcceso,
-                    mensaje: emisionRes.mensaje || ''
-                };
-            } catch (sriError: any) {
-                console.error('Error SRI:', sriError);
-                sriResult.status = 'DEVUELTA';
-                sriResult.mensaje = sriError.message || 'Error desconocido';
-            }
+            const res = await ComprasUseCases.emitirLiquidacion(payload);
 
-            await ComprasUseCases.registrarLiquidacion({
-                tipoIdentificacionProveedor: tipoIdentificacion,
-                identificacionProveedor: identificacion,
-                razonSocialProveedor: nombre,
-                secuencial: fullSecuencial,
-                fechaEmision,
-                totalSinImpuestos: totales.totalSinImpuestos,
-                totalIVA: totales.totalIVA,
-                importeTotal: totales.importeTotal,
-                detalles: detalles.map(d => ({
-                    descripcion: d.descripcion,
-                    cantidad: d.cantidad,
-                    precioUnitario: d.precioUnitario,
-                    total: d.total,
-                    codigoIVA: d.codigoIVA
-                })),
-                claveAcceso: sriResult.claveAcceso,
-                numeroAutorizacion: sriResult.numeroAutorizacion,
-                estadoSri: sriResult.status
-            });
-
-            const params = await ConfiguracionUseCases.obtenerParametros();
-            const ctaGasto = '5.1.01.01';
-            const ctaIva = params.cuentaIvaCompras || '1.1.05.01';
-            const ctaCxp = params.cuentaCxpProveedores || '2.1.01.01';
-
-            await ContabilidadUseCases.registrarAsiento({
-                numero: `LIQ-${secuencial}`,
-                fecha: fechaEmision,
-                glosa: `P/R Liquidación de Compra ${fullSecuencial} - ${nombre}`,
-                tipo: 'DIARIO',
-                detalles: [
-                    { cuentaCodigo: ctaGasto, debe: totales.totalSinImpuestos, haber: 0 },
-                    { cuentaCodigo: ctaIva, debe: totales.totalIVA, haber: 0 },
-                    { cuentaCodigo: ctaCxp, debe: 0, haber: totales.importeTotal }
-                ].filter(d => d.debe > 0 || d.haber > 0)
-            });
-
-            for (const d of detalles) {
-                if (d.productoId && bodegas.length > 0) {
-                    try {
-                        await InventarioUseCases.ajustarStock({
-                            productoId: d.productoId,
-                            bodegaId: bodegas[0].id,
-                            tipo: 'ENTRADA',
-                            cantidad: d.cantidad,
-                            costoUnitario: d.precioUnitario,
-                            referencia: `LIQ ${fullSecuencial}`,
-                            observaciones: `Registro automático desde Liquidación de Compra`
-                        });
-                    } catch (invError) {
-                        console.error('Error al actualizar inventario:', invError);
-                    }
+            if (res.success) {
+                if (res.estado === 'AUTORIZADO') {
+                    alert(`Liquidación autorizada: ${res.secuencial}`);
+                } else {
+                    alert(`Liquidación guardada con estado: ${res.estado}`);
                 }
-            }
-
-            if (sriResult.success) {
-                alert(`Liquidación guardada y autorizada por SRI: ${sriResult.numeroAutorizacion}`);
+                onSave();
+                onClose();
             } else {
-                alert(`Liquidación guardada localmente, pero no pudo ser autorizada (Estado: ${sriResult.status}).\nDetalle: ${sriResult.mensaje}`);
+                throw new Error(res.error || 'Error al procesar la Liquidación');
             }
-
-            onSave();
-            onClose();
         } catch (error: any) {
-            console.error('Error al procesar liquidación:', error);
-            setErrorValidacion(`Error crítico: ${error.message}`);
+            console.error('Error liquis:', error);
+            setErrorValidacion(`Error: ${error.message}`);
         } finally {
             setGuardando(false);
         }

@@ -5,6 +5,7 @@
 export type EstadoCertificado = 'VIGENTE' | 'PROXIMO_A_VENCER' | 'EXPIRADO' | 'SIN_CERTIFICADO';
 
 export interface CertificadoMetadata {
+    ambiente?: string;
     fechaEmision: string | null;
     fechaExpiracion: string | null;
     sujeto: string | null;

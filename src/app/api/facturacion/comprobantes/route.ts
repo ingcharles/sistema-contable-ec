@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
                         c.cliente_nombre AS "razonSocialComprador",
                         c.cliente_identificacion AS "identificacionComprador",
                         t.tipo_identificacion AS "tipoIdentificacionComprador",
+                        ci_ident.valor AS "tipoIdentificacionCompradorNombre",
                         c.subtotal AS "totalSinImpuestos",
                         c.iva AS "totalIVA",
                         c.total_descuento AS "totalDescuento",
@@ -113,6 +114,7 @@ export async function GET(req: NextRequest) {
                     FROM facturacion.comprobantes_electronicos c
                     LEFT JOIN configuracion.catalogos_items ci ON ci.catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND ci.codigo = c.tipo_comprobante::text
                     LEFT JOIN directorio.terceros t ON t.id = c.cliente_id
+                    LEFT JOIN configuracion.catalogos_items ci_ident ON ci_ident.catalogo_codigo = 'SRI_TIPO_IDENTIFICACION' AND ci_ident.codigo = t.tipo_identificacion
                     WHERE ${whereClause}
                     ORDER BY c.fecha_emision DESC, c.secuencial DESC
                     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

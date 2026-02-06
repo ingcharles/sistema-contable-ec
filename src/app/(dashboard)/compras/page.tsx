@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Download, ShoppingCart, RotateCcw } from 'lucide-react';
+import { Plus, Download, RotateCcw } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Compra } from '@/modules/compras/domain/types';
 import { useCompras, useComprasMutations } from '@/modules/compras/hooks/useCompras';

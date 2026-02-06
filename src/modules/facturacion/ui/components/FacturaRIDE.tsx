@@ -1,4 +1,5 @@
-'use client';
+import { Factura } from '@/shared/types';
+import { useBrandColors } from '@/shared/hooks/useBrandColors';
 
 /**
  * Componente FacturaRIDE
@@ -82,10 +83,7 @@ export interface Pago {
 }
 
 interface FacturaRIDEProps {
-    xmlFirmado?: string;
-    factura?: any; // Para compatibilidad con el modo antiguo
-    numeroAutorizacion?: string;
-    fechaAutorizacion?: string;
+    comprobante: Factura;
 }
 
 /**
@@ -203,9 +201,9 @@ function parseFacturaXml(xml: string): FacturaData | null {
             const nombre = campo.getAttribute('nombre');
             const valor = campo.textContent || '';
 
-            if (nombre === 'Direccion' && !parsedData.direccionComprador) {
+            if (nombre === 'Direccion' || nombre === 'Dirección' || nombre === 'DIRECCION') {
                 parsedData.direccionComprador = valor;
-            } else if (nombre === 'Email') {
+            } else if (nombre === 'Email' || nombre === 'EMAIL' || nombre === 'E-mail' || nombre === 'Mail') {
                 parsedData.emailComprador = valor;
             }
         }
@@ -216,6 +214,7 @@ function parseFacturaXml(xml: string): FacturaData | null {
         return null;
     }
 }
+
 
 /**
  * Obtiene el nombre de la forma de pago según el código SRI
@@ -233,11 +232,39 @@ function getNombreFormaPago(codigo: string): string {
     return formas[codigo] || 'OTROS';
 }
 
-export function FacturaRIDE({ xmlFirmado, factura: oldFactura, numeroAutorizacion, fechaAutorizacion }: FacturaRIDEProps) {
+export function FacturaRIDE({ comprobante }: FacturaRIDEProps) {
+    const colors = useBrandColors();
+    const xmlFirmado = comprobante.xmlFirmado;
     const data = xmlFirmado ? parseFacturaXml(xmlFirmado) : null;
 
-    // Si no hay XML pero hay objeto factura antiguo, usarlo (fallback)
-    const factor = data || oldFactura;
+    // Si no hay XML pero hay objeto factura, usarlo como fallback
+    const factor: FacturaData | null = data || (comprobante ? {
+        ambiente: '2',
+        tipoEmision: '1',
+        razonSocial: 'EMPRESA',
+        ruc: '0000000000001',
+        claveAcceso: comprobante.claveAcceso,
+        codDoc: '01',
+        estab: '001',
+        ptoEmi: '001',
+        secuencial: comprobante.secuencial,
+        dirMatriz: 'DIRECCION MATRIZ',
+        fechaEmision: comprobante.fechaEmision,
+        obligadoContabilidad: 'SI',
+        tipoIdentificacionComprador: comprobante.tipoIdentificacionComprador || '04',
+        razonSocialComprador: comprobante.razonSocialComprador,
+        identificacionComprador: comprobante.identificacionComprador,
+        direccionComprador: comprobante.direccionComprador,
+        emailComprador: comprobante.emailComprador,
+        totalSinImpuestos: comprobante.subtotal || 0,
+        totalDescuento: comprobante.descuento || 0,
+        totalConImpuestos: [],
+        propina: 0,
+        importeTotal: comprobante.importeTotal,
+        moneda: 'DOLAR',
+        pagos: [],
+        detalles: []
+    } : null);
 
     if (!factor) {
         return (
@@ -253,15 +280,15 @@ export function FacturaRIDE({ xmlFirmado, factura: oldFactura, numeroAutorizacio
     // Totales calculados para el pie
     const subtotal15 = data
         ? data.totalConImpuestos.find(i => i.codigoPorcentaje === '4' || i.codigoPorcentaje === '2')?.baseImponible || 0
-        : oldFactura.detalles?.filter((d: any) => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc: number, d: any) => acc + Number(d.baseImponible), 0) || 0;
+        : comprobante.detalles?.filter((d: any) => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc: number, d: any) => acc + Number(d.baseImponible), 0) || 0;
 
     const subtotal0 = data
         ? data.totalConImpuestos.find(i => i.codigoPorcentaje === '0')?.baseImponible || 0
-        : oldFactura.detalles?.filter((d: any) => d.codigoIVA === '0').reduce((acc: number, d: any) => acc + Number(d.baseImponible), 0) || 0;
+        : comprobante.detalles?.filter((d: any) => d.codigoIVA === '0').reduce((acc: number, d: any) => acc + Number(d.baseImponible), 0) || 0;
 
     const valorIva = data
         ? data.totalConImpuestos.reduce((acc, i) => acc + i.valor, 0)
-        : oldFactura.totalIVA || 0;
+        : comprobante.totalIVA || 0;
 
     return (
         <div className="max-w-4xl mx-auto p-8 bg-white text-slate-800 font-sans border border-slate-200 shadow-sm print:shadow-none print:border-0 overflow-hidden">
@@ -285,10 +312,10 @@ export function FacturaRIDE({ xmlFirmado, factura: oldFactura, numeroAutorizacio
                 </div>
 
                 {/* Lado Derecho: Info Tributaria Comprobante */}
-                <div className="border-2 border-slate-900 p-6 rounded-2xl space-y-3">
+                <div className="border-2 p-6 rounded-2xl space-y-3" style={{ borderColor: colors.primary }}>
                     <div className="space-y-1">
                         <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{factor.ruc}</span></p>
-                        <p className="text-xl font-black uppercase bg-slate-900 text-white px-3 py-1 inline-block rounded-md">
+                        <p className="text-xl font-black uppercase text-white px-3 py-1 inline-block rounded-md" style={{ backgroundColor: colors.primary }}>
                             FACTURA
                         </p>
                         <p className="text-sm font-bold">No. {factor.estab}-{factor.ptoEmi}-{factor.secuencial}</p>
@@ -296,8 +323,8 @@ export function FacturaRIDE({ xmlFirmado, factura: oldFactura, numeroAutorizacio
 
                     <div className="text-[10px] space-y-1">
                         <p><span className="font-bold">NÚMERO DE AUTORIZACIÓN:</span></p>
-                        <p className="font-mono break-all text-xs">{numeroAutorizacion || factor.numeroAutorizacion || factor.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
-                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {fechaAutorizacion || factor.fechaAutorizacion || 'PENDIENTE'}</p>
+                        <p className="font-mono break-all text-xs">{comprobante.numeroAutorizacion || factor.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
+                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {comprobante.fechaAutorizacion || 'PENDIENTE'}</p>
                         <p><span className="font-bold">AMBIENTE:</span> {factor.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}</p>
                         <p><span className="font-bold">EMISIÓN:</span> NORMAL</p>
                     </div>
@@ -329,7 +356,7 @@ export function FacturaRIDE({ xmlFirmado, factura: oldFactura, numeroAutorizacio
             {/* Tabla de Detalles */}
             <div className="border border-slate-900 rounded-xl overflow-hidden mb-8">
                 <table className="w-full text-[10px] text-left">
-                    <thead className="bg-slate-900 text-white font-bold uppercase tracking-wider">
+                    <thead className="text-white font-bold uppercase tracking-wider" style={{ backgroundColor: colors.primary }}>
                         <tr>
                             <th className="px-3 py-2 border-r border-white/10">Cod. Principal</th>
                             <th className="px-3 py-2 border-r border-white/10">Cant</th>
@@ -361,6 +388,9 @@ export function FacturaRIDE({ xmlFirmado, factura: oldFactura, numeroAutorizacio
                     <div className="border border-slate-900 p-4 rounded-xl space-y-2">
                         <h3 className="text-[10px] font-black uppercase tracking-widest border-b border-slate-200 pb-1 mb-2">Información Adicional</h3>
                         <div className="text-[9px] space-y-1">
+                            <p><span className="font-bold uppercase">Tipo Identificación:</span> {
+                                comprobante.tipoIdentificacionCompradorNombre || 'N/A'
+                            }</p>
                             <p><span className="font-bold uppercase">Dirección:</span> {factor.direccionComprador || 'N/A'}</p>
                             <p><span className="font-bold uppercase">Email:</span> {factor.emailComprador || 'N/A'}</p>
                         </div>
@@ -411,7 +441,7 @@ export function FacturaRIDE({ xmlFirmado, factura: oldFactura, numeroAutorizacio
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA 15%</td>
                                 <td className="px-3 py-1.5 text-right font-bold">${Number(valorIva).toFixed(2)}</td>
                             </tr>
-                            <tr className="bg-slate-900 text-white">
+                            <tr className="text-white" style={{ backgroundColor: colors.primary }}>
                                 <td className="px-3 py-2 font-black uppercase text-xs">Importe Total</td>
                                 <td className="px-3 py-2 text-right font-black text-xs">${Number(factor.importeTotal).toFixed(2)}</td>
                             </tr>

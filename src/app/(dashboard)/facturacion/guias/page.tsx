@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Factura } from '@/shared/types';
-import { Plus, Receipt, X } from 'lucide-react';
+import { Plus, Receipt } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 
 // Modals

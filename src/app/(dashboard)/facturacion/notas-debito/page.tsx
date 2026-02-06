@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Factura } from '@/shared/types';
+import { Factura, TipoComprobante } from '@/shared/types';
 import { Receipt, RotateCw, X } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 
 // Modals y Componentes
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { ComprobantesEmitidosTable } from '@/modules/facturacion/ui/components/ComprobantesEmitidosTable';
-import { FacturaRIDE } from '@/modules/facturacion/ui/components/FacturaRIDE';
 import { NotaDebitoRIDE } from '@/modules/facturacion/ui/components/NotaDebitoRIDE';
 import { XmlModal } from '@/modules/facturacion/ui/components/XmlModal';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
@@ -29,7 +28,7 @@ export default function NotasDebitoPage() {
             const allComprobantes = result?.data || result || [];
             // Filtrar solo notas de débito (Código 05)
             const filteredND = allComprobantes.filter((c: Factura) =>
-                c.tipoComprobante === '05' || c.tipo === 'NOTA_DEBITO'
+                c.tipoComprobante === '05' || c.tipo === TipoComprobante.NOTA_DEBITO
             );
             setNotas(filteredND);
         } catch (error) {
@@ -46,7 +45,7 @@ export default function NotasDebitoPage() {
     const handleReemitir = async (row: any) => {
         try {
             setLoading(true);
-            const dataSri = SriStandardizer.standardizeNotaDebito(row, 15);
+            const dataSri = SriStandardizer.standardizeNotaDebito(row);
             const res = await FacturacionUseCases.emitirFactura(dataSri);
 
             if (res.estado === 'AUTORIZADO') {
@@ -108,15 +107,7 @@ export default function NotasDebitoPage() {
                         </div>
                         <div className="flex-1 overflow-y-auto p-8 bg-slate-100">
                             <div className="bg-white shadow-lg mx-auto max-w-[21cm] min-h-[29.7cm]">
-                                {facturaVerRide.xmlFirmado ? (
-                                    <NotaDebitoRIDE
-                                        xmlFirmado={facturaVerRide.xmlFirmado}
-                                        numeroAutorizacion={facturaVerRide.numeroAutorizacion}
-                                        fechaAutorizacion={facturaVerRide.fechaAutorizacion}
-                                    />
-                                ) : (
-                                    <FacturaRIDE factura={facturaVerRide as any} />
-                                )}
+                                <NotaDebitoRIDE comprobante={facturaVerRide} />
                             </div>
                         </div>
                     </div>

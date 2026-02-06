@@ -58,6 +58,10 @@ export interface Empresa {
     logoUrl?: string;
     ambienteSri?: number;
     ambienteSriNombre?: string;
+    // Colores de marca (branding)
+    colorPrimario?: string | null;
+    colorSecundario?: string | null;
+    colorAcento?: string | null;
 }
 
 export interface Usuario {
@@ -132,6 +136,7 @@ export interface Factura extends Auditable {
     terceroEmail?: string; // Deprecated: use emailComprador
     emailComprador?: string;
     tipoIdentificacionComprador?: string;
+    tipoIdentificacionCompradorNombre?: string;
     subtotal?: number;
     descuento?: number;
     iva?: number;
@@ -145,6 +150,8 @@ export interface Factura extends Auditable {
     documentoModificadoId?: string;
     motivoModificacion?: string;
     direccionComprador?: string;
+    detalles?: any[];
+    totalIVA?: number;
 }
 
 export interface GuiaRemision extends Auditable {

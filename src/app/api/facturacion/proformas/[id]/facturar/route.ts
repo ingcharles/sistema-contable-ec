@@ -6,11 +6,11 @@ import { validateContext } from '@/shared/middleware/authContext';
  * POST /api/facturacion/proformas/[id]/facturar
  * Convierte una proforma en factura
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const context = validateContext(req);
     if (!context.isValid) return NextResponse.json({ error: context.error }, { status: 401 });
 
-    const { id } = params;
 
     try {
         const result = await db.transaction(async (client) => {

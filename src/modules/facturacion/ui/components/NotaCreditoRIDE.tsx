@@ -1,4 +1,5 @@
-'use client';
+import { Factura } from '@/shared/types';
+import { useBrandColors } from '@/shared/hooks/useBrandColors';
 
 /**
  * Componente NotaCreditoRIDE
@@ -79,9 +80,7 @@ export interface ImpuestoDetalle {
 }
 
 interface NotaCreditoRIDEProps {
-    xmlFirmado: string;
-    numeroAutorizacion?: string;
-    fechaAutorizacion?: string;
+    comprobante: Factura;
 }
 
 /**
@@ -190,9 +189,9 @@ function parseNotaCreditoXml(xml: string): NotaCreditoData | null {
             const nombre = campo.getAttribute('nombre');
             const valor = campo.textContent || '';
 
-            if (nombre === 'Direccion') {
+            if (nombre === 'Direccion' || nombre === 'Dirección' || nombre === 'DIRECCION') {
                 parsedData.direccionComprador = valor;
-            } else if (nombre === 'Email') {
+            } else if (nombre === 'Email' || nombre === 'EMAIL' || nombre === 'E-mail' || nombre === 'Mail') {
                 parsedData.emailComprador = valor;
             }
         }
@@ -204,21 +203,11 @@ function parseNotaCreditoXml(xml: string): NotaCreditoData | null {
     }
 }
 
-/**
- * Obtiene el nombre del tipo de documento según el código SRI
- */
-function getNombreTipoDocumento(codigo: string): string {
-    const tipos: Record<string, string> = {
-        '01': 'FACTURA',
-        '03': 'LIQUIDACIÓN DE COMPRA',
-        '04': 'NOTA DE CRÉDITO',
-        '05': 'NOTA DE DÉBITO',
-    };
-    return tipos[codigo] || 'DOCUMENTO';
-}
 
-export function NotaCreditoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizacion }: NotaCreditoRIDEProps) {
-    const notaCredito = parseNotaCreditoXml(xmlFirmado);
+export function NotaCreditoRIDE({ comprobante }: NotaCreditoRIDEProps) {
+    const colors = useBrandColors();
+    const xmlFirmado = comprobante.xmlFirmado;
+    const notaCredito = xmlFirmado ? parseNotaCreditoXml(xmlFirmado) : null;
 
     if (!notaCredito) {
         return (
@@ -258,10 +247,10 @@ export function NotaCreditoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizac
                 </div>
 
                 {/* Lado Derecho: Info Tributaria Comprobante */}
-                <div className="border-2 border-orange-600 p-6 rounded-2xl space-y-3">
+                <div className="border-2 p-6 rounded-2xl space-y-3" style={{ borderColor: colors.primary }}>
                     <div className="space-y-1">
                         <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{notaCredito.ruc}</span></p>
-                        <p className="text-xl font-black uppercase bg-orange-600 text-white px-3 py-1 inline-block rounded-md">
+                        <p className="text-xl font-black uppercase text-white px-3 py-1 inline-block rounded-md" style={{ backgroundColor: colors.primary }}>
                             NOTA DE CRÉDITO
                         </p>
                         <p className="text-sm font-bold">No. {notaCredito.estab}-{notaCredito.ptoEmi}-{notaCredito.secuencial}</p>
@@ -269,8 +258,8 @@ export function NotaCreditoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizac
 
                     <div className="text-[10px] space-y-1">
                         <p><span className="font-bold">NÚMERO DE AUTORIZACIÓN:</span></p>
-                        <p className="font-mono break-all text-xs">{numeroAutorizacion || notaCredito.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
-                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {fechaAutorizacion || 'PENDIENTE'}</p>
+                        <p className="font-mono break-all text-xs">{comprobante.numeroAutorizacion || notaCredito.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
+                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {comprobante.fechaAutorizacion || 'PENDIENTE'}</p>
                         <p><span className="font-bold">AMBIENTE:</span> {notaCredito.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}</p>
                         <p><span className="font-bold">EMISIÓN:</span> NORMAL</p>
                     </div>
@@ -299,23 +288,23 @@ export function NotaCreditoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizac
                 <p><span className="font-bold">Moneda:</span> {notaCredito.moneda}</p>
                 <p className="col-span-2 mt-2 pt-2 border-t border-slate-200">
                     <span className="font-bold">Comprobante que modifica:</span>{' '}
-                    <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-mono">
-                        {getNombreTipoDocumento(notaCredito.codDocModificado)} {notaCredito.numDocModificado}
+                    <span className="px-2 py-0.5 rounded font-mono" style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}>
+                        DOCUMENTO {notaCredito.numDocModificado}
                     </span>
                     <span className="text-slate-500 ml-2">(Emitido: {notaCredito.fechaEmisionDocSustento})</span>
                 </p>
             </div>
 
             {/* Motivo */}
-            <div className="border border-orange-600 bg-orange-50 p-4 rounded-xl mb-6 text-[11px]">
-                <p><span className="font-bold text-orange-700">Motivo de la Nota de Crédito:</span></p>
+            <div className="border p-4 rounded-xl mb-6 text-[11px]" style={{ borderColor: colors.primary, backgroundColor: `${colors.primary}10` }}>
+                <p><span className="font-bold" style={{ color: colors.primary }}>Motivo de la Nota de Crédito:</span></p>
                 <p className="mt-1">{notaCredito.motivo}</p>
             </div>
 
             {/* Tabla de Detalles */}
             <div className="border border-slate-900 rounded-xl overflow-hidden mb-8">
                 <table className="w-full text-[10px] text-left">
-                    <thead className="bg-orange-600 text-white font-bold uppercase tracking-wider">
+                    <thead className="text-white font-bold uppercase tracking-wider" style={{ backgroundColor: colors.primary }}>
                         <tr>
                             <th className="px-3 py-2 border-r border-white/10">Cod. Principal</th>
                             <th className="px-3 py-2 border-r border-white/10">Cant</th>
@@ -346,9 +335,7 @@ export function NotaCreditoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizac
                     <h3 className="text-[10px] font-black uppercase tracking-widest border-b border-slate-200 pb-1 mb-2">Información Adicional</h3>
                     <div className="text-[9px] space-y-1">
                         <p><span className="font-bold uppercase">Tipo Identificación:</span> {
-                            notaCredito.tipoIdentificacionComprador === '04' ? 'RUC' :
-                                notaCredito.tipoIdentificacionComprador === '05' ? 'CÉDULA' :
-                                    notaCredito.tipoIdentificacionComprador === '06' ? 'PASAPORTE' : 'OTRO'
+                            comprobante.tipoIdentificacionCompradorNombre || 'N/A'
                         }</p>
                         <p><span className="font-bold uppercase">Dirección:</span> {notaCredito.direccionComprador || 'N/A'}</p>
                         <p><span className="font-bold uppercase">Email:</span> {notaCredito.emailComprador || 'N/A'}</p>
@@ -374,7 +361,7 @@ export function NotaCreditoRIDE({ xmlFirmado, numeroAutorizacion, fechaAutorizac
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA 15%</td>
                                 <td className="px-3 py-1.5 text-right font-bold">{totalIVA.toFixed(2)}</td>
                             </tr>
-                            <tr className="bg-orange-600 text-white">
+                            <tr className="text-white" style={{ backgroundColor: colors.primary }}>
                                 <td className="px-3 py-2 font-black uppercase text-xs">Valor de Modificación</td>
                                 <td className="px-3 py-2 text-right font-black text-xs">{notaCredito.valorModificacion.toFixed(2)}</td>
                             </tr>

@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Landmark, ArrowUpRight, ArrowDownRight, Plus, MoreVertical, CheckCircle2, FileCheck, ArrowRightLeft, FileSpreadsheet, Banknote } from 'lucide-react';
+import { Landmark, ArrowUpRight, ArrowDownRight, Plus, CheckCircle2, ArrowRightLeft, FileSpreadsheet, Banknote } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { CuentaBancaria, MovimientoBancario } from '@/modules/bancos/domain/types';
 import { BancosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { ConciliacionModal } from '@/modules/bancos/ui/components/ConciliacionModal';
 import { DepositoModal } from '@/modules/bancos/ui/components/DepositoModal';
 import { NuevaTransaccionModal } from '@/modules/bancos/ui/components/NuevaTransaccionModal';
 import { Button } from '@/shared/ui/Button';
@@ -20,7 +19,6 @@ export default function MovimientosBancosPage() {
     const [movimientos, setMovimientos] = useState<MovimientoBancario[]>([]);
     const [cheques, setCheques] = useState<MovimientoBancario[]>([]);
     const [selectedCuenta, setSelectedCuenta] = useState<string | null>(null);
-    const [showConciliacion, setShowConciliacion] = useState(false);
     const [showNuevaTransaccion, setShowNuevaTransaccion] = useState(false);
     const [showDeposito, setShowDeposito] = useState(false);
     const [showNuevaCuenta, setShowNuevaCuenta] = useState(false);
@@ -148,8 +146,6 @@ export default function MovimientosBancosPage() {
     };
 
     if (!currentEmpresa) return null;
-
-    const currentCuentaObj = cuentas.find(c => c.id === selectedCuenta);
 
     return (
         <div className="space-y-6">

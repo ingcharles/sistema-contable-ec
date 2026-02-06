@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, FileText } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { OrdenCompra } from '@/modules/compras/domain/types';
 import { useCompras } from '@/modules/compras/hooks/useCompras';

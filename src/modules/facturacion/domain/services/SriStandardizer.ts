@@ -32,7 +32,7 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 claveAcceso: data.claveAcceso || '',
-                codDoc: '01',
+                codDoc: data.codDoc || '01',
                 estab: (data.estab || '001').padStart(3, '0'),
                 ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
                 secuencial: (data.secuencial || '').toString().padStart(9, '0'),
@@ -42,7 +42,7 @@ export class SriStandardizer {
                 fechaEmision: this.formatDate(data.fechaEmision),
                 dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
                 contribuyenteEspecial: data.contribuyenteEspecial,
-                obligadoContabilidad: data.obligadoContabilidad || 'NO',
+                obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
                 tipoIdentificacionComprador: tipoIdentificacion,
                 razonSocialComprador: razonSocial,
                 identificacionComprador: identificacion,
@@ -105,7 +105,7 @@ export class SriStandardizer {
             infoLiquidacionCompra: {
                 fechaEmision: this.formatDate(data.fechaEmision),
                 dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
-                obligadoContabilidad: data.obligadoContabilidad,
+                obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
                 tipoIdentificacionProveedor: data.tipoIdentificacionProveedor,
                 razonSocialProveedor: data.razonSocialProveedor,
                 identificacionProveedor: data.identificacionProveedor,
@@ -168,11 +168,12 @@ export class SriStandardizer {
                 tipoEmision: data.tipoEmision || '1',
                 razonSocial: data.razonSocial,
                 ruc: data.ruc,
-                codDoc: '04',
+                codDoc: data.codDoc || '04',
                 estab: (data.estab || '001').padStart(3, '0'),
                 ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
                 secuencial: (data.secuencial || '').padStart(9, '0'),
-                dirMatriz: data.dirMatriz
+                dirMatriz: data.dirMatriz,
+                claveAcceso: ''
             },
             infoNotaCredito: {
                 fechaEmision: this.formatDate(data.fechaEmision),
@@ -180,9 +181,9 @@ export class SriStandardizer {
                 tipoIdentificacionComprador: tipoIdentificacion,
                 razonSocialComprador: razonSocial,
                 identificacionComprador: identificacion,
-                obligadoContabilidad: data.obligadoContabilidad || 'NO',
-                codDocModificado: data.codDocModificado || '01', // Generalmente facturas
-                numDocModificado: data.numDocModificado || data.documentoModificadoSecuencial,
+                obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
+                codDocModificado: data.codDocModificado, // Generalmente facturas
+                numDocModificado: this.formatNumDoc(data.numDocModificado || data.documentoModificadoSecuencial, data.estabModificado, data.ptoEmiModificado),
                 fechaEmisionDocSustento: this.formatDate(data.fechaEmisionDocSustento),
                 totalSinImpuestos: Number((data.totalSinImpuestos || 0).toFixed(2)),
                 valorModificacion: Number((data.importeTotal || 0).toFixed(2)),
@@ -232,33 +233,33 @@ export class SriStandardizer {
 
         return {
             infoTributaria: {
-                ambiente: data.ambiente || '1',
-                tipoEmision: data.tipoEmision || '1',
+                ambiente: data.ambiente,
+                tipoEmision: data.tipoEmision,
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
-                codDoc: '05',
-                estab: (data.estab || '001').padStart(3, '0'),
-                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
-                secuencial: (data.secuencial || '').padStart(9, '0'),
+                codDoc: data.codDoc || '05',
+                estab: data.estab,
+                ptoEmi: data.ptoEmi,
+                secuencial: data.secuencial,
                 dirMatriz: data.dirMatriz
             },
             infoNotaDebito: {
                 fechaEmision: this.formatDate(data.fechaEmision),
                 dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
-                obligadoContabilidad: data.obligadoContabilidad || 'NO',
+                obligadoContabilidad: data.obligadoContabilidad,
                 tipoIdentificacionComprador: tipoIdentificacion,
                 razonSocialComprador: razonSocial,
                 identificacionComprador: identificacion,
-                codDocModificado: data.codDocModificado || '01',
-                numDocModificado: data.numDocModificado,
+                codDocModificado: data.codDocModificado,
+                numDocModificado: this.formatNumDoc(data.numDocModificado, data.estabModificado, data.ptoEmiModificado),
                 fechaEmisionDocSustento: this.formatDate(data.fechaEmisionDocSustento),
                 totalSinImpuestos: Number((data.totalSinImpuestos || 0).toFixed(2)),
                 impuestos: [
                     {
                         codigo: '2',
-                        codigoPorcentaje: data.codigoIVA || '2',
-                        tarifa: data.tarifa ?? 0,
+                        codigoPorcentaje: data.codigoIVA,
+                        tarifa: data.tarifa,
                         baseImponible: Number((data.totalSinImpuestos || 0).toFixed(2)),
                         valor: Number((data.valorIVA || (data.totalSinImpuestos * ((data.tarifa ?? 0) / 100)) || 0).toFixed(2))
                     }
@@ -274,8 +275,8 @@ export class SriStandardizer {
                 valor: Number((m.valor || 0).toFixed(2))
             })) || [],
             infoAdicional: [
-                { nombre: 'Direccion', valor: data.direccionComprador || data.direccion },
-                { nombre: 'Email', valor: data.emailComprador || data.email }
+                { nombre: 'Direccion', valor: data.direccionComprador },
+                { nombre: 'Email', valor: data.emailComprador }
             ].filter(i => i.valor)
         };
     }
@@ -292,7 +293,7 @@ export class SriStandardizer {
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial,
                 ruc: data.ruc,
-                codDoc: '07',
+                codDoc: data.codDoc || '07',
                 estab: data.estab,
                 ptoEmi: data.ptoEmi,
                 secuencial: data.secuencial,
@@ -301,7 +302,7 @@ export class SriStandardizer {
             infoCompRetencion: {
                 fechaEmision: this.formatDate(data.fechaEmision),
                 dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
-                obligadoContabilidad: data.obligadoContabilidad,
+                obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
                 tipoIdentificacionSujetoRetenido: data.tipoIdentificacionSujetoRetenido,
                 tipoSujetoRetenido: data.tipoSujetoRetenido, // Opcional para v2.0.0
                 parteRel: data.parteRel || 'NO', // Obligatorio en v2.0.0
@@ -348,7 +349,7 @@ export class SriStandardizer {
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
-                codDoc: '06',
+                codDoc: data.codDoc || '06',
                 estab: data.estab.padStart(3, '0'),
                 ptoEmi: data.ptoEmi.padStart(3, '0'),
                 secuencial: data.secuencial.padStart(9, '0'),
@@ -360,7 +361,7 @@ export class SriStandardizer {
                 razonSocialTransportista: data.razonSocialTransportista,
                 tipoIdentificacionTransportista: data.tipoIdentificacionTransportista,
                 rucTransportista: data.rucTransportista,
-                obligadoContabilidad: data.obligadoContabilidad,
+                obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
                 contribuyenteEspecial: data.contribuyenteEspecial,
                 fechaIniTraslado: this.formatDate(data.fechaIniTraslado),
                 fechaFinTraslado: this.formatDate(data.fechaFinTraslado),
@@ -390,6 +391,31 @@ export class SriStandardizer {
                 { nombre: 'Email', valor: data.emailTransp || data.email || 'N/A' }
             ]
         };
+    }
+
+    private static formatNumDoc(numDoc: string = '', defaultEstab?: string, defaultPtoEmi?: string): string {
+        if (!numDoc) return `${(defaultEstab || '001').padStart(3, '0')}-${(defaultPtoEmi || '001').padStart(3, '0')}-000000001`;
+
+        // Si ya tiene el formato correcto, devolverlo
+        if (/^\d{3}-\d{3}-\d{9}$/.test(numDoc)) return numDoc;
+
+        // Si tiene guiones pero no es el formato correcto, intentar limpiar
+        const parts = numDoc.split('-');
+        if (parts.length === 3) {
+            return `${parts[0].padStart(3, '0')}-${parts[1].padStart(3, '0')}-${parts[2].padStart(9, '0')}`;
+        }
+
+        // Si es solo el secuencial, concatenar establecimiento y punto de emisión
+        const secuencial = numDoc.padStart(9, '0');
+        const estab = (defaultEstab || '001').padStart(3, '0');
+        const ptoEmi = (defaultPtoEmi || '001').padStart(3, '0');
+
+        return `${estab}-${ptoEmi}-${secuencial}`;
+    }
+
+    private static formatObligado(val: any): string {
+        if (val === true || val === 'SI' || val === 'true' || val === 'S') return 'SI';
+        return 'NO';
     }
 
     private static formatDate(dateStr: string): string {

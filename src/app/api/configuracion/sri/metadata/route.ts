@@ -17,15 +17,8 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const url = new URL(req.url);
-        const ambiente = url.searchParams.get('ambiente') || 'PRUEBAS';
-
-        if (!['PRUEBAS', 'PRODUCCION'].includes(ambiente)) {
-            return NextResponse.json(
-                { error: 'Ambiente debe ser PRUEBAS o PRODUCCION' },
-                { status: 400 }
-            );
-        }
+        // Obtenemos el certificado activo directamente, sin importar el ambiente
+        // ya que la empresa solo puede tener un certificado activo para su operación actual
 
         // Query completo inline para obtener metadatos del certificado
         const result = await db.query(
@@ -35,6 +28,7 @@ export async function GET(req: NextRequest) {
                         SELECT 
                             sc.id AS certificado_id,
                             sa.codigo as ambiente,
+                            sa.nombre as ambiente_nombre,
                             sc.cert_fecha_emision,
                             sc.cert_fecha_expiracion,
                             sc.cert_sujeto,
@@ -56,13 +50,12 @@ export async function GET(req: NextRequest) {
                         FROM configuracion.sri_certificados sc
                         INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
                         WHERE sc.empresa_id = $1 
-                          AND sa.codigo = $2
                           AND sc.activo = TRUE
                         LIMIT 1
                     )
                     SELECT * FROM cert_data
                 `,
-                values: [context.empresaId, ambiente]
+                values: [context.empresaId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
@@ -70,7 +63,7 @@ export async function GET(req: NextRequest) {
         if (result.rows.length === 0) {
             return NextResponse.json(
                 {
-                    error: `No se encontró certificado digital para ambiente ${ambiente}`,
+                    error: `No se encontró certificado digital activo para la empresa`,
                     tieneCertificado: false
                 },
                 { status: 404 }

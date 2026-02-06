@@ -8,8 +8,9 @@ import { db } from '@/shared/infrastructure/database/postgresql';
  */
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+    const { id } = await params;
     const context = validateContext(req);
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
@@ -17,7 +18,7 @@ export async function GET(
 
     // Verificar que el usuario es admin o es el mismo usuario
     const isAdmin = context.roles?.includes('ADMIN') || context.roles?.includes('SUPERADMIN');
-    const isSelf = context.usuarioId === params.id;
+    const isSelf = context.usuarioId === id;
 
     if (!isAdmin && !isSelf) {
         return NextResponse.json(
@@ -42,7 +43,7 @@ export async function GET(
                     FROM seguridad.usuarios u
                     WHERE u.id = $1
                 `,
-                values: [params.id]
+                values: [id]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
@@ -67,8 +68,9 @@ export async function GET(
  */
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+    const { id } = await params;
     const context = validateContext(req);
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
@@ -77,7 +79,7 @@ export async function PUT(
     // Solo ADMIN o SUPERADMIN pueden actualizar otros usuarios
     // El usuario mismo podría actualizar su perfil (pero no sus roles)
     const isAdmin = context.roles?.includes('ADMIN') || context.roles?.includes('SUPERADMIN');
-    const isSelf = context.usuarioId === params.id;
+    const isSelf = context.usuarioId === id;
 
     if (!isAdmin && !isSelf) {
         return NextResponse.json(
@@ -99,21 +101,21 @@ export async function PUT(
                     activo = COALESCE($3, activo),
                     updated_at = NOW()
                 WHERE id = $4
-            `, [nombre, email, activo, params.id]);
+            `, [nombre, email, activo, id]);
 
             // 2. Actualizar roles (solo si es admin)
             if (isAdmin && roles && Array.isArray(roles)) {
                 // Eliminar roles actuales
                 await client.query(`
                     DELETE FROM seguridad.usuarios_roles WHERE usuario_id = $1
-                `, [params.id]);
+                `, [id]);
 
                 // Insertar nuevos roles
                 for (const rolNombre of roles) {
                     await client.query(`
                         INSERT INTO seguridad.usuarios_roles (usuario_id, rol_id)
                         SELECT $1, id FROM seguridad.roles WHERE nombre = $2
-                    `, [params.id, rolNombre]);
+                    `, [id, rolNombre]);
                 }
             }
 
@@ -140,8 +142,9 @@ export async function PUT(
  */
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+    const { id } = await params;
     const context = validateContext(req);
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
@@ -160,7 +163,7 @@ export async function DELETE(
         await db.query(
             {
                 text: 'UPDATE seguridad.usuarios SET activo = false, updated_at = NOW() WHERE id = $1',
-                values: [params.id]
+                values: [id]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
