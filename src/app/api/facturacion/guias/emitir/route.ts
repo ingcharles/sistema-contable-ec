@@ -4,6 +4,7 @@ import { db } from '@/shared/infrastructure/database/postgresql';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 import { SignatureService } from '@/modules/facturacion/domain/services/SignatureService';
 import { SriWebService } from '@/modules/facturacion/domain/services/SriWebService';
+import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
 
 export const runtime = 'nodejs';
 
@@ -35,28 +36,23 @@ export async function POST(req: NextRequest) {
             await client.query("INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante, secuencial_actual) VALUES($1, '06', 2) ON CONFLICT (punto_emision_id, tipo_comprobante) DO UPDATE SET secuencial_actual = EXCLUDED.secuencial_actual + 1", [puntoEmisionId]);
             const secuencialFormateado = nextSeqInt.toString().padStart(9, '0');
 
-            const dataSri = {
-                infoTributaria: {
-                    ambiente: configSrv.ambiente_sri,
-                    tipoEmision: '1',
-                    razonSocial: empresaDoc.razon_social,
-                    ruc: empresaDoc.ruc,
-                    codDoc: '06',
-                    estab: punto.estab,
-                    ptoEmi: punto.codigo,
-                    secuencial: secuencialFormateado,
-                    dirMatriz: empresaDoc.direccion
-                },
-                infoGuiaRemision: {
-                    dirEstablecimiento: empresaDoc.direccion,
-                    dirPartida: body.dirPartida || empresaDoc.direccion,
-                    razonSocialTransportista: transportista.razon_social || transportista.nombre,
-                    rucTransportista: transportista.identificacion,
-                    obligadoContabilidad: empresaDoc.es_obligado_contabilidad ? 'SI' : 'NO',
-                    fechaIniTransporte: body.fechaIniTransporte || fechaEmision,
-                    fechaFinTransporte: body.fechaFinTransporte || fechaEmision,
-                    placa: transportista.placa || 'T-000'
-                },
+            const dataSri = SriStandardizer.standardizeGuia({
+                razonSocial: empresaDoc.razon_social,
+                nombreComercial: empresaDoc.nombre_comercial,
+                ruc: empresaDoc.ruc,
+                estab: punto.estab,
+                ptoEmi: punto.codigo,
+                secuencial: secuencialFormateado,
+                dirMatriz: empresaDoc.direccion,
+                dirEstablecimiento: empresaDoc.direccion,
+                dirPartida: body.dirPartida || empresaDoc.direccion,
+                razonSocialTransportista: transportista.razon_social || transportista.nombre,
+                tipoIdentificacionTransportista: transportista.tipo_identificacion === 'RUC' ? '04' : (transportista.tipo_identificacion === 'CEDULA' ? '05' : '06'),
+                rucTransportista: transportista.identificacion,
+                obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
+                fechaIniTraslado: body.fechaIniTransporte || fechaEmision,
+                fechaFinTraslado: body.fechaFinTransporte || fechaEmision,
+                placa: transportista.placa || 'T-000',
                 destinatarios: destinatarios.map((d: any) => ({
                     identificacionDestinatario: d.identificacion,
                     razonSocialDestinatario: d.nombre,
@@ -70,12 +66,13 @@ export async function POST(req: NextRequest) {
                         descripcion: det.descripcion,
                         cantidad: det.cantidad
                     }))
-                }))
-            };
+                })),
+                ambienteSri: configSrv.ambiente_sri
+            });
 
             const accessKey = XmlGenerator.generateAccessKey(dataSri);
             dataSri.infoTributaria.claveAcceso = accessKey;
-            const signedXml = await SignatureService.signXml(XmlGenerator.generateGuiaRemisionXml(dataSri), {
+            const signedXml = await SignatureService.signXml(XmlGenerator.generateGuiaXml(dataSri), {
                 p12Base64: configSrv.cert_p12_certificado.toString('base64'),
                 passwordP12: configSrv.cert_clave_certificado
             });

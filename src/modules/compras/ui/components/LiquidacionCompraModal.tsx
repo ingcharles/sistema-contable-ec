@@ -8,7 +8,6 @@ import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
 import { ComprasUseCases, ContabilidadUseCases, ConfiguracionUseCases, FacturacionUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
-import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { Producto } from '@/modules/inventario/domain/types';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
@@ -124,11 +123,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         }
     }, [puntoActivo]);
 
-    const { parametros, cargarParametros } = useConfiguracion();
-
-    useEffect(() => {
-        cargarParametros();
-    }, [cargarParametros]);
+    const parametros = currentEmpresa?.parametros;
 
     useEffect(() => {
         if (!identificacion || tipoIdentificacion === '07') {
@@ -166,7 +161,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         loadData();
     }, []);
 
-    const ivaPorcentaje = (parametros?.iva || 15) / 100;
+    const ivaPorcentaje = (parametros?.ivaValor || 15) / 100;
 
     const handleActualizarDetalle = (index: number, campo: string, valor: any) => {
         const nuevosDetalles = [...detalles];
@@ -246,7 +241,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                     <p className="text-lg font-black text-white">{formatMoney(totales.totalSinImpuestos)}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-[10px] text-blue-100 uppercase font-black opacity-60">IVA ({parametros?.iva || 15}%)</p>
+                    <p className="text-[10px] text-blue-100 uppercase font-black opacity-60">IVA ({parametros?.ivaEtiqueta || '15%'})</p>
                     <p className="text-lg font-black text-white">{formatMoney(totales.totalIVA)}</p>
                 </div>
                 <div className="pl-6 border-l border-white/20 text-right">

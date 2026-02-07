@@ -61,7 +61,7 @@ export default function TransferenciasPage() {
         },
         {
             header: 'Estado',
-            cell: (row) => (
+            cell: () => (
                 <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase">
                     Completado
                 </span>
@@ -70,7 +70,7 @@ export default function TransferenciasPage() {
         {
             header: 'Acciones',
             className: 'text-center',
-            cell: (row) => (
+            cell: () => (
                 <button className="p-2 text-slate-400 hover:text-blue-600 rounded-lg">
                     <FileText size={18} />
                 </button>

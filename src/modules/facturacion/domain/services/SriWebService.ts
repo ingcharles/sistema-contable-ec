@@ -1,13 +1,5 @@
 import { DOMParser } from '@xmldom/xmldom';
-
-interface SriResponse {
-    claveAcceso?: string;
-    estado: 'RECIBIDA' | 'DEVUELTA' | 'AUTORIZADO' | 'NO AUTORIZADO' | 'EN PROCESO' | 'ERROR';
-    mensajes?: { identificador: string; mensaje: string; tipo: string }[];
-    numeroAutorizacion?: string;
-    fechaAutorizacion?: string;
-    ambiente?: string;
-}
+import { SriRespuesta, SriMensaje } from '../SriTypes';
 
 /**
  * Servicio para consumir los Web Services del SRI (Ecuador)
@@ -18,7 +10,7 @@ export class SriWebService {
     /**
      * Envía un XML firmado al WS de Recepción del SRI
      */
-    static async enviarComprobante(xmlSigned: string, url: string): Promise<SriResponse> {
+    static async enviarComprobante(xmlSigned: string, url: string): Promise<SriRespuesta> {
         const base64Xml = Buffer.from(xmlSigned).toString('base64');
 
         const soapEnvelope = `
@@ -55,7 +47,7 @@ export class SriWebService {
     /**
      * Consulta el estado de autorización de un comprobante por su Clave de Acceso
      */
-    static async autorizarComprobante(claveAcceso: string, url: string): Promise<SriResponse> {
+    static async autorizarComprobante(claveAcceso: string, url: string): Promise<SriRespuesta> {
         const soapEnvelope = `
             <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ec="http://ec.gob.sri.ws.autorizacion">
                <soapenv:Header/>
@@ -85,13 +77,13 @@ export class SriWebService {
         }
     }
 
-    private static parseRecepcionResponse(xml: string): SriResponse {
+    private static parseRecepcionResponse(xml: string): SriRespuesta {
         const parser = new DOMParser();
         const doc = parser.parseFromString(xml, 'text/xml');
 
         const estado = doc.getElementsByTagName('estado')[0]?.textContent || 'ERROR';
         const mensajesNodes = doc.getElementsByTagName('mensaje');
-        const mensajes = [];
+        const mensajes: SriMensaje[] = [];
 
         for (let i = 0; i < mensajesNodes.length; i++) {
             mensajes.push({
@@ -108,7 +100,7 @@ export class SriWebService {
         };
     }
 
-    private static parseAutorizacionResponse(xml: string): SriResponse {
+    private static parseAutorizacionResponse(xml: string): SriRespuesta {
         const parser = new DOMParser();
         const doc = parser.parseFromString(xml, 'text/xml');
 
@@ -125,11 +117,12 @@ export class SriWebService {
         const ambiente = autorizacion.getElementsByTagName('ambiente')[0]?.textContent || undefined;
 
         const mensajesNodes = autorizacion.getElementsByTagName('mensaje');
-        const mensajes = [];
+        const mensajes: SriMensaje[] = [];
         for (let i = 0; i < mensajesNodes.length; i++) {
             mensajes.push({
                 identificador: mensajesNodes[i].getElementsByTagName('identificador')[0]?.textContent || '',
                 mensaje: mensajesNodes[i].getElementsByTagName('mensaje')[0]?.textContent || '',
+                informacionAdicional: mensajesNodes[i].getElementsByTagName('informacionAdicional')[0]?.textContent || '',
                 tipo: mensajesNodes[i].getElementsByTagName('tipo')[0]?.textContent || ''
             });
         }

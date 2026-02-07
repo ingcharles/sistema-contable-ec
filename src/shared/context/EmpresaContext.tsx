@@ -22,16 +22,28 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const refreshEmpresas = async () => {
         try {
             const data = await ConfiguracionUseCases.listarEmpresas();
-            setEmpresas(data);
+
+            // Cargar parámetros para cada empresa
+            const empresasConParams = await Promise.all(data.map(async (emp: Empresa) => {
+                try {
+                    const params = await ConfiguracionUseCases.obtenerParametrosConContexto(emp.id);
+                    return { ...emp, parametros: params };
+                } catch (e) {
+                    console.error(`Error cargando parámetros para empresa ${emp.id}:`, e);
+                    return emp;
+                }
+            }));
+
+            setEmpresas(empresasConParams);
 
             // Si no hay empresa seleccionada, intentar cargar del localStorage o usar la primera
-            if (!currentEmpresa && data.length > 0) {
+            if (!currentEmpresa && empresasConParams.length > 0) {
                 const savedId = typeof window !== 'undefined' ? localStorage.getItem('current_empresa_id') : null;
-                const savedEmpresa = data.find((e: Empresa) => e.id === savedId) || data[0];
+                const savedEmpresa = empresasConParams.find((e: Empresa) => e.id === savedId) || empresasConParams[0];
                 _setCurrentEmpresa(savedEmpresa);
-            } else if (currentEmpresa && data.length > 0) {
+            } else if (currentEmpresa && empresasConParams.length > 0) {
                 // Si ya hay una empresa seleccionada, actualizarla con los datos más recientes
-                const updatedEmpresa = data.find((e: Empresa) => e.id === currentEmpresa.id);
+                const updatedEmpresa = empresasConParams.find((e: Empresa) => e.id === currentEmpresa.id);
                 if (updatedEmpresa) {
                     _setCurrentEmpresa(updatedEmpresa);
                 }
@@ -43,10 +55,18 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
     };
 
-    const setCurrentEmpresa = (empresa: Empresa) => {
-        _setCurrentEmpresa(empresa);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('current_empresa_id', empresa.id);
+    const setCurrentEmpresa = async (empresa: Empresa) => {
+        // Al cambiar manualmente, nos aseguramos de tener los parámetros frescos
+        try {
+            const params = await ConfiguracionUseCases.obtenerParametrosConContexto(empresa.id);
+            const empresaConParams = { ...empresa, parametros: params };
+            _setCurrentEmpresa(empresaConParams);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('current_empresa_id', empresa.id);
+            }
+        } catch (e) {
+            console.error('Error al cambiar empresa y cargar parámetros:', e);
+            _setCurrentEmpresa(empresa);
         }
     };
 
@@ -82,7 +102,7 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
             razonSocial: 'Sin empresa',
             nombreComercial: 'Sin empresa',
             direccionMatriz: '',
-            logoUrl: '',
+            logo: '',
             obligadoContabilidad: false,
             agenteRetencion: false,
             contribuyenteEspecial: null,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Gift, Calendar, Download, Calculator, FileCheck, Info, Star } from 'lucide-react';
+import { Gift, Download, Calculator, FileCheck, Info, Star } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Empleado } from '@/modules/nomina/domain/types';
 import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
@@ -53,11 +53,11 @@ export default function BeneficiosPage() {
         {
             header: 'Décimo Cuarto (Acumulado)',
             className: 'text-right font-bold text-blue-600',
-            cell: (row) => formatMoney(460 / 12 * 6) // Simulación para UI
+            cell: () => formatMoney(460 / 12 * 6) // Simulación para UI
         },
         {
             header: 'Fondos de Reserva',
-            cell: (row) => (
+            cell: () => (
                 <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold">MENSUALIZADO</span>
             )
         }

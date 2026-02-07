@@ -1,3 +1,5 @@
+import { SriFactura, SriNotaCredito, SriNotaDebito, SriCompRetencion, SriInfoTributaria, SriLiquidacion, SriGuia } from '../SriTypes';
+
 /**
  * Servicio para la generación de XML de comprobantes electrónicos (SRI Ecuador)
  * Cumple con la Ficha Técnica v2.3.2
@@ -7,7 +9,7 @@ export class XmlGenerator {
     /**
      * Genera el XML completo para una Factura (01)
      */
-    static generateFacturaXml(data: any): string {
+    static generateFacturaXml(data: SriFactura): string {
         const accessKey = data.infoTributaria.claveAcceso || this.generateAccessKey(data);
 
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -18,7 +20,9 @@ export class XmlGenerator {
         // Info Factura
         xml += '  <infoFactura>\n';
         xml += `    <fechaEmision>${data.infoFactura.fechaEmision}</fechaEmision>\n`;
-        xml += `    <dirEstablecimiento>${this.escapeXml(data.infoFactura.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        if (data.infoFactura.dirEstablecimiento) {
+            xml += `    <dirEstablecimiento>${this.escapeXml(data.infoFactura.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        }
         if (data.infoFactura.contribuyenteEspecial) {
             xml += `    <contribuyenteEspecial>${data.infoFactura.contribuyenteEspecial}</contribuyenteEspecial>\n`;
         }
@@ -34,7 +38,8 @@ export class XmlGenerator {
 
         // Total con Impuestos
         xml += '    <totalConImpuestos>\n';
-        data.infoFactura.totalConImpuestos.forEach((imp: any) => {
+        const totalImpuestos = data.infoFactura.totalConImpuestos || [];
+        totalImpuestos.forEach((imp: any) => {
             xml += '      <totalImpuesto>\n';
             xml += `        <codigo>${imp.codigo}</codigo>\n`;
             xml += `        <codigoPorcentaje>${imp.codigoPorcentaje}</codigoPorcentaje>\n`;
@@ -103,7 +108,7 @@ export class XmlGenerator {
     /**
      * Genera el XML completo para una Liquidación de Compra (03)
      */
-    static generateLiquidacionXml(data: any): string {
+    static generateLiquidacionXml(data: SriLiquidacion): string {
         const accessKey = data.infoTributaria.claveAcceso || this.generateAccessKey(data);
 
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -114,7 +119,9 @@ export class XmlGenerator {
         // Info Liquidación Compra
         xml += '  <infoLiquidacionCompra>\n';
         xml += `    <fechaEmision>${data.infoLiquidacionCompra.fechaEmision}</fechaEmision>\n`;
-        xml += `    <dirEstablecimiento>${this.escapeXml(data.infoLiquidacionCompra.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        if (data.infoLiquidacionCompra.dirEstablecimiento) {
+            xml += `    <dirEstablecimiento>${this.escapeXml(data.infoLiquidacionCompra.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        }
         if (data.infoLiquidacionCompra.contribuyenteEspecial) {
             xml += `    <contribuyenteEspecial>${data.infoLiquidacionCompra.contribuyenteEspecial}</contribuyenteEspecial>\n`;
         }
@@ -130,7 +137,8 @@ export class XmlGenerator {
 
         // Total con Impuestos
         xml += '    <totalConImpuestos>\n';
-        data.infoLiquidacionCompra.totalConImpuestos.forEach((imp: any) => {
+        const totalImpuestos = data.infoLiquidacionCompra.totalConImpuestos || [];
+        totalImpuestos.forEach((imp: any) => {
             xml += '      <totalImpuesto>\n';
             xml += `        <codigo>${imp.codigo}</codigo>\n`;
             xml += `        <codigoPorcentaje>${imp.codigoPorcentaje}</codigoPorcentaje>\n`;
@@ -195,7 +203,7 @@ export class XmlGenerator {
     /**
      * Genera el XML completo para una Nota de Crédito (04)
      */
-    static generateNotaCreditoXml(data: any): string {
+    static generateNotaCreditoXml(data: SriNotaCredito): string {
         const accessKey = data.infoTributaria.claveAcceso || this.generateAccessKey(data);
 
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -206,7 +214,9 @@ export class XmlGenerator {
         // Info Nota Crédito
         xml += '  <infoNotaCredito>\n';
         xml += `    <fechaEmision>${data.infoNotaCredito.fechaEmision}</fechaEmision>\n`;
-        xml += `    <dirEstablecimiento>${this.escapeXml(data.infoNotaCredito.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        if (data.infoNotaCredito.dirEstablecimiento) {
+            xml += `    <dirEstablecimiento>${this.escapeXml(data.infoNotaCredito.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        }
         xml += `    <tipoIdentificacionComprador>${data.infoNotaCredito.tipoIdentificacionComprador}</tipoIdentificacionComprador>\n`;
         xml += `    <razonSocialComprador>${this.escapeXml(data.infoNotaCredito.razonSocialComprador)}</razonSocialComprador>\n`;
         xml += `    <identificacionComprador>${data.infoNotaCredito.identificacionComprador}</identificacionComprador>\n`;
@@ -223,7 +233,8 @@ export class XmlGenerator {
 
         // Total con Impuestos
         xml += '    <totalConImpuestos>\n';
-        data.infoNotaCredito.totalConImpuestos.forEach((imp: any) => {
+        const totalImpuestos = data.infoNotaCredito.totalConImpuestos || [];
+        totalImpuestos.forEach((imp: any) => {
             xml += '      <totalImpuesto>\n';
             xml += `        <codigo>${imp.codigo}</codigo>\n`;
             xml += `        <codigoPorcentaje>${imp.codigoPorcentaje}</codigoPorcentaje>\n`;
@@ -273,7 +284,7 @@ export class XmlGenerator {
     /**
      * Genera el XML completo para una Nota de Débito (05)
      */
-    static generateNotaDebitoXml(data: any): string {
+    static generateNotaDebitoXml(data: SriNotaDebito): string {
         const accessKey = data.infoTributaria.claveAcceso || this.generateAccessKey(data);
 
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -284,7 +295,9 @@ export class XmlGenerator {
         // Info Nota Débito
         xml += '  <infoNotaDebito>\n';
         xml += `    <fechaEmision>${data.infoNotaDebito.fechaEmision}</fechaEmision>\n`;
-        xml += `    <dirEstablecimiento>${this.escapeXml(data.infoNotaDebito.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        if (data.infoNotaDebito.dirEstablecimiento) {
+            xml += `    <dirEstablecimiento>${this.escapeXml(data.infoNotaDebito.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        }
         xml += `    <tipoIdentificacionComprador>${data.infoNotaDebito.tipoIdentificacionComprador}</tipoIdentificacionComprador>\n`;
         xml += `    <razonSocialComprador>${this.escapeXml(data.infoNotaDebito.razonSocialComprador)}</razonSocialComprador>\n`;
         xml += `    <identificacionComprador>${data.infoNotaDebito.identificacionComprador}</identificacionComprador>\n`;
@@ -345,7 +358,7 @@ export class XmlGenerator {
      * Genera el XML completo para un Comprobante de Retención (07)
      * Compatible con versión 2.0.0 del esquema XSD del SRI
      */
-    static generateRetencionXml(data: any): string {
+    static generateRetencionXml(data: SriCompRetencion): string {
         const accessKey = data.infoTributaria.claveAcceso || this.generateAccessKey(data);
 
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -471,7 +484,7 @@ export class XmlGenerator {
     /**
      * Genera el XML completo para una Guía de Remisión (06)
      */
-    static generateGuiaXml(data: any): string {
+    static generateGuiaXml(data: SriGuia): string {
         const accessKey = data.infoTributaria.claveAcceso || this.generateAccessKey(data);
 
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -481,7 +494,9 @@ export class XmlGenerator {
 
         // Info Guía Remisión
         xml += '  <infoGuiaRemision>\n';
-        xml += `    <dirEstablecimiento>${this.escapeXml(data.infoGuiaRemision.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        if (data.infoGuiaRemision.dirEstablecimiento) {
+            xml += `    <dirEstablecimiento>${this.escapeXml(data.infoGuiaRemision.dirEstablecimiento)}</dirEstablecimiento>\n`;
+        }
         xml += `    <dirPartida>${this.escapeXml(data.infoGuiaRemision.dirPartida)}</dirPartida>\n`;
         xml += `    <razonSocialTransportista>${this.escapeXml(data.infoGuiaRemision.razonSocialTransportista)}</razonSocialTransportista>\n`;
         xml += `    <tipoIdentificacionTransportista>${data.infoGuiaRemision.tipoIdentificacionTransportista}</tipoIdentificacionTransportista>\n`;
@@ -537,6 +552,20 @@ export class XmlGenerator {
      * Genera la sección de Info Tributaria compartida por todos los documentos
      */
     private static generateInfoTributaria(info: any, accessKey: string): string {
+        // Según la ficha técnica, la estructura es muy similar, pero separamos por tipo
+        // para permitir futuras especializaciones y mayor claridad.
+        switch (info.codDoc) {
+            case '01': return this.generateInfoTributariaFactura(info, accessKey);
+            case '03': return this.generateInfoTributariaLiquidacion(info, accessKey);
+            case '04': return this.generateInfoTributariaNotaCredito(info, accessKey);
+            case '05': return this.generateInfoTributariaNotaDebito(info, accessKey);
+            case '06': return this.generateInfoTributariaGuia(info, accessKey);
+            case '07': return this.generateInfoTributariaRetencion(info, accessKey);
+            default: return this.generateInfoTributariaBase(info, accessKey);
+        }
+    }
+
+    private static generateInfoTributariaBase(info: any, accessKey: string): string {
         let xml = '  <infoTributaria>\n';
         xml += `    <ambiente>${info.ambiente}</ambiente>\n`;
         xml += `    <tipoEmision>${info.tipoEmision}</tipoEmision>\n`;
@@ -549,26 +578,66 @@ export class XmlGenerator {
         xml += `    <ptoEmi>${info.ptoEmi}</ptoEmi>\n`;
         xml += `    <secuencial>${info.secuencial}</secuencial>\n`;
         xml += `    <dirMatriz>${this.escapeXml(info.dirMatriz)}</dirMatriz>\n`;
-        if (info.regimenMicroempresas) {
-            xml += '    <regimenMicroempresas>CONTRIBUYENTE RÉGIMEN MICROEMPRESAS</regimenMicroempresas>\n';
-        }
+
+        // Tags adicionales comunes (RIMPE, Agente de Retención, etc.)
         if (info.agenteRetencion) {
             xml += `    <agenteRetencion>${info.agenteRetencion}</agenteRetencion>\n`;
         }
+        if (info.contribuyenteRimpe) {
+            xml += `    <contribuyenteRimpe>${info.contribuyenteRimpe}</contribuyenteRimpe>\n`;
+        }
+        if (info.regimenMicroempresas) {
+            xml += '    <regimenMicroempresas>CONTRIBUYENTE RÉGIMEN MICROEMPRESAS</regimenMicroempresas>\n';
+        }
+
         xml += '  </infoTributaria>\n';
         return xml;
+    }
+
+    private static generateInfoTributariaFactura(info: any, accessKey: string): string {
+        return this.generateInfoTributariaBase(info, accessKey);
+    }
+
+    private static generateInfoTributariaNotaCredito(info: any, accessKey: string): string {
+        return this.generateInfoTributariaBase(info, accessKey);
+    }
+
+    private static generateInfoTributariaNotaDebito(info: any, accessKey: string): string {
+        return this.generateInfoTributariaBase(info, accessKey);
+    }
+
+    private static generateInfoTributariaRetencion(info: any, accessKey: string): string {
+        return this.generateInfoTributariaBase(info, accessKey);
+    }
+
+    private static generateInfoTributariaGuia(info: any, accessKey: string): string {
+        return this.generateInfoTributariaBase(info, accessKey);
+    }
+
+    private static generateInfoTributariaLiquidacion(info: any, accessKey: string): string {
+        return this.generateInfoTributariaBase(info, accessKey);
     }
 
     /**
      * Genera la Clave de Acceso del SRI (49 dígitos)
      */
     static generateAccessKey(data: any): string {
-        const info = data.infoTributaria;
-        // La fecha depende de la sección de info del documento específico
-        const infoDoc = data.infoFactura || data.infoLiquidacionCompra || data.infoCompRetencion || data.infoNotaCredito || data.infoGuiaRemision;
-        const fechaEmision = infoDoc.fechaEmision || infoDoc.fechaIniTraslado;
-        const date = fechaEmision.replace(/\//g, '').replace(/-/g, '');
+        const info = data.infoTributaria as SriInfoTributaria;
 
+        // Extraer fecha de emisión según el tipo de documento
+        let fechaEmision = '';
+        if (data.infoFactura) fechaEmision = data.infoFactura.fechaEmision;
+        else if (data.infoLiquidacionCompra) fechaEmision = data.infoLiquidacionCompra.fechaEmision;
+        else if (data.infoCompRetencion) fechaEmision = data.infoCompRetencion.fechaEmision;
+        else if (data.infoNotaCredito) fechaEmision = data.infoNotaCredito.fechaEmision;
+        else if (data.infoNotaDebito) fechaEmision = data.infoNotaDebito.fechaEmision;
+        else if (data.infoGuiaRemision) fechaEmision = data.infoGuiaRemision.fechaIniTraslado;
+
+        if (!fechaEmision) {
+            throw new Error(`No se pudo determinar la fecha de emisión para el documento ${info.codDoc}`);
+        }
+
+        const date = fechaEmision.replace(/\//g, '').replace(/-/g, '');
         const ruc = info.ruc;
         const codDoc = info.codDoc;
         const ambiente = info.ambiente;

@@ -45,23 +45,47 @@ export interface Plan {
     features?: PlanFeature[];
 }
 
+export interface ParametrosEmpresa {
+    sbu: number;
+    ivaCatalogoItemId: string | null;
+    maxConsumidorFinal: number;
+    cuentaCaja: string;
+    cuentaIvaVentas: string;
+    cuentaIvaCompras: string;
+    cuentaCxcClientes: string;
+    cuentaCxpProveedores: string;
+    cuentaVentas: string;
+    cuentaCompras: string;
+    cuentaInventario: string;
+    cuentaIvaPorPagar: string;
+    cuentaCostoVentas: string;
+    fechaCierre: string | null;
+    // Datos adicionales que puedan venir de la base de datos
+    ivaValor?: number; // Porcentaje calculado (ej: 15)
+    ivaCodigo?: string; // Código SRI (ej: '4')
+    ivaEtiqueta?: string; // Etiqueta (ej: '15%')
+}
+
 export interface Empresa {
     id: string;
     razonSocial: string;
     nombreComercial: string;
     ruc: string;
     direccionMatriz: string;
+    email?: string;
     obligadoContabilidad: boolean;
     agenteRetencion: boolean;
     contribuyenteEspecial: string | null;
     rimpe: 'NEGOCIO_POPULAR' | 'EMPRENDEDOR' | null;
-    logoUrl?: string;
+    logo?: string;
     ambienteSri?: number;
     ambienteSriNombre?: string;
     // Colores de marca (branding)
     colorPrimario?: string | null;
     colorSecundario?: string | null;
     colorAcento?: string | null;
+    // Parámetros contables globales
+    parametros?: ParametrosEmpresa;
 }
 
 export interface Usuario {

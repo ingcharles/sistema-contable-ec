@@ -17,14 +17,13 @@ export async function GET(req: NextRequest) {
             {
                 text: `
                     SELECT 
-                        sbu, iva_catalogo_item_id, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
-                        cuenta_iva_compras, cuenta_ret_renta_por_pagar, cuenta_cxc_clientes,
-                        cuenta_anticipo_clientes, cuenta_cxp_proveedores, cuenta_anticipo_proveedores,
-                        cuenta_ventas, cuenta_devolucion_ventas, cuenta_compras, cuenta_inventario,
-                        cuenta_iva_por_pagar, cuenta_ret_iva_por_pagar, cuenta_costo_ventas,
-                        cuenta_descuento_ventas, fecha_cierre
-                    FROM configuracion.parametros
-                    WHERE empresa_id = $1
+                        p.*,
+                        ci.codigo as iva_codigo,
+                        ci.valor as iva_etiqueta,
+                        ci.valor_numerico as iva_valor
+                    FROM configuracion.parametros p
+                    LEFT JOIN configuracion.catalogos_items ci ON p.iva_catalogo_item_id = ci.id
+                    WHERE p.empresa_id = $1
                 `,
                 values: [context.empresaId]
             },
@@ -54,6 +53,21 @@ export async function GET(req: NextRequest) {
                 cuentaRetIvaPorPagar: '2.1.03.02',
                 cuentaCostoVentas: '5.1.01.01',
                 cuentaDescuentoVentas: '4.1.01.03',
+                // Nómina
+                cuentaSueldos: '5.1.01.01',
+                cuentaAportePatronal: '5.1.01.02',
+                cuentaDecimoTercero: '5.1.01.03',
+                cuentaDecimoCuarto: '5.1.01.04',
+                cuentaIessPorPagar: '2.1.03.01',
+                cuentaSueldosPorPagar: '2.1.03.02',
+                cuentaProvDecimoTercero: '2.1.03.03',
+                cuentaProvDecimoCuarto: '2.1.03.04',
+                // Caja Chica
+                cuentaCajaChica: '1.1.01.02',
+                cuentaGastosVarios: '5.2.01.99',
+                // Inventario
+                cuentaSobranteInventario: '4.2.01.01',
+                cuentaFaltanteInventario: '5.2.01.01',
                 fechaCierre: null
             });
         }
@@ -81,7 +95,25 @@ export async function GET(req: NextRequest) {
             cuentaRetIvaPorPagar: row.cuenta_ret_iva_por_pagar || '2.1.03.02',
             cuentaCostoVentas: row.cuenta_costo_ventas || '5.1.01.01',
             cuentaDescuentoVentas: row.cuenta_descuento_ventas || '4.1.01.03',
-            fechaCierre: row.fecha_cierre
+            // Nómina
+            cuentaSueldos: row.cuenta_sueldos || '5.1.01.01',
+            cuentaAportePatronal: row.cuenta_aporte_patronal || '5.1.01.02',
+            cuentaDecimoTercero: row.cuenta_decimo_tercero || '5.1.01.03',
+            cuentaDecimoCuarto: row.cuenta_decimo_cuarto || '5.1.01.04',
+            cuentaIessPorPagar: row.cuenta_iess_por_pagar || '2.1.03.01',
+            cuentaSueldosPorPagar: row.cuenta_sueldos_por_pagar || '2.1.03.02',
+            cuentaProvDecimoTercero: row.cuenta_prov_decimo_tercero || '2.1.03.03',
+            cuentaProvDecimoCuarto: row.cuenta_prov_decimo_cuarto || '2.1.03.04',
+            // Caja Chica
+            cuentaCajaChica: row.cuenta_caja_chica || '1.1.01.02',
+            cuentaGastosVarios: row.cuenta_gastos_varios || '5.2.01.99',
+            // Inventario
+            cuentaSobranteInventario: row.cuenta_sobrante_inventario || '4.2.01.01',
+            cuentaFaltanteInventario: row.cuenta_faltante_inventario || '5.2.01.01',
+            fechaCierre: row.fecha_cierre,
+            ivaValor: row.iva_valor ? Number(row.iva_valor) : 15, // Default to 15 if not set
+            ivaCodigo: row.iva_codigo || '4',
+            ivaEtiqueta: row.iva_etiqueta || '15%'
         });
 
     } catch (error: any) {
@@ -108,7 +140,10 @@ export async function POST(req: NextRequest) {
             cuentaAnticipoClientes, cuentaCxpProveedores, cuentaAnticipoProveedores,
             cuentaVentas, cuentaDevolucionVentas, cuentaCompras, cuentaInventario,
             cuentaIvaPorPagar, cuentaRetIvaPorPagar, cuentaCostoVentas, cuentaDescuentoVentas,
-            fechaCierre
+            fechaCierre,
+            cuentaSueldos, cuentaAportePatronal, cuentaDecimoTercero, cuentaDecimoCuarto,
+            cuentaIessPorPagar, cuentaSueldosPorPagar, cuentaProvDecimoTercero, cuentaProvDecimoCuarto,
+            cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario
         } = body;
 
         await db.query(
@@ -120,8 +155,14 @@ export async function POST(req: NextRequest) {
                         cuenta_anticipo_clientes, cuenta_cxp_proveedores, cuenta_anticipo_proveedores,
                         cuenta_ventas, cuenta_devolucion_ventas, cuenta_compras, cuenta_inventario,
                         cuenta_iva_por_pagar, cuenta_ret_iva_por_pagar, cuenta_costo_ventas,
-                        cuenta_descuento_ventas, fecha_cierre, updated_at, updated_by
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), $22)
+                        cuenta_descuento_ventas, fecha_cierre,
+                        cuenta_sueldos, cuenta_aporte_patronal, cuenta_decimo_tercero,
+                        cuenta_decimo_cuarto, cuenta_iess_por_pagar, cuenta_sueldos_por_pagar,
+                        cuenta_prov_decimo_tercero, cuenta_prov_decimo_cuarto,
+                        cuenta_caja_chica, cuenta_gastos_varios,
+                        cuenta_sobrante_inventario, cuenta_faltante_inventario,
+                        updated_at, updated_by
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, NOW(), $34)
                     ON CONFLICT (empresa_id) DO UPDATE SET
                         sbu = EXCLUDED.sbu,
                         iva_catalogo_item_id = EXCLUDED.iva_catalogo_item_id,
@@ -143,6 +184,18 @@ export async function POST(req: NextRequest) {
                         cuenta_costo_ventas = EXCLUDED.cuenta_costo_ventas,
                         cuenta_descuento_ventas = EXCLUDED.cuenta_descuento_ventas,
                         fecha_cierre = EXCLUDED.fecha_cierre,
+                        cuenta_sueldos = EXCLUDED.cuenta_sueldos,
+                        cuenta_aporte_patronal = EXCLUDED.cuenta_aporte_patronal,
+                        cuenta_decimo_tercero = EXCLUDED.cuenta_decimo_tercero,
+                        cuenta_decimo_cuarto = EXCLUDED.cuenta_decimo_cuarto,
+                        cuenta_iess_por_pagar = EXCLUDED.cuenta_iess_por_pagar,
+                        cuenta_sueldos_por_pagar = EXCLUDED.cuenta_sueldos_por_pagar,
+                        cuenta_prov_decimo_tercero = EXCLUDED.cuenta_prov_decimo_tercero,
+                        cuenta_prov_decimo_cuarto = EXCLUDED.cuenta_prov_decimo_cuarto,
+                        cuenta_caja_chica = EXCLUDED.cuenta_caja_chica,
+                        cuenta_gastos_varios = EXCLUDED.cuenta_gastos_varios,
+                        cuenta_sobrante_inventario = EXCLUDED.cuenta_sobrante_inventario,
+                        cuenta_faltante_inventario = EXCLUDED.cuenta_faltante_inventario,
                         updated_at = NOW(),
                         updated_by = EXCLUDED.updated_by
                 `,
@@ -152,7 +205,11 @@ export async function POST(req: NextRequest) {
                     cuentaAnticipoClientes, cuentaCxpProveedores, cuentaAnticipoProveedores,
                     cuentaVentas, cuentaDevolucionVentas, cuentaCompras, cuentaInventario,
                     cuentaIvaPorPagar, cuentaRetIvaPorPagar, cuentaCostoVentas, cuentaDescuentoVentas,
-                    fechaCierre, context.usuarioId
+                    fechaCierre,
+                    cuentaSueldos, cuentaAportePatronal, cuentaDecimoTercero, cuentaDecimoCuarto,
+                    cuentaIessPorPagar, cuentaSueldosPorPagar, cuentaProvDecimoTercero, cuentaProvDecimoCuarto,
+                    cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario,
+                    context.usuarioId
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }

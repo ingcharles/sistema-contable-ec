@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { InventarioUseCases, TercerosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
@@ -16,6 +16,8 @@ interface ProformaModalProps {
 }
 
 export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModalProps) {
+    const { currentEmpresa } = useEmpresa();
+    const parametros = currentEmpresa?.parametros;
     const [loading, setLoading] = useState(false);
 
     // Form state
@@ -68,7 +70,8 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
         if (!prod) return;
 
         const subtotal = prod.precio_venta * cantidad;
-        const valorIva = prod.graba_iva ? subtotal * 0.15 : 0;
+        const ivaValue = (parametros?.ivaValor || 15) / 100;
+        const valorIva = prod.graba_iva ? subtotal * ivaValue : 0;
 
         const newItem = {
             producto_id: prod.id,
@@ -76,7 +79,7 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
             cantidad,
             precio_unitario: prod.precio_venta,
             subtotal,
-            porcentaje_iva: prod.graba_iva ? 15 : 0,
+            porcentaje_iva: prod.graba_iva ? (parametros?.ivaValor || 15) : 0,
             valor_iva: valorIva,
             total: subtotal + valorIva
         };
@@ -246,7 +249,7 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
                     </div>
                     <div className="bg-slate-50 p-6 rounded-2xl flex flex-col gap-3">
                         <div className="flex justify-between items-center text-slate-600">
-                            <span className="text-sm font-medium">Subtotal Gravado (15%)</span>
+                            <span className="text-sm font-medium">Subtotal Gravado ({parametros?.ivaEtiqueta || '15%'})</span>
                             <span className="font-bold">{formatMoney(totals.subtotal_iva)}</span>
                         </div>
                         <div className="flex justify-between items-center text-slate-600">
@@ -254,7 +257,7 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
                             <span className="font-bold">{formatMoney(totals.subtotal_0)}</span>
                         </div>
                         <div className="flex justify-between items-center text-slate-600">
-                            <span className="text-sm font-medium">IVA (15%)</span>
+                            <span className="text-sm font-medium">IVA ({parametros?.ivaEtiqueta || '15%'})</span>
                             <span className="font-bold">{formatMoney(totals.monto_iva)}</span>
                         </div>
                         <div className="border-t border-slate-200 mt-2 pt-4 flex justify-between items-center text-indigo-900">

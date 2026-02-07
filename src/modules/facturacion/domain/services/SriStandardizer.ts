@@ -1,11 +1,11 @@
-import { DetalleFactura } from '../FacturaViewModel';
+import { SriFactura, SriNotaCredito, SriNotaDebito, SriCompRetencion, SriLiquidacion, SriGuia, SriDetalleFactura } from '../SriTypes';
 import { isoToSriDate } from '@/shared/utils/dateUtils';
 
 export class SriStandardizer {
     /**
      * Estandariza los datos de una factura
      */
-    static standardizeFactura(data: any) {
+    static standardizeFactura(data: any): SriFactura {
         // Mapeo robusto de campos (soporta ViewModel y Entidad de DB)
         const identificacion = data.identificacionComprador;
         const razonSocial = data.razonSocialComprador;
@@ -26,8 +26,8 @@ export class SriStandardizer {
 
         return {
             infoTributaria: {
-                ambiente: data.ambienteSri || data.ambiente || '1',
-                tipoEmision: data.tipoEmisionSri || data.tipoEmision || '1',
+                ambiente: data.ambienteSri,
+                tipoEmision: data.tipoEmisionSri,
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
@@ -35,8 +35,11 @@ export class SriStandardizer {
                 codDoc: data.codDoc || '01',
                 estab: (data.estab || '001').padStart(3, '0'),
                 ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
-                secuencial: (data.secuencial || '').toString().padStart(9, '0'),
-                dirMatriz: data.dirMatriz
+                secuencial: (data.secuencial || '').padStart(9, '0'),
+                dirMatriz: data.dirMatriz,
+                agenteRetencion: data.agenteRetencion,
+                regimenMicroempresas: data.regimenMicroempresas,
+                contribuyenteRimpe: data.contribuyenteRimpe
             },
             infoFactura: {
                 fechaEmision: this.formatDate(data.fechaEmision),
@@ -88,19 +91,23 @@ export class SriStandardizer {
     /**
      * Genera el JSON estandarizado para una Liquidación de Compra (Doc 03)
      */
-    static standardizeLiquidacion(data: any) {
+    static standardizeLiquidacion(data: any): SriLiquidacion {
         return {
             infoTributaria: {
-                ambiente: data.ambiente,
-                tipoEmision: data.tipoEmision,
+                ambiente: data.ambienteSri,
+                tipoEmision: data.tipoEmisionSri,
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 codDoc: data.codDoc || '03',
-                estab: data.estab.padStart(3, '0'),
-                ptoEmi: data.ptoEmi.padStart(3, '0'),
-                secuencial: data.secuencial.padStart(9, '0'),
-                dirMatriz: data.dirMatriz
+                estab: (data.estab || '001').padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
+                secuencial: (data.secuencial || '').padStart(9, '0'),
+                dirMatriz: data.dirMatriz,
+                claveAcceso: data.claveAcceso || '',
+                agenteRetencion: data.agenteRetencion,
+                regimenMicroempresas: data.regimenMicroempresas,
+                contribuyenteRimpe: data.contribuyenteRimpe
             },
             infoLiquidacionCompra: {
                 fechaEmision: this.formatDate(data.fechaEmision),
@@ -149,7 +156,7 @@ export class SriStandardizer {
     /**
      * Estandariza los datos de una nota de crédito
      */
-    static standardizeNotaCredito(data: any) {
+    static standardizeNotaCredito(data: any): SriNotaCredito {
         const identificacion = data.identificacionComprador || data.terceroRuc || data.terceroId;
         const razonSocial = data.razonSocialComprador || data.terceroNombre || data.razonSocial;
 
@@ -164,8 +171,8 @@ export class SriStandardizer {
 
         return {
             infoTributaria: {
-                ambiente: data.ambiente || '1',
-                tipoEmision: data.tipoEmision || '1',
+                ambiente: data.ambienteSri,
+                tipoEmision: data.tipoEmisionSri,
                 razonSocial: data.razonSocial,
                 ruc: data.ruc,
                 codDoc: data.codDoc || '04',
@@ -173,7 +180,10 @@ export class SriStandardizer {
                 ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
                 secuencial: (data.secuencial || '').padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
-                claveAcceso: ''
+                claveAcceso: data.claveAcceso || '',
+                agenteRetencion: data.agenteRetencion,
+                regimenMicroempresas: data.regimenMicroempresas,
+                contribuyenteRimpe: data.contribuyenteRimpe
             },
             infoNotaCredito: {
                 fechaEmision: this.formatDate(data.fechaEmision),
@@ -218,7 +228,7 @@ export class SriStandardizer {
     /**
      * Estandariza los datos de una nota de débito
      */
-    static standardizeNotaDebito(data: any) {
+    static standardizeNotaDebito(data: any): SriNotaDebito {
         const identificacion = data.identificacionComprador || data.terceroRuc || data.terceroId;
         const razonSocial = data.razonSocialComprador || data.terceroNombre || data.razonSocial;
 
@@ -233,21 +243,25 @@ export class SriStandardizer {
 
         return {
             infoTributaria: {
-                ambiente: data.ambiente,
-                tipoEmision: data.tipoEmision,
+                ambiente: data.ambienteSri,
+                tipoEmision: data.tipoEmisionSri,
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 codDoc: data.codDoc || '05',
-                estab: data.estab,
-                ptoEmi: data.ptoEmi,
-                secuencial: data.secuencial,
-                dirMatriz: data.dirMatriz
+                estab: (data.estab || '001').padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
+                secuencial: (data.secuencial || '').padStart(9, '0'),
+                dirMatriz: data.dirMatriz,
+                claveAcceso: data.claveAcceso || '',
+                agenteRetencion: data.agenteRetencion,
+                regimenMicroempresas: data.regimenMicroempresas,
+                contribuyenteRimpe: data.contribuyenteRimpe
             },
             infoNotaDebito: {
                 fechaEmision: this.formatDate(data.fechaEmision),
                 dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
-                obligadoContabilidad: data.obligadoContabilidad,
+                obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
                 tipoIdentificacionComprador: tipoIdentificacion,
                 razonSocialComprador: razonSocial,
                 identificacionComprador: identificacion,
@@ -285,19 +299,23 @@ export class SriStandardizer {
      * Genera el JSON estandarizado para un Comprobante de Retención (Doc 07)
      * Compatible con versión 2.0.0 del esquema XSD del SRI
      */
-    static standardizeRetencion(data: any) {
+    static standardizeRetencion(data: any): SriCompRetencion {
         return {
             infoTributaria: {
-                ambiente: data.ambiente,
-                tipoEmision: data.tipoEmision,
+                ambiente: data.ambienteSri,
+                tipoEmision: data.tipoEmisionSri,
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial,
                 ruc: data.ruc,
                 codDoc: data.codDoc || '07',
-                estab: data.estab,
-                ptoEmi: data.ptoEmi,
-                secuencial: data.secuencial,
-                dirMatriz: data.dirMatriz
+                estab: (data.estab || '001').padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
+                secuencial: (data.secuencial || '').padStart(9, '0'),
+                dirMatriz: data.dirMatriz,
+                claveAcceso: data.claveAcceso || '',
+                agenteRetencion: data.agenteRetencion,
+                regimenMicroempresas: data.regimenMicroempresas,
+                contribuyenteRimpe: data.contribuyenteRimpe
             },
             infoCompRetencion: {
                 fechaEmision: this.formatDate(data.fechaEmision),
@@ -341,11 +359,11 @@ export class SriStandardizer {
     /**
      * Genera el JSON estandarizado para una Guía de Remisión (Doc 06)
      */
-    static standardizeGuia(data: any) {
+    static standardizeGuia(data: any): SriGuia {
         return {
             infoTributaria: {
-                ambiente: data.ambiente,
-                tipoEmision: data.tipoEmision,
+                ambiente: data.ambienteSri,
+                tipoEmision: data.tipoEmisionSri,
                 razonSocial: data.razonSocial,
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
@@ -353,7 +371,11 @@ export class SriStandardizer {
                 estab: data.estab.padStart(3, '0'),
                 ptoEmi: data.ptoEmi.padStart(3, '0'),
                 secuencial: data.secuencial.padStart(9, '0'),
-                dirMatriz: data.dirMatriz
+                dirMatriz: data.dirMatriz,
+                claveAcceso: data.claveAcceso || '',
+                agenteRetencion: data.agenteRetencion,
+                regimenMicroempresas: data.regimenMicroempresas,
+                contribuyenteRimpe: data.contribuyenteRimpe
             },
             infoGuiaRemision: {
                 dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
@@ -426,7 +448,7 @@ export class SriStandardizer {
 
 
 
-    private static summarizeTaxes(detalles: DetalleFactura[]) {
+    private static summarizeTaxes(detalles: SriDetalleFactura[]) {
         const resumen: any[] = [];
         const grupos = detalles.reduce((acc: any, d: any) => {
             const key = d.codigoIVA;

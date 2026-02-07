@@ -1,5 +1,6 @@
 import { Factura } from '@/shared/types';
 import { useBrandColors } from '@/shared/hooks/useBrandColors';
+import { useEmpresa } from '@/shared/context/EmpresaContext';
 
 /**
  * Componente RetencionRIDE
@@ -241,6 +242,7 @@ function formatNumDocSustento(num: string): string {
 
 export function RetencionRIDE({ comprobante }: RetencionRIDEProps) {
     const colors = useBrandColors();
+    const { currentEmpresa } = useEmpresa();
     const xmlFirmado = comprobante.xmlFirmado;
     const retencion = xmlFirmado ? parseRetencionXml(xmlFirmado) : null;
 
@@ -270,10 +272,20 @@ export function RetencionRIDE({ comprobante }: RetencionRIDEProps) {
         <div className="max-w-4xl mx-auto p-8 bg-white text-slate-800 font-sans border border-slate-200 shadow-sm print:shadow-none print:border-0">
             {/* Encabezado RIDE */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                {/* Lado Izquierdo: Info Empresa (Agente de Retención) */}
+                {/* Lado Izquierdo: Info Empresa */}
                 <div className="space-y-4">
-                    <div className="h-24 w-48 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300">
-                        <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Logo Empresa</span>
+                    <div className="h-24 w-48 flex items-center justify-center overflow-hidden">
+                        {currentEmpresa?.logo ? (
+                            <img
+                                src={`data:image/png;base64,${currentEmpresa.logo}`}
+                                alt="Logo Empresa"
+                                className="h-full w-full object-contain object-left"
+                            />
+                        ) : (
+                            <div className="h-full w-full bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300">
+                                <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Sin Logo</span>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-1">
                         <h1 className="text-xl font-black uppercase tracking-tight">{retencion.razonSocial}</h1>

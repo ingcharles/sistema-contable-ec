@@ -431,7 +431,7 @@ BEGIN
         RETURNING id INTO sg_seguridad;
             INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
             (sg_seguridad, 'Usuarios', 'UserCog', '/administracion/usuarios', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_SEGURIDAD')),
-            (sg_seguridad, 'Gestión de Roles', 'Lock', '/administracion/roles', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_SEGURIDAD')),
+            (sg_seguridad, 'Gestión de Roles', 'Lock', '/configuracion/roles', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_SEGURIDAD')),
             (sg_seguridad, 'Puntos de Usuario', 'UserCheck', '/administracion/puntos-usuario', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_SEGURIDAD'));
 
         -- Sub: Configuración

@@ -444,6 +444,12 @@ export class ConfiguracionUseCases extends BaseUseCase {
         return this.request('/api/configuracion/parametros');
     }
 
+    static async obtenerParametrosConContexto(empresaId: string) {
+        return this.request('/api/configuracion/parametros', {
+            headers: { 'x-empresa-id': empresaId }
+        });
+    }
+
     static async guardarParametros(params: any) {
         return this.request('/api/configuracion/parametros', {
             method: 'POST',
@@ -738,6 +744,15 @@ export class ImpuestosUseCases extends BaseUseCase {
             method: 'POST',
             body: JSON.stringify({ action: 'generar', tipo, periodo })
         });
+    }
+}
+
+/**
+ * MÓDULO: PLANES
+ */
+export class PlanesUseCases extends BaseUseCase {
+    static async listarPlanes() {
+        return this.request('/api/planes');
     }
 }
 

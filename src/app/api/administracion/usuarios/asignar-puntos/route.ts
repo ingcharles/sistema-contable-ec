@@ -12,14 +12,6 @@ export async function POST(req: NextRequest) {
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
     }
-    console.log("!context.roles", !context.roles)
-    // Verificar que el usuario es admin
-    // if (!context.roles?.includes('ADMIN') && !context.roles?.includes('SUPERADMIN')) {
-    //     return NextResponse.json(
-    //         { error: 'Acceso denegado. Se requiere rol de administrador.' },
-    //         { status: 403 }
-    //     );
-    // }
 
     try {
         const body = await req.json();

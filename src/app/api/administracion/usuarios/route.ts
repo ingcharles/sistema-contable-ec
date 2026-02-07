@@ -13,13 +13,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: context.error }, { status: 401 });
     }
 
-    // Verificar que el usuario es admin
-    // if (!context.roles?.includes('ADMIN') && !context.roles?.includes('SUPERADMIN')) {
-    //     return NextResponse.json(
-    //         { error: 'Acceso denegado. Se requiere rol de administrador.' },
-    //         { status: 403 }
-    //     );
-    // }
 
     try {
         const url = new URL(req.url);
@@ -127,13 +120,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: context.error }, { status: 401 });
     }
 
-    // Solo SUPERADMIN puede crear usuarios
-    if (!context.roles?.includes('SUPERADMIN')) {
-        return NextResponse.json(
-            { error: 'Solo SUPERADMIN puede crear usuarios' },
-            { status: 403 }
-        );
-    }
+
 
     try {
         const body = await req.json();

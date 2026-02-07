@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Download, FileText } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { FormularioSRI } from '@/modules/impuestos/domain/types';
 import { useImpuestos } from '@/modules/impuestos/hooks/useImpuestos';

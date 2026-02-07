@@ -16,16 +16,6 @@ export async function GET(
         return NextResponse.json({ error: context.error }, { status: 401 });
     }
 
-    // Verificar que el usuario es admin o es el mismo usuario
-    const isAdmin = context.roles?.includes('ADMIN') || context.roles?.includes('SUPERADMIN');
-    const isSelf = context.usuarioId === id;
-
-    if (!isAdmin && !isSelf) {
-        return NextResponse.json(
-            { error: 'Acceso denegado.' },
-            { status: 403 }
-        );
-    }
 
     try {
         const result = await db.query(
@@ -76,17 +66,6 @@ export async function PUT(
         return NextResponse.json({ error: context.error }, { status: 401 });
     }
 
-    // Solo ADMIN o SUPERADMIN pueden actualizar otros usuarios
-    // El usuario mismo podría actualizar su perfil (pero no sus roles)
-    const isAdmin = context.roles?.includes('ADMIN') || context.roles?.includes('SUPERADMIN');
-    const isSelf = context.usuarioId === id;
-
-    if (!isAdmin && !isSelf) {
-        return NextResponse.json(
-            { error: 'Acceso denegado.' },
-            { status: 403 }
-        );
-    }
 
     try {
         const body = await req.json();
@@ -149,14 +128,6 @@ export async function DELETE(
     if (!context.isValid) {
         return NextResponse.json({ error: context.error }, { status: 401 });
     }
-
-    // Solo ADMIN o SUPERADMIN
-    // if (!context.roles?.includes('ADMIN') && !context.roles?.includes('SUPERADMIN')) {
-    //     return NextResponse.json(
-    //         { error: 'Acceso denegado. Se requiere rol de administrador.' },
-    //         { status: 403 }
-    //     );
-    // }
 
     try {
         // En lugar de eliminar, desactivamos

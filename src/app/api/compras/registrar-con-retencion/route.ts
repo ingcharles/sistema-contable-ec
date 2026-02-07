@@ -6,6 +6,8 @@ import { SignatureService } from '@/modules/facturacion/domain/services/Signatur
 import { SriWebService } from '@/modules/facturacion/domain/services/SriWebService';
 import { XsdValidator } from '@/modules/facturacion/domain/services/XsdValidator';
 import { SecurityAuditService } from '@/shared/services/SecurityAuditService';
+import { ParametrosContablesValidator } from '@/modules/contabilidad/application/services/ParametrosContablesValidator';
+import { ParametrosRepository } from '@/modules/configuracion/infrastructure/ParametrosRepository';
 
 export const runtime = 'nodejs';
 
@@ -89,6 +91,22 @@ export async function POST(req: NextRequest) {
                 { error: 'Campos requeridos: proveedorId, secuencial, fechaEmision' },
                 { status: 400 }
             );
+        }
+
+        // --- VALIDACIÓN DE PARÁMETROS CONTABLES Y CIERRE DE PERIODO ---
+        // Fetch current params from DB just to be sure we have the closing date
+        const currentParams = await ParametrosRepository.obtenerParametros(context.empresaId!, context.usuarioId!);
+
+        // Validar cuentas contables (usando los que vienen del body o los de la BD si faltan)
+        const validacionParams = ParametrosContablesValidator.validarCompras(parametros || currentParams);
+        if (!validacionParams.valido) {
+            return NextResponse.json({ error: validacionParams.error }, { status: 400 });
+        }
+
+        // Validar Cierre de Periodo
+        const validacionCierre = ParametrosContablesValidator.validarFechaCierre(currentParams, fechaEmision);
+        if (!validacionCierre.valido) {
+            return NextResponse.json({ error: validacionCierre.error }, { status: 400 });
         }
 
         // Iniciar transacción atómica

@@ -95,6 +95,15 @@ export default function ParametrosConfigPage() {
                                 className="w-full border rounded-lg p-2.5 text-sm"
                             />
                         </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Cierre de Periodo</label>
+                            <input
+                                type="date"
+                                value={parametros.fechaCierre ? parametros.fechaCierre.split('T')[0] : ''}
+                                onChange={e => setParametros({ ...parametros, fechaCierre: e.target.value || null })}
+                                className="w-full border rounded-lg p-2.5 text-sm"
+                            />
+                        </div>
                     </div>
 
                     {/* Cuentas de Efectivo */}
@@ -121,10 +130,115 @@ export default function ParametrosConfigPage() {
                     {/* For brevity, I'll include the main ones and the user can expand if needed, 
                         but better to include all since I'm refactoring. */}
 
-                    {/* Cuentas de Cartera */}
+                    {/* Cuentas de IVA */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-4 col-span-1 md:col-span-3">
-                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Cartera</h4>
+                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de IVA</h4>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">IVA en Ventas</label>
+                            <select value={parametros.cuentaIvaVentas || ''} onChange={e => setParametros({ ...parametros, cuentaIvaVentas: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">IVA en Compras</label>
+                            <select value={parametros.cuentaIvaCompras || ''} onChange={e => setParametros({ ...parametros, cuentaIvaCompras: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">IVA por Pagar (Liquidación)</label>
+                            <select value={parametros.cuentaIvaPorPagar || ''} onChange={e => setParametros({ ...parametros, cuentaIvaPorPagar: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Cuentas de Retenciones */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-4 col-span-1 md:col-span-3">
+                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Retenciones</h4>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Retención Renta por Pagar</label>
+                            <select value={parametros.cuentaRetRentaPorPagar || ''} onChange={e => setParametros({ ...parametros, cuentaRetRentaPorPagar: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Retención IVA por Pagar</label>
+                            <select value={parametros.cuentaRetIvaPorPagar || ''} onChange={e => setParametros({ ...parametros, cuentaRetIvaPorPagar: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Cuentas de Ingresos (Ventas) */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="space-y-4 col-span-1 md:col-span-4">
+                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Ventas</h4>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Ventas</label>
+                            <select value={parametros.cuentaVentas || ''} onChange={e => setParametros({ ...parametros, cuentaVentas: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('4.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Devolución Ventas</label>
+                            <select value={parametros.cuentaDevolucionVentas || ''} onChange={e => setParametros({ ...parametros, cuentaDevolucionVentas: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('4.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Descuento Ventas</label>
+                            <select value={parametros.cuentaDescuentoVentas || ''} onChange={e => setParametros({ ...parametros, cuentaDescuentoVentas: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('4.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Costo de Ventas</label>
+                            <select value={parametros.cuentaCostoVentas || ''} onChange={e => setParametros({ ...parametros, cuentaCostoVentas: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('5.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Cuentas de Inventario / Compras */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4 col-span-1 md:col-span-2">
+                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Compras e Inventario</h4>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Compras de Mercadería</label>
+                            <select value={parametros.cuentaCompras || ''} onChange={e => setParametros({ ...parametros, cuentaCompras: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('5.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Inventario de Mercaderías</label>
+                            <select value={parametros.cuentaInventario || ''} onChange={e => setParametros({ ...parametros, cuentaInventario: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Cuentas de Cartera */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="space-y-4 col-span-1 md:col-span-4">
+                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Cartera y Anticipos</h4>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">CXC Clientes</label>
@@ -134,10 +248,122 @@ export default function ParametrosConfigPage() {
                             </select>
                         </div>
                         <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Anticipo Clientes</label>
+                            <select value={parametros.cuentaAnticipoClientes || ''} onChange={e => setParametros({ ...parametros, cuentaAnticipoClientes: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">CXP Proveedores</label>
                             <select value={parametros.cuentaCxpProveedores || ''} onChange={e => setParametros({ ...parametros, cuentaCxpProveedores: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
                                 <option value="">Seleccione...</option>
                                 {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Anticipo a Proveedores</label>
+                            <select value={parametros.cuentaAnticipoProveedores || ''} onChange={e => setParametros({ ...parametros, cuentaAnticipoProveedores: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Cuentas de Nómina */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="space-y-4 col-span-1 md:col-span-4">
+                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Cuentas de Nómina</h4>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Gasto Sueldos</label>
+                            <select value={parametros.cuentaSueldos || ''} onChange={e => setParametros({ ...parametros, cuentaSueldos: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && (c.codigo.startsWith('5.1') || c.codigo.startsWith('5.2'))).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Aporte Patronal</label>
+                            <select value={parametros.cuentaAportePatronal || ''} onChange={e => setParametros({ ...parametros, cuentaAportePatronal: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && (c.codigo.startsWith('5.1') || c.codigo.startsWith('5.2'))).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Pasivo Sueldos</label>
+                            <select value={parametros.cuentaSueldosPorPagar || ''} onChange={e => setParametros({ ...parametros, cuentaSueldosPorPagar: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">IESS por Pagar</label>
+                            <select value={parametros.cuentaIessPorPagar || ''} onChange={e => setParametros({ ...parametros, cuentaIessPorPagar: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Gasto Décimo 3ero</label>
+                            <select value={parametros.cuentaDecimoTercero || ''} onChange={e => setParametros({ ...parametros, cuentaDecimoTercero: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && (c.codigo.startsWith('5.1') || c.codigo.startsWith('5.2'))).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Prov. Décimo 3ero</label>
+                            <select value={parametros.cuentaProvDecimoTercero || ''} onChange={e => setParametros({ ...parametros, cuentaProvDecimoTercero: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Gasto Décimo 4to</label>
+                            <select value={parametros.cuentaDecimoCuarto || ''} onChange={e => setParametros({ ...parametros, cuentaDecimoCuarto: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && (c.codigo.startsWith('5.1') || c.codigo.startsWith('5.2'))).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Prov. Décimo 4to</label>
+                            <select value={parametros.cuentaProvDecimoCuarto || ''} onChange={e => setParametros({ ...parametros, cuentaProvDecimoCuarto: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('2.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Cuentas de Caja Chica y Ajustes */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="space-y-4 col-span-1 md:col-span-4">
+                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Caja Chica y Ajustes de Inventario</h4>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Activo Caja Chica</label>
+                            <select value={parametros.cuentaCajaChica || ''} onChange={e => setParametros({ ...parametros, cuentaCajaChica: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && c.codigo.startsWith('1.1')).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Gastos Caja Chica</label>
+                            <select value={parametros.cuentaGastosVarios || ''} onChange={e => setParametros({ ...parametros, cuentaGastosVarios: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => c.nivel >= 4 && (c.codigo.startsWith('5.1') || c.codigo.startsWith('5.2'))).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Sobrante Inventario</label>
+                            <select value={parametros.cuentaSobranteInventario || ''} onChange={e => setParametros({ ...parametros, cuentaSobranteInventario: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => (c.codigo.startsWith('4.1') || c.codigo.startsWith('4.2'))).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Faltante Inventario</label>
+                            <select value={parametros.cuentaFaltanteInventario || ''} onChange={e => setParametros({ ...parametros, cuentaFaltanteInventario: e.target.value })} className="w-full border rounded-lg p-2.5 text-sm font-mono">
+                                <option value="">Seleccione...</option>
+                                {planCuentasMovimiento.filter(c => (c.codigo.startsWith('5.1') || c.codigo.startsWith('5.2'))).map(c => <option key={c.codigo} value={c.codigo}>{c.codigo} - {c.nombre}</option>)}
                             </select>
                         </div>
                     </div>

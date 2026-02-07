@@ -12,14 +12,6 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: context.error }, { status: 401 });
     }
 
-    // Verificar rol de admin
-    if (!context.roles?.includes('ADMIN') && !context.roles?.includes('SUPERADMIN')) {
-        return NextResponse.json(
-            { error: 'Acceso denegado' },
-            { status: 403 }
-        );
-    }
-
     try {
         const result = await db.query(
             {

@@ -23,7 +23,6 @@ import { InventarioUseCases, FacturacionUseCases } from '@/modules/shared/applic
 import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Producto } from '@/modules/inventario/domain/types';
-import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { getLocalDateIso } from '@/shared/utils/dateUtils';
 
 export interface FacturaFormProps {
@@ -36,15 +35,13 @@ export interface FacturaFormProps {
 
 export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', showButtons = true }: FacturaFormProps) {
     const { currentEmpresa } = useEmpresa();
-    const { parametros, cargarParametros } = useConfiguracion();
     const { puntoActivo } = usePuntoEmision();
     const { showToast } = useToast();
 
-    useEffect(() => {
-        cargarParametros();
-    }, []);
+    // Determinar IVA por defecto desde parámetros globales de la empresa
+    const parametros = currentEmpresa?.parametros;
 
-    // Estados para integración
+    // Cargar catálogos dinámicos
     const { terceros: clientes, cargarTerceros: cargarClientes } = useTerceros();
     const [productos, setProductos] = useState<Producto[]>([]);
     const [busquedaCliente, setBusquedaCliente] = useState('');
@@ -61,7 +58,6 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
     const formasPago = getCatalogo('SRI_FORMA_PAGO');
 
-    // Determinar IVA por defecto desde parámetros
     const defaultIVA = useMemo(() => {
         if (!parametros?.ivaCatalogoItemId || !tarifasIVA.length) return '4'; // Fallback a 15% (código 4)
         const item = tarifasIVA.find(t => t.id === parametros.ivaCatalogoItemId);
@@ -228,7 +224,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             cantidad: 1,
             precioUnitario: 0,
             descuento: 0,
-            codigoIVA: parametros?.codigo_iva || '2',
+            codigoIVA: defaultIVA,
             baseImponible: 0,
             valorIVA: 0,
             total: 0,
@@ -354,12 +350,12 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         try {
             const res = await FacturacionUseCases.vender({
                 ...nuevaFactura,
-                ambiente: parametros?.ambienteSri || 'PRUEBAS',
+                ambiente: currentEmpresa?.ambienteSriNombre || 'PRUEBAS',
                 puntoEmisionId: puntoActivo?.puntoEmisionId,
                 clienteId: clienteId || identificacion,
                 clienteNombre: razonSocial,
                 clienteIdentificacion: identificacion,
-                ivaRate: parametros?.iva || 15,
+                ivaRate: parametros?.ivaValor || 15,
                 // Pass the configured code to the backend use case if needed, 
                 // though the standardizer will handle it based on detail codes now.
             });
@@ -587,8 +583,8 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                                         <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-bold text-center text-slate-600">
                                             {(() => {
                                                 const tarifa = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
-                                                if (detalle.codigoIVA === '2') return `${parametros?.iva || 15}%`;
-                                                if (detalle.codigoIVA === '4') return '15%';
+                                                if (detalle.codigoIVA === '2') return `12%`;
+                                                if (detalle.codigoIVA === '4') return `${parametros?.ivaValor || 15}%`;
                                                 if (detalle.codigoIVA === '0') return '0%';
                                                 return tarifa ? tarifa.valor : '0%';
                                             })()}
@@ -704,7 +700,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                         <span className="font-bold text-white">${totales.totalDescuento.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-blue-100 font-medium">
-                        <span>IVA ({parametros?.iva || 15}%):</span>
+                        <span>IVA ({parametros?.ivaEtiqueta || '15%'}):</span>
                         <span className="font-bold text-white">${totales.totalIVA.toFixed(2)}</span>
                     </div>
                     <div className="pt-4 border-t border-white/10 flex justify-between items-center">

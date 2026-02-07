@@ -36,7 +36,7 @@ export const ICON_MAP: Record<string, LucideIcon> = {
 //         agenteRetencion: true,
 //         contribuyenteEspecial: '5368',
 //         rimpe: null,
-//         logoUrl: 'https://picsum.photos/40/40'
+//         logo: ''
 //     },
 //     {
 //         id: 'c9bf9e57-1685-4c89-bafb-ff5af830be2a',
@@ -48,7 +48,7 @@ export const ICON_MAP: Record<string, LucideIcon> = {
 //         agenteRetencion: false,
 //         contribuyenteEspecial: null,
 //         rimpe: 'EMPRENDEDOR',
-//         logoUrl: 'https://picsum.photos/41/41'
+//         logo: ''
 //     }
 // ];
 

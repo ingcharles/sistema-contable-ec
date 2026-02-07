@@ -90,7 +90,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     useEffect(() => {
         if (ordenPrevia) {
             buscarProveedor();
-            const ivaVal = parametros?.iva || 15;
+            const ivaVal = parametros?.ivaValor;
             const nuevosDetalles = ordenPrevia.detalles.map(d => {
                 const sub = d.cantidad * d.precioUnitario;
                 const vIva = d.grabaIva ? (sub * ivaVal / 100) : 0;
@@ -112,14 +112,14 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                 productoId: '',
                 descripcion: 'COMPRA SEGUN XML ' + xmlPrevio.secuencial,
                 cantidad: 1,
-                precioUnitario: xmlPrevio.montoTotal / (1 + (parametros?.iva || 15) / 100),
-                subtotal: xmlPrevio.montoTotal / (1 + (parametros?.iva || 15) / 100),
-                porcentajeIva: parametros?.iva || 15,
-                valorIva: xmlPrevio.montoTotal - (xmlPrevio.montoTotal / (1 + (parametros?.iva || 15) / 100)),
+                precioUnitario: xmlPrevio.montoTotal / (1 + (parametros?.ivaValor) / 100),
+                subtotal: xmlPrevio.montoTotal / (1 + (parametros?.ivaValor) / 100),
+                porcentajeIva: parametros?.ivaValor,
+                valorIva: xmlPrevio.montoTotal - (xmlPrevio.montoTotal / (1 + (parametros?.ivaValor) / 100)),
                 total: xmlPrevio.montoTotal
             }]);
         }
-    }, [ordenPrevia, xmlPrevio, parametros?.iva]);
+    }, [ordenPrevia, xmlPrevio, parametros?.ivaValor]);
 
     useEffect(() => {
         const loadProductos = async () => {
@@ -163,7 +163,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
             cantidad: 1,
             precioUnitario: 0,
             subtotal: 0,
-            porcentajeIva: parametros?.iva || 15,
+            porcentajeIva: parametros?.ivaValor,
             valorIva: 0,
             total: 0
         }]);
@@ -182,7 +182,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
             if (p) {
                 d.descripcion = p.nombre;
                 d.precioUnitario = p.costoPromedio || p.precioVenta;
-                d.porcentajeIva = p.grabaIva ? (parametros?.iva || 15) : 0;
+                d.porcentajeIva = p.grabaIva ? (parametros?.ivaValor) : 0;
             }
         }
 
@@ -254,7 +254,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                     return '0';
                 };
 
-                const ivaPorcentajeActual = parametros?.iva || 15;
+                const ivaPorcentajeActual = parametros?.ivaValor;
                 const tieneIva = subtotalIva > 0 && montoIva > 0;
                 const codigoIvaDocSustento = tieneIva ? getCodigoIva(ivaPorcentajeActual) : '0';
                 const tarifaIvaDocSustento = tieneIva ? ivaPorcentajeActual.toString() : '0';
@@ -561,7 +561,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-center text-[10px] font-bold outline-none focus:ring-2 focus:ring-sri-blue/10"
                                             >
                                                 <option value="0">0%</option>
-                                                <option value={parametros?.iva || 15}>{parametros?.iva || 15}%</option>
+                                                <option value={parametros?.ivaValor}>{parametros?.ivaValor}%</option>
                                             </select>
                                         </td>
                                         <td className="px-4 py-2 text-right font-bold text-slate-900 text-xs">
@@ -587,7 +587,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
                         <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Subtotal {parametros?.iva || 15}%</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Subtotal {parametros?.ivaValor}%</p>
                             <p className="text-sm font-mono font-bold text-slate-700">{formatMoney(subtotalIva)}</p>
                         </div>
                         <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -595,7 +595,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                             <p className="text-sm font-mono font-bold text-slate-700">{formatMoney(subtotal0)}</p>
                         </div>
                         <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">IVA ({parametros?.iva || 15}%)</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">IVA ({parametros?.ivaValor}%)</p>
                             <p className="text-sm font-mono font-bold text-slate-700">{formatMoney(montoIva)}</p>
                         </div>
                         <div className="bg-slate-900 p-3 rounded-xl shadow-lg">

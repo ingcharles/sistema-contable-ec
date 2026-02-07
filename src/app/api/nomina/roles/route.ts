@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
+import { ParametrosContablesValidator } from '@/modules/contabilidad/application/services/ParametrosContablesValidator';
 
 /**
  * GET /api/nomina/roles
@@ -69,6 +70,26 @@ export async function POST(req: NextRequest) {
                 { error: 'Campo periodo requerido (formato: YYYY-MM)' },
                 { status: 400 }
             );
+        }
+
+        // --- VALIDACIÓN DE PARÁMETROS CONTABLES ---
+        const paramsResult = await db.query(
+            { text: 'SELECT * FROM configuracion.parametros WHERE empresa_id = $1', values: [context.empresaId] },
+            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+        );
+        const params = paramsResult.rows[0] || {};
+
+        const validacionParams = ParametrosContablesValidator.validarNomina(params);
+        if (!validacionParams.valido) {
+            return NextResponse.json({ error: validacionParams.error }, { status: 400 });
+        }
+
+        // Validar Cierre de Periodo (usando el último día del mes del periodo)
+        const [año, mes] = periodo.split('-').map(Number);
+        const ultimoDia = new Date(año, mes, 0); // día 0 del siguiente mes es el último del actual
+        const validacionCierre = ParametrosContablesValidator.validarFechaCierre(params, ultimoDia);
+        if (!validacionCierre.valido) {
+            return NextResponse.json({ error: validacionCierre.error }, { status: 400 });
         }
 
         // Validar que no existan roles para este periodo
@@ -144,16 +165,16 @@ export async function POST(req: NextRequest) {
 
                 // Detalles del Asiento (Partida Doble)
                 // DEBE: Gastos
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '5.1.01.01', $2, 0, 'Sueldos y Salarios')`, [asientoId, sueldoBase]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '5.1.01.02', $2, 0, 'Aporte Patronal')`, [asientoId, aportePatronal]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '5.1.01.03', $2, 0, 'Décimo Tercero')`, [asientoId, decimoTercero]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '5.1.01.04', $2, 0, 'Décimo Cuarto')`, [asientoId, decimoCuarto]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'Sueldos y Salarios')`, [asientoId, params.cuenta_sueldos || '5.1.01.01', sueldoBase]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'Aporte Patronal')`, [asientoId, params.cuenta_aporte_patronal || '5.1.01.02', aportePatronal]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'Décimo Tercero')`, [asientoId, params.cuenta_decimo_tercero || '5.1.01.03', decimoTercero]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'Décimo Cuarto')`, [asientoId, params.cuenta_decimo_cuarto || '5.1.01.04', decimoCuarto]);
 
                 // HABER: Pasivos
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '2.1.03.01', 0, $2, 'IESS por Pagar (Per+Pat)')`, [asientoId, aportePersonal + aportePatronal]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '2.1.03.02', 0, $2, 'Sueldos por Pagar')`, [asientoId, netoPagar]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '2.1.03.03', 0, $2, 'Prov. Décimo Tercero')`, [asientoId, decimoTercero]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, '2.1.03.04', 0, $2, 'Prov. Décimo Cuarto')`, [asientoId, decimoCuarto]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'IESS por Pagar (Per+Pat)')`, [asientoId, params.cuenta_iess_por_pagar || '2.1.03.01', aportePersonal + aportePatronal]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'Sueldos por Pagar')`, [asientoId, params.cuenta_sueldos_por_pagar || '2.1.03.02', netoPagar]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'Prov. Décimo Tercero')`, [asientoId, params.cuenta_prov_decimo_tercero || '2.1.03.03', decimoTercero]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'Prov. Décimo Cuarto')`, [asientoId, params.cuenta_prov_decimo_cuarto || '2.1.03.04', decimoCuarto]);
 
                 // 4. Insertar Rol con todos los detalles
                 const rolResult = await client.query(`
@@ -230,6 +251,10 @@ export async function PUT(req: NextRequest) {
 
             if (rol.estado === 'PAGADO') throw new Error('Este rol ya ha sido pagado');
 
+            // 1.5 Obtener Parámetros
+            const paramsResult = await client.query('SELECT * FROM configuracion.parametros WHERE empresa_id = $1', [context.empresaId]);
+            const params = paramsResult.rows[0] || {};
+
             // 2. Obtener datos de la cuenta bancaria
             const bancoResult = await client.query(`
                 SELECT id, nombre, banco, cuenta_contable_codigo
@@ -264,7 +289,6 @@ export async function PUT(req: NextRequest) {
 
             // 5. Generar Asiento Contable de Pago
             const ctaBanco = banco.cuenta_contable_codigo || '1.1.01.01';
-            const ctaPasivoSueldos = '2.1.03.02'; // Sueldos por Pagar
 
             const asientoResult = await client.query(`
                 INSERT INTO contabilidad.asientos (empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
@@ -278,7 +302,7 @@ export async function PUT(req: NextRequest) {
             const asientoId = asientoResult.rows[0].id;
 
             // Detalles: DEBE Sueldos por Pagar, HABER Banco
-            await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'LIQUIDACION DE SUELDO')`, [asientoId, ctaPasivoSueldos, monto]);
+            await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'LIQUIDACION DE SUELDO')`, [asientoId, params.cuenta_sueldos_por_pagar || '2.1.03.02', monto]);
             await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'PAGO CON BANCO')`, [asientoId, ctaBanco, monto]);
 
             // 6. Actualizar Estado del Rol

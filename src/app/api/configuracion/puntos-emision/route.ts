@@ -88,17 +88,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ error: 'Sucursal, código y nombre son requeridos' }, { status: 400 });
         }
 
-        const id = crypto.randomUUID();
 
         // Usamos una transacción para insertar el punto y sus secuenciales
         await db.transaction(async (client) => {
-            await client.query(
+            const result = await client.query(
                 `INSERT INTO configuracion.puntos_emision 
-                    (id, sucursal_id, codigo, nombre, activo, requiere_asignacion, permite_multiples_usuarios, descripcion, created_by) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [id, sucursalId, codigo, nombre, activo, requiereAsignacion, permiteMultiplesUsuarios, descripcion, context.usuarioId]
+                    (sucursal_id, codigo, nombre, activo, requiere_asignacion, permite_multiples_usuarios, descripcion, created_by) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+                [sucursalId, codigo, nombre, activo, requiereAsignacion, permiteMultiplesUsuarios, descripcion, context.usuarioId]
             );
-
+            const id = result.rows[0].id;
             for (const seq of secuenciales) {
                 await client.query(
                     `INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante, secuencial_actual) VALUES ($1, $2, $3)`,

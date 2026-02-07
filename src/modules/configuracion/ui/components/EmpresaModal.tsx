@@ -1,27 +1,36 @@
-import React, { useState } from 'react';
-import { X, Save, Building2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Save, Building2, Upload, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useToast } from '@/shared/context/ToastContext';
+import { Empresa } from '@/shared/types';
 
 interface EmpresaModalProps {
     onClose: () => void;
     onSave: (nuevaEmpresa: any) => void;
+    empresa?: Empresa;
 }
 
-export const EmpresaModal: React.FC<EmpresaModalProps> = ({ onClose, onSave }) => {
+export const EmpresaModal: React.FC<EmpresaModalProps> = ({ onClose, onSave, empresa }) => {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
+    const [preview, setPreview] = useState<string | null>(null);
     const [formData, setFormData] = useState({
-        ruc: '',
-        razonSocial: '',
-        nombreComercial: '',
-        direccionMatriz: '',
-        email: '',
-        logoUrl: '',
-        obligadoContabilidad: false,
-        contribuyenteEspecial: false
+        ruc: empresa?.ruc || '',
+        razonSocial: empresa?.razonSocial || '',
+        nombreComercial: empresa?.nombreComercial || '',
+        direccionMatriz: empresa?.direccionMatriz || '',
+        email: empresa?.email || '',
+        logo: empresa?.logo || '',
+        obligadoContabilidad: empresa?.obligadoContabilidad || false,
+        contribuyenteEspecial: empresa?.contribuyenteEspecial ? true : false
     });
+
+    useEffect(() => {
+        if (empresa?.logo) {
+            setPreview(`data:image/png;base64,${empresa.logo}`);
+        }
+    }, [empresa]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -39,21 +48,51 @@ export const EmpresaModal: React.FC<EmpresaModalProps> = ({ onClose, onSave }) =
         }));
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                showToast('La imagen es demasiado grande (máx 2MB)', 'warning');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result as string;
+                setPreview(base64String);
+                setFormData(prev => ({ ...prev, logo: base64String }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.ruc || !formData.razonSocial) {
-            showToast('RUC y Razón Social son obligatorios', 'warning');
+            showToast('RUC y Razón Social son requeridos', 'warning');
             return;
         }
 
-        setLoading(true);
         try {
-            const result = await ConfiguracionUseCases.crearEmpresa(formData);
-            showToast('Empresa creada exitosamente', 'success');
-            onSave(result.empresa);
+            setLoading(true);
+            let result;
+            if (empresa?.id) {
+                // Actualizar empresa existente
+                result = await ConfiguracionUseCases.actualizarEmpresa({
+                    ...formData,
+                    id: empresa.id
+                });
+                showToast('Empresa actualizada exitosamente', 'success');
+            } else {
+                // Crear nueva empresa
+                result = await ConfiguracionUseCases.crearEmpresa(formData);
+                showToast('Empresa creada exitosamente', 'success');
+            }
+            onSave(result.empresa || result);
             onClose();
         } catch (error: any) {
-            showToast(error.message || 'Error al crear empresa', 'error');
+            console.error('Error al guardar empresa:', error);
+            showToast(error.message || 'Error al guardar empresa', 'error');
         } finally {
             setLoading(false);
         }
@@ -136,16 +175,44 @@ export const EmpresaModal: React.FC<EmpresaModalProps> = ({ onClose, onSave }) =
                                 placeholder="correo@empresa.com"
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">URL del Logo</label>
-                            <input
-                                type="text"
-                                name="logoUrl"
-                                value={formData.logoUrl}
-                                onChange={handleChange}
-                                className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-sri-blue/20 focus:border-sri-blue transition-all outline-none"
-                                placeholder="https://ejemplo.com/logo.png"
-                            />
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Logo de la Empresa</label>
+
+                            <div className="flex items-center gap-4">
+                                <div className="h-24 w-24 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden transition-all group hover:border-sri-blue/50">
+                                    {preview ? (
+                                        <img src={preview} alt="Preview" className="h-full w-full object-contain p-2" />
+                                    ) : (
+                                        <div className="text-slate-300 flex flex-col items-center gap-1">
+                                            <ImageIcon size={24} />
+                                            <span className="text-[10px] uppercase font-bold">Sin logo</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex-1 space-y-2">
+                                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl cursor-pointer transition-colors text-sm font-medium">
+                                        <Upload size={16} />
+                                        <span>Seleccionar imagen</span>
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                        />
+                                    </label>
+                                    <p className="text-[10px] text-slate-400">Recomendado: PNG o JPG transparente, máx 2MB</p>
+                                    {preview && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setPreview(null); setFormData(prev => ({ ...prev, logo: '' })); }}
+                                            className="text-[10px] text-red-500 font-bold hover:underline ml-1"
+                                        >
+                                            REMOVER LOGO
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 pt-2">
                             <div>

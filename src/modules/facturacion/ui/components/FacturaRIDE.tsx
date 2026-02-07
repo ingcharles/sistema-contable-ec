@@ -1,5 +1,6 @@
 import { Factura } from '@/shared/types';
 import { useBrandColors } from '@/shared/hooks/useBrandColors';
+import { useEmpresa } from '@/shared/context/EmpresaContext';
 
 /**
  * Componente FacturaRIDE
@@ -234,6 +235,7 @@ function getNombreFormaPago(codigo: string): string {
 
 export function FacturaRIDE({ comprobante }: FacturaRIDEProps) {
     const colors = useBrandColors();
+    const { currentEmpresa } = useEmpresa();
     const xmlFirmado = comprobante.xmlFirmado;
     const data = xmlFirmado ? parseFacturaXml(xmlFirmado) : null;
 
@@ -296,8 +298,18 @@ export function FacturaRIDE({ comprobante }: FacturaRIDEProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 {/* Lado Izquierdo: Info Empresa */}
                 <div className="space-y-4">
-                    <div className="h-24 w-48 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300">
-                        <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Logo Empresa</span>
+                    <div className="h-24 w-48 flex items-center justify-center overflow-hidden">
+                        {currentEmpresa?.logo ? (
+                            <img
+                                src={`data:image/png;base64,${currentEmpresa.logo}`}
+                                alt="Logo Empresa"
+                                className="h-full w-full object-contain object-left"
+                            />
+                        ) : (
+                            <div className="h-full w-full bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300">
+                                <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Sin Logo</span>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-1">
                         <h1 className="text-xl font-black uppercase tracking-tight">{factor.razonSocial}</h1>

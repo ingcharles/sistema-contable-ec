@@ -1,7 +1,7 @@
 /**
  * Utilidades para manejo de fechas en formato SRI
  */
-import { parseISO, format, isValid } from 'date-fns';
+import { parseISO, isValid } from 'date-fns';
 
 /**
  * Formatea una fecha en formato DD/MM/YYYY (estándar SRI Ecuador)
@@ -37,7 +37,7 @@ export function isoToSriDate(isoDate: any): string {
     try {
         // Si ya es un objeto Date
         if (isoDate instanceof Date) {
-            return isValid(isoDate) ? format(isoDate, 'dd/MM/yyyy') : '';
+            return isValid(isoDate) ? formatearFechaSri(isoDate) : '';
         }
 
         const dateStr = String(isoDate).trim();
@@ -47,19 +47,20 @@ export function isoToSriDate(isoDate: any): string {
 
         // Intentar parsear como ISO
         let parsed = parseISO(dateStr);
-        if (isValid(parsed)) return format(parsed, 'dd/MM/yyyy');
+        if (isValid(parsed)) return formatearFechaSri(parsed);
 
         // Si tiene espacio (ej: '2026-02-04 22:33'), intentar parsear solo la fecha
         if (dateStr.includes(' ')) {
             const datePart = dateStr.split(' ')[0];
             parsed = parseISO(datePart);
-            if (isValid(parsed)) return format(parsed, 'dd/MM/yyyy');
+            if (isValid(parsed)) return formatearFechaSri(parsed);
         }
 
-        // Intento final con Date nativo (maneja formatos como '2026-02-04 22:33' mejor en algunos entornos)
-        const nativeDate = new Date(isoDate);
-        if (isValid(nativeDate)) return format(nativeDate, 'dd/MM/yyyy');
-
+        // Intento final manual para YYYY-MM-DD
+        const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+            return `${match[3]}/${match[2]}/${match[1]}`;
+        }
     } catch (error) {
         console.error('Error al formatear fecha para SRI:', isoDate, error);
     }

@@ -418,5 +418,5 @@ Antigüedad de Saldos: Reporte "Aging" (Vencido 30, 60, 90 días) para provisió
             });
  const iva = Number((subtotalIva * 0.15).toFixed(2));
  params?.cuenta_anticipo_clientes || '2.1.04.01'
- {parametros?.iva || 15}
+ {parametros?.ivaValor}
  const ctaBanco = params.cuentaCaja || '1.1.01.01';

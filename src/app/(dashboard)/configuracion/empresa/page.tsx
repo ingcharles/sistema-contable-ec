@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Save, Palette, RotateCcw } from 'lucide-react';
+import { Building2, Save, Palette, RotateCcw, Upload, Image as ImageIcon } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Button } from '@/shared/ui/Button';
@@ -15,6 +15,8 @@ export default function EmpresaConfigPage() {
     const [colorPrimario, setColorPrimario] = useState(currentEmpresa?.colorPrimario || '#0f172a');
     const [colorSecundario, setColorSecundario] = useState(currentEmpresa?.colorSecundario || '#475569');
     const [colorAcento, setColorAcento] = useState(currentEmpresa?.colorAcento || '#334155');
+    const [logoPreview, setLogoPreview] = useState<string | null>(currentEmpresa?.logo ? `data:image/png;base64,${currentEmpresa.logo}` : null);
+    const [logoBase64, setLogoBase64] = useState<string | null>(currentEmpresa?.logo || null);
 
     const handleGuardarEmpresa = async () => {
         if (!currentEmpresa) return;
@@ -23,7 +25,7 @@ export default function EmpresaConfigPage() {
         const form = document.querySelector('form') || document;
         const nombreComercial = (form.querySelector('input[name="nombreComercial"]') as HTMLInputElement)?.value || currentEmpresa.nombreComercial;
         const direccionMatriz = (form.querySelector('input[name="direccionMatriz"]') as HTMLInputElement)?.value || currentEmpresa.direccionMatriz;
-        const logoUrl = (form.querySelector('input[name="logoUrl"]') as HTMLInputElement)?.value || currentEmpresa.logoUrl;
+        const email = (form.querySelector('input[name="email"]') as HTMLInputElement)?.value || currentEmpresa.email;
 
         const obligadoContSelect = form.querySelector('select[name="obligadoContabilidad"]') as HTMLSelectElement;
         const obligadoContabilidad = obligadoContSelect?.value === 'SI';
@@ -36,7 +38,8 @@ export default function EmpresaConfigPage() {
                 id: currentEmpresa.id,
                 nombreComercial,
                 direccionMatriz,
-                logoUrl: logoUrl || '',
+                email,
+                logo: logoBase64,
                 obligadoContabilidad,
                 contribuyenteEspecial,
                 colorPrimario: colorPrimario === '#0f172a' ? null : colorPrimario,
@@ -55,6 +58,24 @@ export default function EmpresaConfigPage() {
         setColorPrimario('#0f172a');
         setColorSecundario('#475569');
         setColorAcento('#334155');
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('La imagen es demasiado grande (máx 2MB)', 'warning');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result as string;
+                setLogoPreview(base64String);
+                setLogoBase64(base64String);
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     if (!currentEmpresa) return null;
@@ -85,12 +106,46 @@ export default function EmpresaConfigPage() {
                             <input type="text" name="nombreComercial" defaultValue={currentEmpresa.nombreComercial} className="w-full border rounded-lg p-2.5 text-sm" />
                         </div>
                         <div className="col-span-1 md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Dirección Matriz</label>
-                            <input type="text" name="direccionMatriz" defaultValue={currentEmpresa.direccionMatriz} className="w-full border rounded-lg p-2.5 text-sm" />
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email de la Empresa</label>
+                            <input type="email" name="email" defaultValue={currentEmpresa.email || ''} className="w-full border rounded-lg p-2.5 text-sm" />
                         </div>
                         <div className="col-span-1 md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">URL del Logo</label>
-                            <input type="text" name="logoUrl" defaultValue={currentEmpresa.logoUrl || ''} className="w-full border rounded-lg p-2.5 text-sm" placeholder="https://ejemplo.com/logo.png" />
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Logo de la Empresa</label>
+                            <div className="bg-slate-50 p-6 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center gap-4 transition-all hover:border-sri-blue/50">
+                                <div className="h-32 w-64 bg-white rounded-xl shadow-inner border border-slate-100 flex items-center justify-center overflow-hidden p-2">
+                                    {logoPreview ? (
+                                        <img src={logoPreview} alt="Logo Preview" className="max-h-full max-w-full object-contain" />
+                                    ) : (
+                                        <div className="text-slate-300 flex flex-col items-center gap-2">
+                                            <ImageIcon size={40} />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Sin Logo</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-sri-blue text-white rounded-xl cursor-pointer transition-all hover:bg-sri-blue/90 text-sm font-bold shadow-lg shadow-sri-blue/20">
+                                        <Upload size={18} />
+                                        <span>Subir Nuevo Logo</span>
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                        />
+                                    </label>
+                                    {logoPreview && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setLogoPreview(null); setLogoBase64(null); }}
+                                            className="px-4 py-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors text-xs font-bold uppercase"
+                                        >
+                                            Eliminar
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-slate-400 font-medium tracking-tight">Formatos recomendados: PNG o JPG con fondo transparente. Máximo 2MB.</p>
+                            </div>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Obligado a Contabilidad</label>

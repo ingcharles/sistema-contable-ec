@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
         const empresaDoc = (await db.query({ text: 'SELECT * FROM seguridad.empresas WHERE id = $1', values: [context.empresaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
         const params = (await db.query({ text: 'SELECT * FROM configuracion.parametros WHERE empresa_id = $1', values: [context.empresaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
 
-        const result = await db.transaction(async (client) => {
+        // --- STEP 1: PREPARE AND PERSIST (PENDING STATE) ---
+        const persistentData = await db.transaction(async (client) => {
             const punto = (await client.query('SELECT pe.*, s.codigo as estab FROM configuracion.puntos_emision pe INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id WHERE pe.id = $1', [puntoEmisionId])).rows[0];
             const secuencialResult = await client.query("SELECT secuencial_actual FROM configuracion.puntos_emision_secuenciales WHERE punto_emision_id = $1 AND tipo_comprobante = '03' FOR UPDATE", [puntoEmisionId]);
             let nextSeqInt = secuencialResult.rows.length > 0 ? secuencialResult.rows[0].secuencial_actual : 1;
@@ -39,9 +40,19 @@ export async function POST(req: NextRequest) {
             const totalIVA = detalles.reduce((acc: number, d: any) => acc + (d.valorIVA || 0), 0);
             const importeTotal = totalSinImpuestos + totalIVA;
 
+            // Pagos por defecto
+            const pagosFinal = (pagos && pagos.length > 0) ? pagos : [{
+                formaPago: '01', // SIN UTILIZACION DEL SISTEMA FINANCIERO (comun en liquidaciones a personas naturales)
+                total: importeTotal,
+                plazo: 0,
+                unidadTiempo: 'DIAS'
+            }];
+
             const dataSri = SriStandardizer.standardizeLiquidacion({
-                ambiente: configSrv.ambiente_sri,
+                ambienteSri: configSrv.ambiente_sri,
+                tipoEmisionSri: '1',
                 razonSocial: empresaDoc.razon_social,
+                nombreComercial: empresaDoc.nombre_comercial,
                 ruc: empresaDoc.ruc,
                 estab: punto.estab,
                 ptoEmi: punto.codigo,
@@ -52,52 +63,148 @@ export async function POST(req: NextRequest) {
                 razonSocialProveedor: proveedor.nombre,
                 identificacionProveedor: proveedor.identificacion,
                 direccionProveedor: proveedor.direccion,
-                obligadoContabilidad: empresaDoc.es_obligado_contabilidad ? 'SI' : 'NO',
+                obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
                 totalSinImpuestos,
                 importeTotal,
                 detalles,
-                pagos
+                pagos: pagosFinal
             });
 
             const accessKey = XmlGenerator.generateAccessKey(dataSri);
             dataSri.infoTributaria.claveAcceso = accessKey;
-            const signedXml = await SignatureService.signXml(XmlGenerator.generateLiquidacionXml(dataSri), {
+
+            const rawXml = XmlGenerator.generateLiquidacionXml(dataSri);
+            const signedXml = await SignatureService.signXml(rawXml, {
                 p12Base64: configSrv.cert_p12_certificado.toString('base64'),
-                passwordP12: configSrv.cert_clave_certificate
+                passwordP12: configSrv.cert_clave_certificado
             });
 
-            const recepcion = await SriWebService.enviarComprobante(signedXml, configSrv.url_recepcion);
-            let estado = recepcion.estado, numAuth = null, fechaAuth = null;
-            if (estado === 'RECIBIDA') {
-                const auth = await SriWebService.autorizarComprobante(accessKey, configSrv.url_autorizacion);
-                estado = auth.estado; numAuth = auth.numeroAutorizacion; fechaAuth = auth.fechaAutorizacion;
-            }
-
-            // Registro Local de Compra
+            // Registro Local de Proveedor si no existe
             const terceroRes = await client.query('SELECT id FROM directorio.terceros WHERE identificacion = $1 AND empresa_id = $2', [proveedor.identificacion, context.empresaId]);
-            let proveedorId = terceroRes.rows[0]?.id || crypto.randomUUID();
-            if (terceroRes.rowCount === 0) {
-                await client.query('INSERT INTO directorio.terceros (id, empresa_id, usuario_id, tipo_identificacion, identificacion, razon_social, tipo_tercero) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-                    [proveedorId, context.empresaId, context.usuarioId, proveedor.tipoIdentificacion, proveedor.identificacion, proveedor.nombre, 'PROVEEDOR']);
+            let proveedorId = terceroRes.rows[0]?.id;
+
+            if (!proveedorId) {
+                proveedorId = crypto.randomUUID();
+                await client.query(`
+                    INSERT INTO directorio.terceros (id, empresa_id, usuario_id, tipo_identificacion, identificacion, razon_social, tipo_tercero) 
+                    VALUES ($1,$2,$3,$4,$5,$6,'PROVEEDOR')
+                `, [proveedorId, context.empresaId, context.usuarioId, proveedor.tipoIdentificacion, proveedor.identificacion, proveedor.nombre]);
             }
 
+            // Persistencia INICIAL (Pendiente)
+            // Nota: Usamos compras.compras para liquidaciones, pero necesitamos un campo estado_sri y xml si queremos consistencia total.
+            // Asumimos que compras.compras tiene estos campos o los mapeamos a estado_retencion/autorizacion.
+            // Revisando tabla compras: estado_retencion, autorizacion, clave_acceso, mensajes_sri.
+            // Vamos a usar 'PENDIENTE' en estado_retencion o un nuevo campo. 
+            // Para mantener compatibilidad con tabla compras existente:
             const compraId = crypto.randomUUID();
-            await client.query(`INSERT INTO compras.compras (id, empresa_id, usuario_id, proveedor_id, tipo_comprobante, secuencial, autorizacion, fecha_emision, fecha_registro, subtotal_iva, subtotal_0, monto_iva, total, estado_retencion, clave_acceso) VALUES ($1,$2,$3,$4,'03',$5,$6,$7,CURRENT_DATE,$8,$9,$10,$11,$12,$13)`,
-                [compraId, context.empresaId, context.usuarioId, proveedorId, secuencialFormateado, numAuth || accessKey, fechaEmision, totalIVA > 0 ? totalSinImpuestos : 0, totalIVA === 0 ? totalSinImpuestos : 0, totalIVA, importeTotal, estado, accessKey]);
+            await client.query(`
+                INSERT INTO compras.compras 
+                (id, empresa_id, usuario_id, proveedor_id, tipo_comprobante, secuencial, 
+                autorizacion, fecha_emision, fecha_registro, 
+                subtotal_iva, subtotal_0, monto_iva, total, 
+                estado_retencion, clave_acceso, mensajes_sri, fecha_autorizacion, xml_firmado) 
+                VALUES ($1,$2,$3,$4,'03',$5, NULL, $6, CURRENT_DATE, $7, $8, $9, $10, 'PENDIENTE', $11, $12, NULL, $13)
+            `, [compraId, context.empresaId, context.usuarioId, proveedorId, secuencialFormateado,
+                fechaEmision,
+                totalIVA > 0 ? totalSinImpuestos : 0,
+                totalIVA === 0 ? totalSinImpuestos : 0,
+                totalIVA, importeTotal,
+                accessKey, { mensajes: [] }, signedXml
+            ]);
 
-            // Asiento
-            const asientoId = crypto.randomUUID();
-            await client.query(`INSERT INTO contabilidad.asientos(id, empresa_id, usuario_id, numero, fecha, glosa, tipo) VALUES($1,$2,$3,'LIQ-' || $4, $5, 'LIQUIDACIÓN DE COMPRA ' || $6, 'DIARIO')`,
-                [asientoId, context.empresaId, context.usuarioId, secuencialFormateado, fechaEmision, proveedor.nombre]);
-            await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber) VALUES($1,$2,$3,0)`, [asientoId, '5.1.01.01', totalSinImpuestos]);
-            if (totalIVA > 0) await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber) VALUES($1,$2,$3,0)`, [asientoId, params?.cuenta_iva_compras || '1.1.05.01', totalIVA]);
-            await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber) VALUES($1,$2,0,$3)`, [asientoId, params?.cuenta_cxp_proveedores || '2.1.01.01', importeTotal]);
+            return {
+                compraId,
+                secuencial: secuencialFormateado,
+                claveAcceso: accessKey,
+                signedXml,
+                punto,
+                totalSinImpuestos,
+                totalIVA,
+                importeTotal,
+                providerId: proveedorId,
+                proveedorName: proveedor.nombre
+            };
 
-            return { secuencial: secuencialFormateado, accessKey, estado };
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
-        return NextResponse.json({ success: true, ...result });
+        // --- STEP 2: SRI INTERACTION ---
+        let estadoSri = 'ERROR';
+        let numAutorizacion = null;
+        let fechaAutorizacion = null;
+        let mensajesSri = [];
+
+        try {
+            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.url_recepcion);
+
+            if (recepcionResult.estado === 'RECIBIDA') {
+                try {
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    estadoSri = autorizacionResult.estado;
+                    numAutorizacion = autorizacionResult.numeroAutorizacion;
+                    fechaAutorizacion = autorizacionResult.fechaAutorizacion;
+                    mensajesSri = autorizacionResult.mensajes || [];
+                } catch (authError) {
+                    console.error('Error en autorización SRI:', authError);
+                    estadoSri = 'ERROR_AUTORIZACION';
+                }
+            } else {
+                estadoSri = recepcionResult.estado;
+                mensajesSri = recepcionResult.mensajes || [];
+            }
+        } catch (sriError: any) {
+            console.error('Error comunicación SRI:', sriError);
+            estadoSri = 'ERROR_TECNICO';
+            mensajesSri = [{ tipo: 'ERROR', mensaje: sriError.message || 'Error de comunicación' }];
+        }
+
+        // --- STEP 3: FINALIZE STATE ---
+        await db.transaction(async (client) => {
+            await client.query(`
+                UPDATE compras.compras
+                SET estado_retencion = $1, autorizacion = $2, fecha_autorizacion = $3, mensajes_sri = $4, updated_at = NOW()
+                WHERE id = $5
+            `, [estadoSri, numAutorizacion, fechaAutorizacion, { mensajes: mensajesSri }, persistentData.compraId]);
+
+            if (estadoSri === 'AUTORIZADO') {
+                // Asiento Contable
+                const asientoId = crypto.randomUUID();
+                const asientoNo = `LIQ-${persistentData.punto.estab}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
+
+                await client.query(`
+                    INSERT INTO contabilidad.asientos(id, empresa_id, usuario_id, numero, fecha, glosa, tipo, estado) 
+                    VALUES($1,$2,$3,$4, $5, 'EGRESO', 'MAYORIZADO')
+                `, [asientoId, context.empresaId, context.usuarioId, asientoNo, fechaEmision, 'LIQUIDACIÓN DE COMPRA ' + persistentData.proveedorName + ' - ' + persistentData.secuencial]);
+
+                // Debe: Gasto/Compra (Inventario o Gasto) - Usamos cuenta generica '5.1.01.01' si no hay detalle especifico de cuenta
+                await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1,$2,$3,0, 'COMPRA ALIMENTOS/SERVICIOS')`,
+                    [asientoId, '5.1.01.01', persistentData.totalSinImpuestos]);
+
+                if (persistentData.totalIVA > 0) {
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1,$2,$3,0, 'IVA EN COMPRAS')`,
+                        [asientoId, paramsRow.cuenta_iva_compras || '1.1.05.01', persistentData.totalIVA]);
+                }
+
+                // Haber: CXP Proveedores
+                await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1,$2,0,$3, 'CUENTAS POR PAGAR PROVEEDORES')`,
+                    [asientoId, params.cuenta_cxp_proveedores || '2.1.01.01', persistentData.importeTotal]);
+            }
+
+        }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+
+        return NextResponse.json({
+            success: true,
+            id: persistentData.compraId,
+            secuencial: persistentData.secuencial,
+            claveAcceso: persistentData.claveAcceso,
+            numeroAutorizacion: numAutorizacion,
+            estado: estadoSri,
+            mensajes: mensajesSri,
+            aviso: estadoSri !== 'AUTORIZADO' ? 'El comprobante fue guardado pero no autorizado por el SRI. Revise los mensajes.' : undefined
+        });
+
     } catch (error: any) {
+        console.error("Error en liquidacion:", error);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }

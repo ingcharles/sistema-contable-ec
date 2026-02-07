@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Landmark, Wallet, Plus, Search, Filter, History, AlertCircle, DollarSign, PieChart } from 'lucide-react';
+import { Landmark, Wallet, Plus, History, AlertCircle, DollarSign, PieChart } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Prestamo, Empleado } from '@/modules/nomina/domain/types';
 import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { format } from 'date-fns';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -77,9 +76,8 @@ export default function PrestamosPage() {
         },
         {
             header: 'Monto Total',
-            accessorKey: 'monto_total',
             className: 'text-right font-black text-slate-900',
-            cell: (row) => formatMoney(row.monto_total)
+            cell: (row: any) => formatMoney(row.monto_total)
         },
         {
             header: 'Cuota',

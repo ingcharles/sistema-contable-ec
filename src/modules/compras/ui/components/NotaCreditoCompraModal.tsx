@@ -37,6 +37,8 @@ export function NotaCreditoCompraModal({ onClose, onSave }: { onClose: () => voi
         items: [{ producto_id: '', cantidad: 1, precio_unitario: 0, total: 0 }]
     });
 
+    const parametros = currentEmpresa?.parametros;
+
     // Cargar proveedores
     useEffect(() => {
         if (!currentEmpresa) return;
@@ -110,7 +112,8 @@ export function NotaCreditoCompraModal({ onClose, onSave }: { onClose: () => voi
 
         // Calcular totales finales
         const subtotal = formData.items.reduce((acc, item) => acc + item.total, 0);
-        const iva = subtotal * 0.15; // TODO: Parameterize
+        const ivaRate = (parametros?.ivaValor || 15) / 100;
+        const iva = subtotal * ivaRate;
         const total = subtotal + iva;
 
         try {
@@ -139,7 +142,8 @@ export function NotaCreditoCompraModal({ onClose, onSave }: { onClose: () => voi
     };
 
     const subtotal = formData.items.reduce((acc, item) => acc + (item.cantidad * item.precio_unitario), 0);
-    const iva = subtotal * 0.15;
+    const ivaRate = (parametros?.ivaValor || 15) / 100;
+    const iva = subtotal * ivaRate;
     const total = subtotal + iva;
 
     return (
@@ -288,7 +292,7 @@ export function NotaCreditoCompraModal({ onClose, onSave }: { onClose: () => voi
                                 <span className="font-medium">${subtotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between w-48 text-sm">
-                                <span className="text-slate-500">IVA (15%):</span>
+                                <span className="text-slate-500">IVA ({parametros?.ivaEtiqueta || '15%'}):</span>
                                 <span className="font-medium">${iva.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between w-48 text-lg font-bold text-slate-800">

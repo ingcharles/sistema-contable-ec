@@ -214,8 +214,8 @@ export default function DashboardLayout({
                                     className="flex items-center gap-4 bg-slate-50/50 hover:bg-white p-2.5 pr-4 rounded-2xl transition-all duration-300 border border-slate-100 hover:border-sri-blue/30 hover:shadow-xl hover:shadow-sri-blue/5 group"
                                 >
                                     <div className="relative">
-                                        {currentEmpresa.logoUrl ? (
-                                            <img src={currentEmpresa.logoUrl} alt="Logo" className="w-10 h-10 rounded-xl bg-white object-cover ring-1 ring-slate-200 shadow-sm transition-transform group-hover:scale-105" />
+                                        {currentEmpresa.logo ? (
+                                            <img src={`data:image/png;base64,${currentEmpresa.logo}`} alt="Logo" className="w-10 h-10 rounded-xl bg-white object-contain p-1 ring-1 ring-slate-200 shadow-sm transition-transform group-hover:scale-105" />
                                         ) : (
                                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 text-sri-blue flex items-center justify-center shadow-sm border border-indigo-100">
                                                 <Building size={20} />

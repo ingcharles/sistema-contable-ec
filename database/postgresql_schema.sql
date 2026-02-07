@@ -59,7 +59,7 @@ CREATE TABLE seguridad.empresas (
     direccion TEXT,
     telefono VARCHAR(20),
     email VARCHAR(255),
-    logo_url TEXT,
+    logo BYTEA,
     es_obligado_contabilidad BOOLEAN DEFAULT true,
     es_contribuyente_especial BOOLEAN DEFAULT false,
     activa BOOLEAN DEFAULT true,
@@ -69,13 +69,13 @@ CREATE TABLE seguridad.empresas (
 
 COMMENT ON TABLE seguridad.empresas IS 'Empresas del sistema (multi-tenant). Cada empresa es un tenant aislado.';
 COMMENT ON COLUMN seguridad.empresas.id IS 'Identificador único (UUID) de la empresa';
-COMMENT ON COLUMN seguridad.empresas.ruc IS 'Registro íšnico de Contribuyentes (13 dí­gitos). Debe ser único en el sistema';
+COMMENT ON COLUMN seguridad.empresas.ruc IS 'Registro Único de Contribuyentes (13 dígitos). Debe ser único en el sistema';
 COMMENT ON COLUMN seguridad.empresas.razon_social IS 'Razón social legal de la empresa según el RUC';
-COMMENT ON COLUMN seguridad.empresas.nombre_comercial IS 'Nombre comercial o de fantasí­a de la empresa';
+COMMENT ON COLUMN seguridad.empresas.nombre_comercial IS 'Nombre comercial o de fantasía de la empresa';
 COMMENT ON COLUMN seguridad.empresas.direccion IS 'Dirección matriz de la empresa';
 COMMENT ON COLUMN seguridad.empresas.telefono IS 'Teléfono de contacto principal';
 COMMENT ON COLUMN seguridad.empresas.email IS 'Correo electrónico para notificaciones del sistema';
-COMMENT ON COLUMN seguridad.empresas.logo_url IS 'URL o path del logo de la empresa';
+COMMENT ON COLUMN seguridad.empresas.logo IS 'Imagen del logo de la empresa stored as BYTEA';
 COMMENT ON COLUMN seguridad.empresas.es_obligado_contabilidad IS 'Indica si la empresa está obligada a llevar contabilidad (TRUE/FALSE)';
 COMMENT ON COLUMN seguridad.empresas.es_contribuyente_especial IS 'Indica si la empresa es contribuyente especial (TRUE/FALSE)';
 COMMENT ON COLUMN seguridad.empresas.activa IS 'Estado de la empresa. FALSE impide el acceso a sus usuarios';
@@ -756,7 +756,7 @@ COMMENT ON COLUMN cartera.cartera_anticipos.created_at IS 'Fecha de creación';
 
 -- Tipos ENUM del módulo facturacion
 CREATE TYPE facturacion.tipo_comprobante_sri AS ENUM ('01', '03', '04', '05', '06', '07');
-CREATE TYPE facturacion.estado_comprobante AS ENUM ('DEVUELTA', 'AUTORIZADO', 'RECHAZADO', 'ANULADO','ERROR','NO AUTORIZADO');
+CREATE TYPE facturacion.estado_comprobante AS ENUM ('PENDIENTE','DEVUELTA', 'AUTORIZADO', 'RECHAZADO', 'ANULADO','ERROR','NO AUTORIZADO');
 
 -- Tabla: facturacion.comprobantes_electronicos
 CREATE TABLE facturacion.comprobantes_electronicos (
@@ -836,18 +836,21 @@ CREATE TABLE facturacion.comprobantes_detalles (
     precio_unitario NUMERIC(18,6) NOT NULL,
     descuento NUMERIC(18,2) NOT NULL,
     total NUMERIC(18,2) NOT NULL,
-    codigo_iva VARCHAR(5) DEFAULT '2' NOT NULL
+    valor_iva NUMERIC(18,2) NOT NULL,
+    iva_catalogo_item_id UUID REFERENCES configuracion.catalogos_items(id)
 );
 
-COMMENT ON TABLE facturacion.comprobantes_detalles IS 'Detalle de lí­neas de los comprobantes electrónicos.';
-COMMENT ON COLUMN facturacion.comprobantes_detalles.id IS 'Identificador único de la lí­nea de detalle';
+COMMENT ON TABLE facturacion.comprobantes_detalles IS 'Detalle de líneas de los comprobantes electrónicos.';
+COMMENT ON COLUMN facturacion.comprobantes_detalles.id IS 'Identificador único de la línea de detalle';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.comprobante_id IS 'Referencia al comprobante cabecera';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.codigo_principal IS 'Código del producto o servicio';
-COMMENT ON COLUMN facturacion.comprobantes_detalles.descripcion IS 'Descripción del í­tem';
+COMMENT ON COLUMN facturacion.comprobantes_detalles.descripcion IS 'Descripción del ítem';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.cantidad IS 'Cantidad vendida';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.precio_unitario IS 'Precio unitario antes de impuestos';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.descuento IS 'Descuento aplicado';
-COMMENT ON COLUMN facturacion.comprobantes_detalles.total IS 'Subtotal de lí­nea (Cantidad * Precio - Descuento)';
+COMMENT ON COLUMN facturacion.comprobantes_detalles.total IS 'Subtotal de línea (Cantidad * Precio - Descuento)';
+COMMENT ON COLUMN facturacion.comprobantes_detalles.valor_iva IS 'Valor del IVA aplicado a esta línea';
+COMMENT ON COLUMN facturacion.comprobantes_detalles.iva_catalogo_item_id IS 'Referencia al catálogo de tipos de IVA (SRI_TIPO_IMPUESTO_IVA). Estandariza el manejo de impuestos usando el catálogo centralizado.';
 
 -- Tabla: facturacion.transportistas
 CREATE TABLE facturacion.transportistas (

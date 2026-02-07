@@ -52,7 +52,7 @@ export const ProductoModal = ({ producto, onClose, onSave, empresaId }: Producto
         if (!loadingCatalogos && tarifasIva.length > 0) {
             const existe = tarifasIva.some(t => t.codigo === codigoTarifaIva);
             if (!existe) {
-                const tarifaDinamica = tarifasIva.find(t => t.valor.includes(`${parametros?.iva || 15}%`));
+                const tarifaDinamica = tarifasIva.find(t => t.valor.includes(`${parametros?.ivaValor}%`));
                 if (tarifaDinamica) setCodigoTarifaIva(tarifaDinamica.codigo);
                 else setCodigoTarifaIva(tarifasIva[0].codigo);
             }

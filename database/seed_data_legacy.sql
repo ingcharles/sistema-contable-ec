@@ -114,6 +114,23 @@ INSERT INTO contabilidad.plan_cuentas
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.03','CAJA CHICA','ACTIVO',4,200.00, true),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.04','CUENTAS POR COBRAR CLIENTES','ACTIVO',4,3500.00, true),
 
+-- Activos Fijos (Cuentas de Activo)
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2','ACTIVO NO CORRIENTE','ACTIVO',2,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.01','PROPIEDAD, PLANTA Y EQUIPO','ACTIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.01.01','EDIFICIOS','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.01.02','MUEBLES Y ENSERES','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.01.03','MAQUINARIA Y EQUIPO','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.01.04','EQUIPOS DE CÓMPUTO','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.01.05','VEHÍCULOS','ACTIVO',4,0, true),
+
+-- Activos Fijos (Depreciación Acumulada - Activo Negativo)
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.02','DEPRECIACIÓN ACUMULADA','ACTIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.02.01','DEP. ACUM. EDIFICIOS','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.02.02','DEP. ACUM. MUEBLES Y ENSERES','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.02.03','DEP. ACUM. MAQUINARIA Y EQUIPO','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.02.04','DEP. ACUM. EQUIPO DE CÓMPUTO','ACTIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.2.02.05','DEP. ACUM. VEHÍCULOS','ACTIVO',4,0, true),
+
 -- Cuentas por Cobrar
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.02','CUENTAS POR COBRAR','ACTIVO',3,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.02.01','CLIENTES','ACTIVO',4,0, true),
@@ -153,6 +170,15 @@ INSERT INTO contabilidad.plan_cuentas
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.04','ANTICIPOS RECIBIDOS','PASIVO',3,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.04.01','ANTICIPOS DE CLIENTES','PASIVO',4,0, true),
 
+-- Obligaciones Sociales (Nómina por Pagar)
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.06','OBLIGACIONES SOCIALES POR PAGAR','PASIVO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.06.01','IESS POR PAGAR','PASIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.06.02','SUELDOS POR PAGAR','PASIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.06.03','PROVISIÓN DÉCIMO TERCERO','PASIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.06.04','PROVISIÓN DÉCIMO CUARTO','PASIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.06.05','FONDOS DE RESERVA POR PAGAR','PASIVO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.06.06','VACACIONES POR PAGAR','PASIVO',4,0, true),
+
 -- Otros Pasivos (IVA Cobrado en Ventas)
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.05','IVA EN VENTAS','PASIVO',3,0, false),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.05.01','IVA COBRADO EN VENTAS','PASIVO',4,0, true),
@@ -165,6 +191,7 @@ INSERT INTO contabilidad.plan_cuentas
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.02','DEVOLUCIÓN EN VENTAS','INGRESO',4,0, true),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.03','DESCUENTO EN VENTAS','INGRESO',4,0, true),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.04','VENTAS EXPORTACIÓN','INGRESO',4,8000.00, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.05','SOBRANTE DE INVENTARIO','INGRESO',4,0, true),
 
 -- Gastos
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5','GASTOS','GASTO',1,0, false),
@@ -179,6 +206,19 @@ INSERT INTO contabilidad.plan_cuentas
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01.01','SERVICIOS BÁSICOS','GASTO',4,0, true),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01.02','SUMINISTROS DE OFICINA','GASTO',4,0, true),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01.03','OTROS GASTOS ADMINISTRATIVOS','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01.10','FALTANTE DE INVENTARIO','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.01.99','GASTOS VARIOS','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.02','DEPRECIACIONES Y AMORTIZACIONES','GASTO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.02.01','GASTO DEPRECIACIÓN ACTIVOS FIJOS','GASTO',4,0, true),
+
+-- Gastos de Personal (Nómina)
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.03','GASTOS DE PERSONAL','GASTO',3,0, false),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.03.01','SUELDOS Y SALARIOS','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.03.02','APORTE PATRONAL','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.03.03','DÉCIMO TERCER SUELDO','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.03.04','DÉCIMO CUARTO SUELDO','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.03.05','FONDOS DE RESERVA','GASTO',4,0, true),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.2.03.06','VACACIONES','GASTO',4,0, true),
 
 -- Patrimonio
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','3','PATRIMONIO','PATRIMONIO',1,0, false),
@@ -282,7 +322,8 @@ INSERT INTO configuracion.catalogos_tipos (codigo, nombre, descripcion) VALUES
 ('SRI_FORMA_PAGO', 'Formas de Pago', 'Tabla 24: Formas de Pago - 01=Sin Sist Fin, 19=T. Crédito, 20=Otros con Sist Fin, etc.'),
 ('SYS_TIPO_CUENTA_BANCO', 'Tipos de Cuenta Bancaria', 'Catálogo interno de sistema'),
 ('SYS_BANCOS_ECUADOR', 'Bancos del Ecuador', 'Instituciones financieras principales'),
-('SRI_UNIDAD_MEDIDA', 'Unidades de Medida SRI', 'Unidades estándar para facturación')
+('SRI_UNIDAD_MEDIDA', 'Unidades de Medida SRI', 'Unidades estándar para facturación'),
+('ACTIVOS_FIJOS_CATEGORIA', 'Categorías de Activos Fijos', 'Clasificación de propiedad, planta y equipo')
 ON CONFLICT (codigo) DO NOTHING;
 
 -- 2. INSERCIÓN DE ITEMS DE CATÁLOGOS SRI
@@ -353,6 +394,16 @@ INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUE
 ('SRI_UNIDAD_MEDIDA', 'CAJ', 'CAJA'),
 ('SRI_UNIDAD_MEDIDA', 'PAQ', 'PAQUETE'),
 ('SRI_UNIDAD_MEDIDA', 'SER', 'SERVICIO')
+ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
+
+-- H. ACTIVOS_FIJOS_CATEGORIA
+INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUES
+('ACTIVOS_FIJOS_CATEGORIA', 'EDIFICIOS', 'Edificios'),
+('ACTIVOS_FIJOS_CATEGORIA', 'MUEBLES_ENSERES', 'Muebles y Enseres'),
+('ACTIVOS_FIJOS_CATEGORIA', 'MAQUINARIA', 'Maquinaria y Equipo'),
+('ACTIVOS_FIJOS_CATEGORIA', 'EQUIPOS_COMPUTO', 'Equipos de Cómputo'),
+('ACTIVOS_FIJOS_CATEGORIA', 'VEHICULOS', 'Vehículos'),
+('ACTIVOS_FIJOS_CATEGORIA', 'OTROS', 'Otros Activos')
 ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
 
 -- 11. DATOS INICIALES PARA CAJA CHICA

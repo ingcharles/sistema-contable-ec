@@ -156,40 +156,71 @@ export async function POST(req: NextRequest) {
                     { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
                 );
             } else {
-                // Generar número de vale
-                const numeroResult = await db.query(
-                    {
-                        text: `SELECT COALESCE(MAX(CAST(SUBSTRING(numero FROM 5) AS INTEGER)), 0) + 1 as siguiente
+                // Usar transacción para el vale y el asiento
+                await db.transaction(async (client) => {
+                    // Generar número de vale (manteniendo la lógica de búsqueda)
+                    const numeroResult = await client.query(
+                        {
+                            text: `SELECT COALESCE(MAX(CAST(SUBSTRING(numero FROM 5) AS INTEGER)), 0) + 1 as siguiente
                   FROM caja_chica.movimientos
                   WHERE empresa_id = $1 AND numero LIKE 'VAL-%'`,
-                        values: [context.empresaId]
-                    },
-                    { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
-                );
-                const siguiente = numeroResult.rows[0].siguiente;
-                const numero = `VAL-${String(siguiente).padStart(3, '0')}`;
+                            values: [context.empresaId]
+                        }
+                    );
+                    const siguiente = numeroResult.rows[0].siguiente;
+                    const numero = `VAL-${String(siguiente).padStart(3, '0')}`;
 
-                // Insertar nuevo vale
-                await db.query(
-                    {
-                        text: `INSERT INTO caja_chica.movimientos 
+                    // Insertar nuevo vale
+                    const insertResult = await client.query(
+                        {
+                            text: `INSERT INTO caja_chica.movimientos 
                   (caja_id, empresa_id, usuario_id, numero, fecha, beneficiario, concepto, monto, tipo, estado)
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                        values: [
-                            cajaId,
-                            context.empresaId,
-                            context.usuarioId!,
-                            numero,
-                            vale.fecha,
-                            vale.beneficiario,
-                            vale.concepto,
-                            vale.monto,
-                            vale.tipo,
-                            vale.estado || 'PENDIENTE'
-                        ]
-                    },
-                    { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
-                );
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                  RETURNING id`,
+                            values: [
+                                cajaId,
+                                context.empresaId,
+                                context.usuarioId!,
+                                numero,
+                                vale.fecha,
+                                vale.beneficiario,
+                                vale.concepto,
+                                vale.monto,
+                                vale.tipo,
+                                vale.estado || 'PENDIENTE'
+                            ]
+                        }
+                    );
+
+                    const valeId = insertResult.rows[0].id;
+
+                    // --- GENERACIÓN DE ASIENTO CONTABLE ---
+                    const paramsResult = await client.query('SELECT cuenta_caja_chica, cuenta_gastos_varios FROM configuracion.parametros WHERE empresa_id = $1', [context.empresaId]);
+                    const params = paramsResult.rows[0] || {};
+
+                    const glosa = `Vale Caja Chica: ${vale.concepto} (${numero})`;
+                    const asientoResult = await client.query(`
+                    INSERT INTO contabilidad.asientos (empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
+                    VALUES ($1, $2, $3, $4, $5, 'DIARIO', 'MAYORIZADO')
+                    RETURNING id
+                `, [
+                        context.empresaId, context.usuarioId,
+                        numero, vale.fecha, glosa
+                    ]);
+                    const asientoId = asientoResult.rows[0].id;
+
+                    const ctaCajaChica = params.cuenta_caja_chica || '1.1.01.02';
+                    const ctaGasto = vale.cuentaContable || params.cuenta_gastos_varios || '5.2.01.99';
+
+                    if (vale.tipo === 'EGRESO') {
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, $4)`, [asientoId, ctaGasto, vale.monto, vale.concepto]);
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, $4)`, [asientoId, ctaCajaChica, vale.monto, vale.concepto]);
+                    } else {
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, $4)`, [asientoId, ctaCajaChica, vale.monto, vale.concepto]);
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, $4)`, [asientoId, ctaGasto, vale.monto, vale.concepto]);
+                    }
+                }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+
             }
 
             return NextResponse.json({ success: true, message: 'Vale guardado correctamente' });

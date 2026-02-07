@@ -7,7 +7,6 @@ import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Modal } from '@/shared/ui/Modal';
-import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { getLocalDateIso } from '@/shared/utils/dateUtils';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
@@ -30,13 +29,14 @@ interface NotaCreditoModalProps {
 
 export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalProps) {
     const { currentEmpresa } = useEmpresa();
-    const { parametros, cargarParametros } = useConfiguracion();
     const { puntoActivo, puntosDisponibles: puntosContext } = usePuntoEmision();
+
+    const parametros = currentEmpresa?.parametros;
+
     const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
     const [puntoEmisionId, setPuntoEmisionId] = useState(puntoActivo?.puntoEmisionId || '');
 
     useEffect(() => {
-        cargarParametros();
         const cargarPuntos = async () => {
             try {
                 // Si tenemos puntos en el contexto (asignados), usamos esos
@@ -93,8 +93,8 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
             if (match) return parseInt(match[1]) / 100;
         }
         // Fallback robusto
-        if (codigoIVA === '2') return (parametros?.iva || 15) / 100;
-        if (codigoIVA === '4') return 0.15;
+        if (codigoIVA === '2') return 0.12;
+        if (codigoIVA === '4') return (parametros?.ivaValor || 15) / 100;
         return 0;
     };
 
@@ -266,7 +266,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                             <span>{formatearDinero(subtotalDevolucion)}</span>
                         </div>
                         <div className="flex justify-between text-slate-500 font-medium text-sm">
-                            <span>IVA Devolución ({parametros?.iva || 15}%):</span>
+                            <span>IVA Devolución ({parametros?.ivaEtiqueta || '15%'}):</span>
                             <span>{formatearDinero(ivaDevolucion)}</span>
                         </div>
                         <div className="flex justify-between font-bold text-xl text-sri-blue pt-2 mt-2 border-t border-slate-100">

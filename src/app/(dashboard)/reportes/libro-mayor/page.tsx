@@ -13,7 +13,6 @@ export default function LibroMayorPage() {
     const { currentEmpresa } = useEmpresa();
     const [asientos, setAsientos] = useState<AsientoContable[]>([]);
     const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
-    const [loading, setLoading] = useState(true);
     const [fechaInicio, setFechaInicio] = useState<string>('');
     const [fechaFin, setFechaFin] = useState<string>('');
     const [cuentaMayorSeleccionada, setCuentaMayorSeleccionada] = useState<string>('1.1.01.02');
@@ -25,7 +24,6 @@ export default function LibroMayorPage() {
 
     const loadData = async () => {
         if (!currentEmpresa) return;
-        setLoading(true);
         try {
             const [dataAsientos, dataPC] = await Promise.all([
                 ContabilidadUseCases.listarAsientos(),
@@ -35,8 +33,6 @@ export default function LibroMayorPage() {
             setPlanCuentas(Array.isArray(dataPC) ? dataPC : []);
         } catch (error) {
             console.error('Error cargando libro mayor:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
