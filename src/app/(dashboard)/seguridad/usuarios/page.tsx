@@ -1,19 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Plus, Edit, Trash2, Key, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
-import { UsuarioSistema } from '@/modules/configuracion/domain/types';
 import { UsuariosUseCases } from '@/modules/shared/application/useCases/UsuariosUseCases';
 import { RolesUseCases } from '@/modules/seguridad/application/useCases/RolesUseCases';
 import { Rol } from '@/modules/seguridad/domain/types';
 import { useToast } from '@/shared/context/ToastContext';
 import { Modal } from '@/shared/ui/Modal';
+import { MultiSelect } from '@/shared/ui/MultiSelect';
 
-interface Usuario extends UsuarioSistema {
-    roles: string[]; // Nombres de roles
+interface Usuario {
+    id: string;
+    nombre: string;
+    email: string;
+    activo: boolean;
+    roles: string[];
+    password?: string;
 }
 
 export default function UsuariosPage() {
@@ -58,9 +63,7 @@ export default function UsuariosPage() {
             // Deberíamos adaptar la API si queremos usar IDs, pero el frontend envía lo que la API espera.
             // administracion/usuarios/route.ts espera `roles` (array string names).
 
-            // Mapear ID de rol seleccionado a Nombre para la API actual
-            const rolId = currentUser?.rol; // Aquí usamos el state 'rol' para guardar el ID seleccionado
-            const selectedRole = roles.find(r => r.nombre === rolId); // Ojo: currentUser.rol en el form guardará el NOMBRE si el value es nombre
+            // For now, let's use the role NAME as the value in the select to match API expectation
 
             // For now, let's use the role NAME as the value in the select to match API expectation
 
@@ -97,7 +100,7 @@ export default function UsuariosPage() {
                 ...user,
                 // Si la API devuelve roles como array de strings, tomamos el primero para el select simple
                 // O soportamos múltiples. Por simplicidad UI, asumimos 1 rol principal.
-                rol: user.roles && user.roles.length > 0 ? user.roles[0] : (user as any).rol // Fallback
+                // rol: user.roles && user.roles.length > 0 ? user.roles[0] : (user as any).rol // Fallback
             } as any);
         } else {
             // Nuevo
@@ -185,7 +188,7 @@ export default function UsuariosPage() {
                 isOpen={modalOpen}
                 onClose={() => setModalOpen(false)}
                 title={currentUser?.id ? 'Editar Usuario' : 'Nuevo Usuario'}
-                width="max-w-md"
+                size="sm"
             >
                 <form onSubmit={handleGuardar} className="space-y-4">
                     <div>
@@ -225,18 +228,13 @@ export default function UsuariosPage() {
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
-                        <select
-                            value={currentUser?.roles?.[0] || ''}
-                            onChange={e => setCurrentUser({ ...currentUser, roles: [e.target.value] })}
-                            className="w-full border rounded-lg p-2.5 text-sm"
-                        >
-                            {roles.map(rol => (
-                                <option key={rol.id} value={rol.nombre}>
-                                    {rol.nombre}
-                                </option>
-                            ))}
-                        </select>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Roles</label>
+                        <MultiSelect
+                            options={roles.map(r => ({ value: r.nombre, label: r.nombre }))}
+                            value={currentUser?.roles || []}
+                            onChange={(vals) => setCurrentUser({ ...currentUser, roles: vals })}
+                            placeholder="Seleccione roles..."
+                        />
                     </div>
 
                     <div className="flex items-center gap-2 pt-2">
