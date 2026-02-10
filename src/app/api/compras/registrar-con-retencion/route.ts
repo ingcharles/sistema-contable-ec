@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
+import { ServicioSeguimientoUso } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 import { SignatureService } from '@/modules/facturacion/domain/services/SignatureService';
 import { SriWebService } from '@/modules/facturacion/domain/services/SriWebService';
@@ -127,12 +128,14 @@ export async function POST(req: NextRequest) {
             const proveedor = tercero.rows[0];
             console.log('✅ [COMPRA] Proveedor encontrado:', proveedor.razon_social);
 
+            const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo(tipoComprobante || '01');
+
             console.log('🔵 [COMPRA] PASO 2: Verificando duplicados...');
             // === PASO 2: VALIDAR COMPRA DUPLICADA ===
             const existeCompra = await client.query(
                 `SELECT id FROM compras.compras 
-                 WHERE empresa_id = $1 AND proveedor_id = $2 AND secuencial = $3 LIMIT 1`,
-                [context.empresaId, proveedorId, secuencial]
+                 WHERE empresa_id = $1 AND proveedor_id = $2 AND tipo_comprobante_id = $3 AND secuencial = $4 LIMIT 1`,
+                [context.empresaId, proveedorId, tipoComprobanteId, secuencial]
             );
 
             if (existeCompra.rows.length > 0) {
@@ -145,7 +148,7 @@ export async function POST(req: NextRequest) {
             // === PASO 3: REGISTRAR COMPRA ===
             const compraResult = await client.query(`
                 INSERT INTO compras.compras (
-                    empresa_id, usuario_id, proveedor_id, tipo_comprobante, 
+                    empresa_id, usuario_id, proveedor_id, tipo_comprobante_id, 
                     secuencial, autorizacion, fecha_emision, fecha_registro,
                     sustento, descripcion, subtotal_iva, subtotal_0, 
                     monto_iva, total, orden_compra_id, tiene_retencion,
@@ -157,7 +160,7 @@ export async function POST(req: NextRequest) {
                 RETURNING id
             `, [
                 context.empresaId, context.usuarioId, proveedorId,
-                tipoComprobante, secuencial, autorizacion, fechaEmision, fechaRegistro,
+                tipoComprobanteId, secuencial, autorizacion, fechaEmision, fechaRegistro,
                 sustento, descripcion, subtotalIva, subtotal0, montoIva, total,
                 ordenCompraId, aplicaRetencion,
                 aplicaRetencion ? 'PENDIENTE' : 'N/A',
@@ -470,20 +473,23 @@ export async function POST(req: NextRequest) {
                             throw new Error('No se pudo obtener el secuencial de la retención.');
                         }
 
+                        const retencionId = await ServicioSeguimientoUso.obtenerIdPorCodigo('07');
+
                         // Insertar comprobante SIN xml_firmado inicialmente
                         const comprobanteResult = await client.query(`
                             INSERT INTO facturacion.comprobantes_electronicos (
-                                empresa_id, usuario_id, tipo_comprobante, secuencial,
+                                empresa_id, usuario_id, tipo_comprobante_id, secuencial,
                                 fecha_emision, cliente_id, cliente_nombre, cliente_identificacion,
                                 subtotal, iva, total, estado, clave_acceso, numero_autorizacion,
                                 fecha_autorizacion, ambiente_sri, tipo_emision_sri, mensajes_sri, created_at, updated_at
                             ) VALUES (
-                                $1, $2, '07', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW()
+                                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW()
                             )
                             RETURNING id
                         `, [
                             context.empresaId,
                             context.usuarioId,
+                            retencionId,
                             secuencialRetencion,
                             fechaEmision,
                             proveedorId,
@@ -502,6 +508,30 @@ export async function POST(req: NextRequest) {
                         ]);
 
                         const comprobanteId = comprobanteResult.rows[0].id;
+
+                        // NUEVO: Guardar detalle de impuestos de retención para re-emisión
+                        if (datosRetencion.impuestos && datosRetencion.impuestos.length > 0) {
+                            for (const imp of datosRetencion.impuestos) {
+                                await client.query(`
+                                    INSERT INTO facturacion.retenciones_impuestos (
+                                        comprobante_id, codigo, codigo_retencion, base_imponible,
+                                        porcentaje_retener, valor_retenido, cod_doc_sustento, num_doc_sustento,
+                                        fecha_emision_doc_sustento, cod_sustento, num_aut_doc_sustento,
+                                        total_sin_impuestos_doc_sustento, base_imponible_iva_doc_sustento,
+                                        importe_total_doc_sustento, pago_loc_ext, forma_pago, iva_doc_sustento
+                                    ) VALUES (
+                                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+                                    )
+                                `, [
+                                    comprobanteId, imp.codigo, imp.codigoRetencion, imp.baseImponible,
+                                    imp.porcentajeRetener, imp.valorRetenido, imp.codDocSustento, imp.numDocSustento,
+                                    imp.fechaEmisionDocSustento, imp.codSustento || '01', imp.numAutDocSustento,
+                                    imp.totalSinImpuestosDocSustento || 0, imp.baseImponibleIvaDocSustento || 0,
+                                    imp.importeTotalDocSustento || 0, imp.pagoLocExt || '01', imp.formaPago || '20',
+                                    imp.ivaDocSustento || 0
+                                ]);
+                            }
+                        }
 
                         // Actualizar xml_firmado después de recibir respuesta del SRI (autorizado o no)
                         // El XML firmado y las observaciones se guardan siempre que haya respuesta del SRI

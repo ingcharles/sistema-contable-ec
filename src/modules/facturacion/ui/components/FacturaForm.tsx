@@ -64,6 +64,23 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         return item ? item.codigo : '4';
     }, [parametros?.ivaCatalogoItemId, tarifasIVA]);
 
+    // Cargar secuencial automático
+    useEffect(() => {
+        const cargarSecuencial = async () => {
+            if (puntoActivo?.puntoEmisionId && !factura?.id) {
+                try {
+                    const data = await FacturacionUseCases.obtenerSiguienteSecuencial(puntoActivo.puntoEmisionId, '01');
+                    if (data.success) {
+                        setSecuencial(data.secuencial);
+                    }
+                } catch (error) {
+                    console.error('Error al cargar secuencial:', error);
+                }
+            }
+        };
+        cargarSecuencial();
+    }, [puntoActivo?.puntoEmisionId, factura?.id]);
+
     // Cargar datos de otros módulos
     useEffect(() => {
         if (currentEmpresa) {
@@ -124,23 +141,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         }
     }, [puntoActivo, factura?.id]);
 
-    // Cargar secuencial automático
-    useEffect(() => {
-        const cargarSecuencial = async () => {
-            if (puntoActivo?.puntoEmisionId && !factura?.id) {
-                try {
-                    const res = await fetch(`/api/facturacion/secuencial?puntoEmisionId=${puntoActivo.puntoEmisionId}&tipoComprobante=01`);
-                    const data = await res.json();
-                    if (data.success) {
-                        setSecuencial(data.secuencial);
-                    }
-                } catch (error) {
-                    console.error('Error al cargar secuencial:', error);
-                }
-            }
-        };
-        cargarSecuencial();
-    }, [puntoActivo?.puntoEmisionId, factura?.id]);
+
 
     // Detalles
     const [detalles, setDetalles] = useState<DetalleFactura[]>(factura?.detalles || [{
@@ -153,8 +154,16 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         codigoIVA: defaultIVA,
         baseImponible: 0,
         valorIVA: 0,
+        tarifa: 0,
         total: 0,
     }]);
+
+    const handleNumeroFacturaChange = (val: string) => {
+        const parts = val.split('-');
+        if (parts[0] !== undefined) setEstab(parts[0]);
+        if (parts[1] !== undefined) setPtoEmi(parts[1]);
+        if (parts[2] !== undefined) setSecuencial(parts[2]);
+    };
 
     // Pagos
     const [pagos, setPagos] = useState<PagoFactura[]>(factura?.pagos || [{
@@ -227,6 +236,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             codigoIVA: defaultIVA,
             baseImponible: 0,
             valorIVA: 0,
+            tarifa: 15,
             total: 0,
         }]);
     };
@@ -267,6 +277,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         }
 
         detalle.valorIVA = detalle.baseImponible * porcentajeIVA;
+        detalle.tarifa = porcentajeIVA * 100;
         detalle.total = detalle.baseImponible + detalle.valorIVA;
 
         nuevosDetalles[index] = detalle;
@@ -381,22 +392,28 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                 <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <FileText size={16} /> Información del Comprobante
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Establecimiento</label>
-                        <Input value={estab} onChange={(e) => setEstab(e.target.value)} placeholder="001" maxLength={3} required />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Punto Emisión</label>
-                        <Input value={ptoEmi} onChange={(e) => setPtoEmi(e.target.value)} placeholder="001" maxLength={3} required />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Secuencial</label>
-                        <Input value={secuencial} onChange={(e) => setSecuencial(e.target.value)} placeholder="000000001" maxLength={9} required />
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase font-mono">Número de factura (Estab-PtoEmi-Secuencial)</label>
+                        <Input
+                            value={`${estab || '001'}-${ptoEmi || '001'}-${secuencial || '000000001'}`}
+                            onChange={(e) => handleNumeroFacturaChange(e.target.value)}
+                            placeholder="001-001-000000001"
+                            className="font-mono font-bold text-sri-blue bg-slate-100"
+                            required
+                            disabled
+                        />
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Fecha Emisión</label>
-                        <Input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} required />
+                        <Input
+                            type="date"
+                            value={fechaEmision}
+                            onChange={(e) => setFechaEmision(e.target.value)}
+                            className="bg-slate-100"
+                            required
+                            disabled
+                        />
                     </div>
                 </div>
             </div>

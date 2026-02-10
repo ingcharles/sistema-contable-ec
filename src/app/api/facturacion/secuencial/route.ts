@@ -15,11 +15,12 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const puntoEmisionId = searchParams.get('puntoEmisionId');
-        const tipoComprobante = searchParams.get('tipoComprobante');
+        const tipoComprobante = searchParams.get('tipoComprobante'); // El código '01', '04', etc.
+        const tipoComprobanteId = searchParams.get('tipoComprobanteId'); // O el UUID directamente
 
-        if (!puntoEmisionId || !tipoComprobante) {
+        if (!puntoEmisionId || (!tipoComprobante && !tipoComprobanteId)) {
             return NextResponse.json(
-                { error: 'Se requiere puntoEmisionId y tipoComprobante' },
+                { error: 'Se requiere puntoEmisionId y (tipoComprobante o tipoComprobanteId)' },
                 { status: 400 }
             );
         }
@@ -28,11 +29,13 @@ export async function GET(request: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    SELECT id, secuencial_actual 
-                    FROM configuracion.puntos_emision_secuenciales 
-                    WHERE punto_emision_id = $1 AND tipo_comprobante = $2
+                    SELECT pes.id, pes.secuencial_actual 
+                    FROM configuracion.puntos_emision_secuenciales pes
+                    ${tipoComprobante ? `INNER JOIN configuracion.catalogos_items ci ON pes.tipo_comprobante_id = ci.id` : ''}
+                    WHERE pes.punto_emision_id = $1 
+                    ${tipoComprobante ? `AND ci.catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND ci.codigo = $2` : `AND pes.tipo_comprobante_id = $2`}
                 `,
-                values: [puntoEmisionId, tipoComprobante]
+                values: [puntoEmisionId, tipoComprobante || tipoComprobanteId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );

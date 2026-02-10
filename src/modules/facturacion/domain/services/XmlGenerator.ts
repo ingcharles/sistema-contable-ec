@@ -494,6 +494,7 @@ export class XmlGenerator {
 
         // Info Guía Remisión
         xml += '  <infoGuiaRemision>\n';
+
         if (data.infoGuiaRemision.dirEstablecimiento) {
             xml += `    <dirEstablecimiento>${this.escapeXml(data.infoGuiaRemision.dirEstablecimiento)}</dirEstablecimiento>\n`;
         }
@@ -505,8 +506,8 @@ export class XmlGenerator {
             xml += `    <contribuyenteEspecial>${data.infoGuiaRemision.contribuyenteEspecial}</contribuyenteEspecial>\n`;
         }
         xml += `    <obligadoContabilidad>${data.infoGuiaRemision.obligadoContabilidad}</obligadoContabilidad>\n`;
-        xml += `    <fechaIniTraslado>${data.infoGuiaRemision.fechaIniTraslado}</fechaIniTraslado>\n`;
-        xml += `    <fechaFinTraslado>${data.infoGuiaRemision.fechaFinTraslado}</fechaFinTraslado>\n`;
+        xml += `    <fechaIniTransporte>${data.infoGuiaRemision.fechaIniTransporte}</fechaIniTransporte>\n`;
+        xml += `    <fechaFinTransporte>${data.infoGuiaRemision.fechaFinTransporte}</fechaFinTransporte>\n`;
         xml += `    <placa>${this.escapeXml(data.infoGuiaRemision.placa)}</placa>\n`;
         xml += '  </infoGuiaRemision>\n';
 
@@ -631,7 +632,7 @@ export class XmlGenerator {
         else if (data.infoCompRetencion) fechaEmision = data.infoCompRetencion.fechaEmision;
         else if (data.infoNotaCredito) fechaEmision = data.infoNotaCredito.fechaEmision;
         else if (data.infoNotaDebito) fechaEmision = data.infoNotaDebito.fechaEmision;
-        else if (data.infoGuiaRemision) fechaEmision = data.infoGuiaRemision.fechaIniTraslado;
+        else if (data.infoGuiaRemision) fechaEmision = data.infoGuiaRemision.fechaIniTransporte;
 
         if (!fechaEmision) {
             throw new Error(`No se pudo determinar la fecha de emisión para el documento ${info.codDoc}`);
@@ -682,11 +683,15 @@ export class XmlGenerator {
     }
 
     private static generateInfoAdicional(infoAdicional: any[]): string {
+        const validItems = infoAdicional.filter(item => item.valor && item.valor !== 'N/A');
+
+        if (validItems.length === 0) {
+            return '';
+        }
+
         let xml = '  <infoAdicional>\n';
-        infoAdicional.forEach((item: any) => {
-            if (item.valor && item.valor !== 'N/A') {
-                xml += `    <campoAdicional nombre="${this.escapeXml(item.nombre)}">${this.escapeXml(item.valor)}</campoAdicional>\n`;
-            }
+        validItems.forEach((item: any) => {
+            xml += `    <campoAdicional nombre="${this.escapeXml(item.nombre)}">${this.escapeXml(item.valor)}</campoAdicional>\n`;
         });
         xml += '  </infoAdicional>\n';
         return xml;

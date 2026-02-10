@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
         const id = crypto.randomUUID();
 
-        await db.query(
+        const result = await db.query(
             {
                 text: `
                     INSERT INTO facturacion.transportistas (
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
                         telefono = EXCLUDED.telefono,
                         activo = EXCLUDED.activo,
                         updated_at = NOW()
+                    RETURNING id, razon_social as "razonSocial", placa
                 `,
                 values: [
                     id, context.empresaId, context.usuarioId,
@@ -72,7 +73,8 @@ export async function POST(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        return NextResponse.json({ success: true, id });
+        const row = result.rows[0];
+        return NextResponse.json({ success: true, data: { id: row.id, razonSocial: row.razonSocial, placa: row.placa } });
     } catch (error: any) {
         console.error('Error al guardar transportista:', error);
         return NextResponse.json({ error: 'Error al guardar transportista', details: error.message }, { status: 500 });

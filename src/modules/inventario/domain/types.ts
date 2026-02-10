@@ -68,6 +68,17 @@ export interface MovimientoKardex extends Auditable {
     saldoValor: number; // Costo total del inventario
 }
 
+export interface TransferenciaInventario extends Auditable {
+    id: string;
+    empresaId: string;
+    fecha: string;
+    bodegaOrigenId: string;
+    bodegaDestinoId: string;
+    productoId: string;
+    cantidad: number;
+    observacion?: string;
+}
+
 export interface InventarioRepository {
     getProductos(empresaId: string): Promise<Producto[]>;
     getCategorias(empresaId: string): Promise<CategoriaProducto[]>;

@@ -1,7 +1,7 @@
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 import { SignatureService } from '@/modules/facturacion/domain/services/SignatureService';
-import { ServicioSeguimientoUso, TipoComprobanteEnum } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
+import { ServicioSeguimientoUso } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
 
 export interface DetalleRetencionRequest {
     codigo: string;          // 1 (Renta), 2 (IVA), 6 (ISD)
@@ -21,7 +21,8 @@ export class RetencionService {
      */
     static async emitir(empresaId: string, usuarioId: string, compraId: string, detalles: DetalleRetencionRequest[]) {
         // 0. VALIDAR CUOTA DE RETENCIONES ('07')
-        const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(usuarioId, TipoComprobanteEnum.RETENCION);
+        const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('07');
+        const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(usuarioId, tipoComprobanteId);
         if (!verificacionCuota.permitido) {
             throw new Error(`Cuota de retenciones excedida: ${verificacionCuota.mensaje}`);
         }
@@ -53,12 +54,22 @@ export class RetencionService {
         if (setupResult.rows.length === 0) throw new Error('Compra no encontrada');
         const data = setupResult.rows[0];
 
-        // 2. Generar Secuencial de Retención
-        const secResult = await db.querySimple<any>({
-            text: `SELECT COALESCE(MAX(secuencial::int), 0) + 1 as next FROM facturacion.comprobantes_electronicos WHERE empresa_id = $1 AND tipo_comprobante = 'RETENCION'`,
-            values: [empresaId]
+        // 2. Generar Secuencial de Retención utilizando el estándar de puntos de emisión
+        const seqResult = await db.querySimple<any>({
+            text: `
+                SELECT secuencial_actual 
+                FROM configuracion.puntos_emision_secuenciales 
+                WHERE punto_emision_id = (
+                    SELECT pe.id FROM configuracion.puntos_emision pe
+                    JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
+                    WHERE s.empresa_id = $1 AND s.es_matriz = true AND pe.codigo = $2 LIMIT 1
+                ) AND tipo_comprobante_id = $3
+            `,
+            values: [empresaId, data.pto_emi || '001', tipoComprobanteId]
         });
-        const nextSecuencial = secResult.rows[0].next.toString().padStart(9, '0');
+
+        let nextSeqInt = seqResult.rows.length > 0 ? seqResult.rows[0].secuencial_actual : 1;
+        const nextSecuencial = nextSeqInt.toString().padStart(9, '0');
 
         // 3. Preparar Datos para XmlGenerator
         const fechaEmision = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' }); // DD/MM/YYYY
@@ -88,7 +99,8 @@ export class RetencionService {
                 ptoEmi: data.pto_emi || '001',
                 secuencial: nextSecuencial,
                 dirMatriz: data.emp_dir,
-                agenteRetencion: data.emp_agente_ret
+                agenteRetencion: data.emp_agente_ret,
+                claveAcceso: '' // Se genera abajo
             },
             infoCompRetencion: {
                 fechaEmision: fechaEmision,
@@ -103,7 +115,9 @@ export class RetencionService {
             impuestos: impuestosMapped
         };
 
-        // 4. Generar XML
+        // 4. Generar Clave de Acceso y XML
+        const claveAcceso = XmlGenerator.generateAccessKey(xmlData);
+        xmlData.infoTributaria.claveAcceso = claveAcceso;
         let xml = XmlGenerator.generateRetencionXml(xmlData);
 
         // 5. Firmar XML
@@ -120,9 +134,6 @@ export class RetencionService {
             }
         }
 
-        // Obtener la clave de acceso generada dentro del XmlGenerator
-        const claveAcceso = this.extractClaveAcceso(xml);
-
         // 6. Guardar en BD (facturacion.comprobantes_electronicos)
         // Usamos una transacción para guardar en facturación y actualizar compras
         const totalRetenido = impuestosMapped.reduce((sum, i) => sum + i.valorRetenido, 0);
@@ -131,19 +142,32 @@ export class RetencionService {
             // Insertar comprobante emitido
             await client.query(`
                 INSERT INTO facturacion.comprobantes_electronicos (
-                    id, empresa_id, usuario_id, tipo_comprobante, secuencial, clave_acceso,
+                    id, empresa_id, usuario_id, tipo_comprobante_id, secuencial, clave_acceso,
                     fecha_emision, cliente_id, cliente_nombre, cliente_identificacion,
                     total, xml_firmado, estado, ambiente_sri, tipo_emision_sri, created_at
                 ) VALUES (
-                    $1, $2, $3, 'RETENCION', $4, $5, 
-                    NOW(), $6, $7, $8, 
-                    $9, $10, 'AUTORIZADO', $11, '1', NOW()
+                    $1, $2, $3, $4, $5, $6, 
+                    NOW(), $7, $8, $9, 
+                    $10, $11, 'AUTORIZADO', $12, '1', NOW()
                 )
             `, [
-                crypto.randomUUID(), empresaId, usuarioId, nextSecuencial, claveAcceso,
+                crypto.randomUUID(), empresaId, usuarioId, tipoComprobanteId, nextSecuencial, claveAcceso,
                 data.proveedor_id, data.prov_nombre, data.prov_ruc,
                 totalRetenido, xml, data.emp_ambiente || '1'
             ]);
+
+            // Actualizar secuencial
+            await client.query(`
+                INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante_id, secuencial_actual)
+                VALUES (
+                    (SELECT id FROM configuracion.puntos_emision pe 
+                     JOIN configuracion.sucursales s ON pe.sucursal_id = s.id 
+                     WHERE s.empresa_id = $1 AND s.es_matriz = true AND pe.codigo = $2 LIMIT 1),
+                    $3, $4 + 1
+                )
+                ON CONFLICT (punto_emision_id, tipo_comprobante_id) 
+                DO UPDATE SET secuencial_actual = EXCLUDED.secuencial_actual + 1
+            `, [empresaId, data.pto_emi || '001', tipoComprobanteId, nextSeqInt]);
 
             // Actualizar compra con referencia
             await client.query(`
@@ -155,7 +179,7 @@ export class RetencionService {
         }, { empresaId, usuarioId });
 
         // Incrementar contador de uso
-        await ServicioSeguimientoUso.incrementarUso(usuarioId, TipoComprobanteEnum.RETENCION);
+        await ServicioSeguimientoUso.incrementarUso(usuarioId, tipoComprobanteId);
 
         return { success: true, claveAcceso, secuencial: nextSecuencial, xml };
     }
@@ -211,10 +235,5 @@ export class RetencionService {
 
         // Fallback: rellenar con ceros a la izquierda hasta 15 dígitos
         return cleaned.padStart(15, '0');
-    }
-
-    private static extractClaveAcceso(xml: string): string {
-        const match = xml.match(/<claveAcceso>(.*?)<\/claveAcceso>/);
-        return match ? match[1] : '';
     }
 }

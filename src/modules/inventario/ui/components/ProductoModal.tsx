@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Save, Package, Tag, DollarSign, BarChart2, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
+
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useCategorias, useInventarioMutations } from '../../hooks/useInventario';
@@ -184,10 +185,10 @@ export const ProductoModal = ({ producto, onClose, onSave, empresaId }: Producto
                         </label>
                         <input
                             type="number"
-                            step="0.01"
                             value={precioVenta}
-                            onChange={(e) => setPrecioVenta(Number(e.target.value))}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                            onChange={(e) => setPrecioVenta(parseFloat(e.target.value) || 0)}
+                            step="0.01"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold"
                         />
                     </div>
                 </div>
@@ -198,7 +199,8 @@ export const ProductoModal = ({ producto, onClose, onSave, empresaId }: Producto
                         <input
                             type="number"
                             value={stockMinimo}
-                            onChange={(e) => setStockMinimo(Number(e.target.value))}
+                            onChange={(e) => setStockMinimo(parseFloat(e.target.value) || 0)}
+                            step="1"
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
                         />
                     </div>

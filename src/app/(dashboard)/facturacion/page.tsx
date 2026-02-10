@@ -66,17 +66,42 @@ export default function FacturasEmitidasPage() {
         }
     };
 
+    const handleAutorizar = async (row: any) => {
+        try {
+            setLoading(true);
+            const res = await FacturacionUseCases.autorizar(row.id);
+            if (res.estado === 'AUTORIZADO') {
+                alert('¡Documento autorizado exitosamente!');
+            } else if (res.estado === 'EN_PROCESAMIENTO' || res.estado === 'RECIBIDA') {
+                alert(`Documento en proceso. Estado: ${res.estado}. Por favor espere unos segundos y actualice.`);
+            } else {
+                alert('SRI Respuesta: ' + (res.estado || 'Desconocido'));
+            }
+            loadData();
+        } catch (err: any) {
+            alert('Error al autorizar: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleReemitir = async (row: any) => {
         try {
             setLoading(true);
-            const dataSri = SriStandardizer.standardizeFactura(row);
-            const res = await FacturacionUseCases.emitirFactura(dataSri);
+            const res = await FacturacionUseCases.reemitir(row.id, row.tipoComprobante);
 
-            if (res.estado === 'AUTORIZADO') {
-                alert('¡Documento autorizado exitosamente!');
+            if (res.success) {
+                if (res.estado === 'AUTORIZADO') {
+                    alert('¡Documento autorizado exitosamente!');
+                } else if (res.estado === 'EN_PROCESAMIENTO') {
+                    alert('Documento enviado a procesamiento. Por favor espere unos segundos y actualice.');
+                } else {
+                    const msg = res.mensajes?.map((m: any) => m.mensaje).join('\n') || res.estado;
+                    alert(`SRI Respuesta (${res.estado}): ${msg}`);
+                }
                 loadData();
             } else {
-                alert('Error SRI: ' + JSON.stringify(res.error || res.detalles));
+                alert('Error al re-emitir: ' + (res.error || JSON.stringify(res.details || 'Error desconocido')));
             }
         } catch (err: any) {
             alert('Error al re-emitir: ' + err.message);
@@ -118,6 +143,7 @@ export default function FacturasEmitidasPage() {
                         facturas={facturas}
                         loading={loading}
                         onReemitir={handleReemitir}
+                        onAutorizar={handleAutorizar}
                         onNuevaNotaCredito={(factura) => setSelectedFacturaNC(factura)}
                         onNuevaNotaDebito={(factura) => setSelectedFacturaND(factura)}
                         onNuevaGuia={(factura) => { setSelectedFacturaGuia(factura); setShowModalGuia(true); }}
@@ -140,7 +166,6 @@ export default function FacturasEmitidasPage() {
                     facturaReferencia={selectedFacturaGuia}
                     onClose={() => { setShowModalGuia(false); setSelectedFacturaGuia(null); }}
                     onSave={() => { loadData(); setShowModalGuia(false); setSelectedFacturaGuia(null); }}
-                    empresaId={currentEmpresa?.id || ''}
                 />
             )}
 

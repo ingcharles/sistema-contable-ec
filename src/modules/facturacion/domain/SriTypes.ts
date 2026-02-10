@@ -107,6 +107,18 @@ export interface SriNotaCredito {
     infoAdicional?: { nombre: string; valor: string }[];
 }
 
+export interface SriNotaCreditoInput {
+    puntoEmisionId: string;
+    fechaEmision: string;
+    clienteId: string;
+    motivo: string;
+    codDocModificado: string;
+    numDocModificado: string;
+    fechaEmisionDocSustento: string;
+    detalles: any[];
+    generarGuia?: boolean;
+}
+
 export interface SriInfoNotaDebito {
     fechaEmision: string;
     dirEstablecimiento?: string;
@@ -129,6 +141,19 @@ export interface SriNotaDebito {
     infoNotaDebito: SriInfoNotaDebito;
     motivos: { razon: string; valor: number }[];
     infoAdicional?: { nombre: string; valor: string }[];
+}
+
+export interface SriNotaDebitoInput {
+    puntoEmisionId: string;
+    fechaEmision: string;
+    clienteId: string;
+    motivo: string;
+    codDocModificado: string;
+    numDocModificado: string;
+    fechaEmisionDocSustento: string;
+    detalles: any[];
+    pagos: any[];
+    generarGuia?: boolean;
 }
 
 export interface SriInfoCompRetencion {
@@ -180,6 +205,20 @@ export interface SriLiquidacion {
     infoAdicional?: { nombre: string; valor: string }[];
 }
 
+export interface SriLiquidacionInput {
+    puntoEmisionId: string;
+    fechaEmision: string;
+    proveedor: {
+        tipoIdentificacion: string;
+        identificacion: string;
+        nombre: string;
+        direccion?: string;
+    };
+    detalles: any[];
+    pagos: any[];
+    generarGuia?: boolean;
+}
+
 export interface SriInfoGuiaRemision {
     dirEstablecimiento?: string;
     dirPartida: string;
@@ -188,8 +227,9 @@ export interface SriInfoGuiaRemision {
     rucTransportista: string;
     contribuyenteEspecial?: string;
     obligadoContabilidad: string;
-    fechaIniTraslado: string;
-    fechaFinTraslado: string;
+
+    fechaIniTransporte: string;
+    fechaFinTransporte: string;
     placa: string;
 }
 
@@ -198,6 +238,16 @@ export interface SriGuia {
     infoGuiaRemision: SriInfoGuiaRemision;
     destinatarios: any[];
     infoAdicional?: { nombre: string; valor: string }[];
+}
+
+export interface SriGuiaInput {
+    puntoEmisionId: string;
+    generarGuia?: boolean;
+    transportistaId: string;
+    fechaEmision: string;
+    dirPartida: string;
+    clienteId?: string;
+    destinatarios: any[];
 }
 
 /**

@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
                             END AS es_vigente,
                             CASE 
                                 WHEN sc.cert_fecha_expiracion IS NULL THEN NULL
-                                ELSE (sc.cert_fecha_expiracion - CURRENT_DATE)
+                                ELSE (sc.cert_fecha_expiracion::DATE - CURRENT_DATE)
                             END AS dias_restantes,
                             CASE 
                                 WHEN sc.cert_p12_certificado IS NOT NULL THEN TRUE

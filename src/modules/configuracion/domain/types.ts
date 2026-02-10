@@ -12,7 +12,7 @@ export interface Sucursal extends Auditable {
 }
 
 export interface SecuencialDocumento {
-    tipoComprobante: string; // '01' Factura, '07' Retención
+    tipoComprobanteId: string; // ID from catalogos_items (SRI_TIPO_COMPROBANTE)
     secuencialActual: number; // Último número usado
 }
 
@@ -61,6 +61,64 @@ export interface ParametrosContables {
     cuentaAnticipoClientes: string;
     cuentaCxpProveedores: string;
     cuentaAnticipoProveedores: string;
+
+    // Nómina
+    aportePersonalIess?: number;
+    aportePatronalIess?: number;
+    fondoReservaPorcentaje?: number;
+    cuentaSueldos?: string;
+    cuentaAportePatronal?: string;
+    cuentaDecimoTercero?: string;
+    cuentaDecimoCuarto?: string;
+    cuentaSueldosPorPagar?: string;
+    cuentaIessPorPagar?: string;
+    cuentaProvDecimoTercero?: string;
+    cuentaProvDecimoCuarto?: string;
+
+    // Caja Chica e Inventario
+    cuentaCajaChica?: string;
+    cuentaGastosVarios?: string;
+    cuentaSobranteInventario?: string;
+    cuentaFaltanteInventario?: string;
+
+    // Others
+    cuentaCostoVentas?: string;
+    cuentaDescuentoVentas?: string;
+    cuentaDevolucionVentas?: string;
+    cuentaRetIvaPorPagar?: string;
+    divisorVacaciones?: number;
+    ivaCatalogoItemId?: string;
+    sriTipoEmision?: string;
+    fechaCierre?: string | null;
+}
+
+export interface MenuItem {
+    id: string;
+    label: string;
+    icon?: string;
+    path?: string;
+    parentId?: string;
+    order: number;
+    children?: MenuItem[];
+    planId?: string;
+}
+
+export interface CatalogoItem {
+    id: string;
+    codigo: string;
+    valor: string;
+    tipo: string;
+    padreId?: string;
+    valorNumerico?: number;
+    esEditable: boolean;
+    activo: boolean;
+}
+
+export interface AmbienteSRI {
+    codigo: string; // 1 o 2
+    nombre: string; // PRUEBAS o PRODUCCION
+    url_recepcion: string;
+    url_autorizacion: string;
 }
 
 export interface ConfiguracionRepository {

@@ -763,7 +763,7 @@ CREATE TABLE facturacion.comprobantes_electronicos (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
     usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id),
-    tipo_comprobante facturacion.tipo_comprobante_sri NOT NULL,
+    tipo_comprobante_id UUID NOT NULL REFERENCES configuracion.catalogos_items(id),
     punto_emision_id UUID REFERENCES configuracion.puntos_emision(id),
     secuencial VARCHAR(20) NOT NULL,
     clave_acceso VARCHAR(49) UNIQUE,
@@ -788,14 +788,14 @@ CREATE TABLE facturacion.comprobantes_electronicos (
     xml_firmado TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(empresa_id, tipo_comprobante, punto_emision_id, secuencial)
+    UNIQUE(empresa_id, tipo_comprobante_id, punto_emision_id, secuencial)
 );
 
 COMMENT ON TABLE facturacion.comprobantes_electronicos IS 'Comprobantes electrónicos (Facturación SRI).';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.id IS 'Identificador único del comprobante';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.empresa_id IS 'Empresa emisora';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.usuario_id IS 'Usuario que generó el comprobante';
-COMMENT ON COLUMN facturacion.comprobantes_electronicos.tipo_comprobante IS 'Tipo: 01=FACTURA, 03=LIQUIDACION, 04=NOTA_CREDITO, 05=NOTA_DEBITO, 06=GUIA_REMISION, 07=RETENCION';
+COMMENT ON COLUMN facturacion.comprobantes_electronicos.tipo_comprobante_id IS 'Referencia al tipo de documento en el catálogo SRI';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.secuencial IS 'Número secuencial del comprobante (incremental por tipo y empresa)';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.clave_acceso IS 'Clave de acceso de 49 dí­gitos (SRI)';
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.numero_autorizacion IS 'Número de autorización otorgado por el SRI';
@@ -822,7 +822,7 @@ COMMENT ON COLUMN facturacion.comprobantes_electronicos.updated_at IS 'Fecha de 
 
 ALTER TABLE facturacion.comprobantes_electronicos 
 ADD CONSTRAINT unq_comprobante_punto_secuencial 
-UNIQUE(empresa_id, tipo_comprobante, punto_emision_id, secuencial);
+UNIQUE(empresa_id, tipo_comprobante_id, punto_emision_id, secuencial);
 COMMENT ON COLUMN facturacion.comprobantes_electronicos.punto_emision_id IS 'Referencia al punto de emisión utilizado';
 
 
@@ -837,7 +837,8 @@ CREATE TABLE facturacion.comprobantes_detalles (
     descuento NUMERIC(18,2) NOT NULL,
     total NUMERIC(18,2) NOT NULL,
     valor_iva NUMERIC(18,2) NOT NULL,
-    iva_catalogo_item_id UUID REFERENCES configuracion.catalogos_items(id)
+    codigo_iva VARCHAR(10) NOT NULL DEFAULT '0',
+    tarifa NUMERIC(5,2) NOT NULL DEFAULT 0
 );
 
 COMMENT ON TABLE facturacion.comprobantes_detalles IS 'Detalle de líneas de los comprobantes electrónicos.';
@@ -1244,12 +1245,12 @@ COMMENT ON COLUMN configuracion.usuarios_puntos_emision.updated_by IS
 CREATE TABLE configuracion.puntos_emision_secuenciales (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     punto_emision_id UUID NOT NULL REFERENCES configuracion.puntos_emision(id) ON DELETE CASCADE,
-    tipo_comprobante facturacion.tipo_comprobante_sri NOT NULL,
-    secuencial_actual INTEGER DEFAULT 1,
+    tipo_comprobante_id UUID NOT NULL REFERENCES configuracion.catalogos_items(id),
+    secuencial_actual INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     created_by UUID REFERENCES seguridad.usuarios(id),
-    UNIQUE(punto_emision_id, tipo_comprobante)
+    UNIQUE(punto_emision_id, tipo_comprobante_id)
 );
 
 COMMENT ON TABLE configuracion.puntos_emision_secuenciales IS 'Control de secuenciales por tipo de comprobante en cada punto de emisión.';
@@ -1283,6 +1284,7 @@ CREATE TABLE configuracion.parametros (
     empresa_id UUID PRIMARY KEY REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
     sbu NUMERIC(15,2) DEFAULT 460,
     iva_catalogo_item_id UUID REFERENCES configuracion.catalogos_items(id),
+    iva_codigo_defecto VARCHAR(10),
     max_consumidor_final NUMERIC(15,2) DEFAULT 50,
     cuenta_caja VARCHAR(20),
     cuenta_iva_ventas VARCHAR(20),
@@ -1300,6 +1302,7 @@ CREATE TABLE configuracion.parametros (
     cuenta_ret_iva_por_pagar VARCHAR(20),
     cuenta_costo_ventas VARCHAR(20),
     cuenta_descuento_ventas VARCHAR(20),
+    sri_tipo_emision VARCHAR(1) DEFAULT '1',
     fecha_cierre DATE,
     updated_at TIMESTAMP DEFAULT NOW(),
     updated_by UUID REFERENCES seguridad.usuarios(id)
@@ -1723,7 +1726,7 @@ CREATE TABLE IF NOT EXISTS compras.compras (
     empresa_id UUID NOT NULL REFERENCES seguridad.empresas(id) ON DELETE CASCADE,
     usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id),
     proveedor_id UUID NOT NULL REFERENCES directorio.terceros(id),
-    tipo_comprobante VARCHAR(2) NOT NULL,
+    tipo_comprobante_id UUID NOT NULL REFERENCES configuracion.catalogos_items(id),
     secuencial VARCHAR(20) NOT NULL,
     autorizacion VARCHAR(50),
     fecha_emision DATE NOT NULL,
@@ -1740,7 +1743,7 @@ CREATE TABLE IF NOT EXISTS compras.compras (
     nro_retencion VARCHAR(20),
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(empresa_id, proveedor_id, secuencial)
+    UNIQUE(empresa_id, proveedor_id, tipo_comprobante_id, secuencial)
 );
 
 COMMENT ON TABLE compras.compras IS 'Registro de facturas de compra y gastos recibidos.';
@@ -1748,7 +1751,7 @@ COMMENT ON COLUMN compras.compras.id IS 'Identificador único de la compra';
 COMMENT ON COLUMN compras.compras.empresa_id IS 'Empresa a la que pertenece la compra';
 COMMENT ON COLUMN compras.compras.usuario_id IS 'Usuario que registró la compra';
 COMMENT ON COLUMN compras.compras.proveedor_id IS 'Referencia al proveedor (tercero)';
-COMMENT ON COLUMN compras.compras.tipo_comprobante IS 'Código SRI del tipo de comprobante (01, etc.)';
+COMMENT ON COLUMN compras.compras.tipo_comprobante_id IS 'Referencia al catálogo SRI del tipo de comprobante (01, etc.)';
 COMMENT ON COLUMN compras.compras.secuencial IS 'Número de factura del proveedor (ej: 001-001-000000001)';
 COMMENT ON COLUMN compras.compras.autorizacion IS 'Número de autorización SRI de la factura del proveedor';
 COMMENT ON COLUMN compras.compras.fecha_emision IS 'Fecha de emisión de la factura fí­sica/electrónica';
@@ -1775,6 +1778,7 @@ CREATE TABLE IF NOT EXISTS compras.compras_detalle (
     precio_unitario NUMERIC(18,6) NOT NULL,
     subtotal NUMERIC(18,2) NOT NULL,
     porcentaje_iva NUMERIC(5,2) DEFAULT 0,
+    codigo_iva VARCHAR(10),
     valor_iva NUMERIC(18,2) DEFAULT 0,
     total NUMERIC(18,2) NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()

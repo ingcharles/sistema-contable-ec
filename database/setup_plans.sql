@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS seguridad.plan_caracteristicas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plan_id UUID NOT NULL REFERENCES seguridad.planes(id) ON DELETE CASCADE,
     clave_caracteristica VARCHAR(50) NOT NULL,
-    tipo_documento facturacion.tipo_comprobante_sri NULL,
+    tipo_documento_id UUID NULL REFERENCES configuracion.catalogos_items(id),
     tipo_valor seguridad.tipo_valor_caracteristica NOT NULL,
     valor_numero INT,
     valor_booleano BOOLEAN,
@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS seguridad.plan_caracteristicas (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_caracteristica_tipo_doc 
-    ON seguridad.plan_caracteristicas(plan_id, tipo_documento) 
-    WHERE tipo_documento IS NOT NULL;
+    ON seguridad.plan_caracteristicas(plan_id, tipo_documento_id) 
+    WHERE tipo_documento_id IS NOT NULL;
 
 COMMENT ON TABLE seguridad.plan_caracteristicas IS 'Características y límites específicos de cada plan.';
 COMMENT ON COLUMN seguridad.plan_caracteristicas.id IS 'Identificador único de la característica';
@@ -55,11 +55,11 @@ CREATE TABLE IF NOT EXISTS seguridad.usuario_estadisticas_uso (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id UUID NOT NULL REFERENCES seguridad.usuarios(id) ON DELETE CASCADE,
     periodo VARCHAR(7) NOT NULL,
-    tipo_documento facturacion.tipo_comprobante_sri NOT NULL,
+    tipo_documento_id UUID NOT NULL REFERENCES configuracion.catalogos_items(id),
     cantidad INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(usuario_id, periodo, tipo_documento)
+    UNIQUE(usuario_id, periodo, tipo_documento_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_estadisticas_uso_usuario_periodo 
@@ -69,7 +69,7 @@ COMMENT ON TABLE seguridad.usuario_estadisticas_uso IS 'Seguimiento mensual del 
 COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.id IS 'Identificador único del registro de uso';
 COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.usuario_id IS 'Referencia al usuario';
 COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.periodo IS 'Período de consumo en formato YYYY-MM';
-COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.tipo_documento IS 'Tipo de documento emitido (Código SRI)';
+COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.tipo_documento_id IS 'Referencia al tipo de documento en el catálogo SRI';
 COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.cantidad IS 'Cantidad acumulada en el período';
 COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.created_at IS 'Fecha de primer consumo en el período';
 COMMENT ON COLUMN seguridad.usuario_estadisticas_uso.updated_at IS 'Fecha del último consumo registrado';
@@ -161,11 +161,14 @@ BEGIN
     (plan_gratuito_id, 'IA_ACCESO_LOCAL', 'BOOLEANO', NULL, TRUE),
     (plan_gratuito_id, 'IA_ACCESO_NUBE', 'BOOLEANO', NULL, FALSE);
     
-    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento, tipo_valor, valor_numero, valor_booleano) VALUES
-    (plan_gratuito_id, 'MAX_FACTURAS_MENSUALES', '01', 'NUMERO', 30, NULL),
-    (plan_gratuito_id, 'MAX_RETENCIONES_MENSUALES', '07', 'NUMERO', 20, NULL),
-    (plan_gratuito_id, 'MAX_NOTAS_CREDITO_MENSUALES', '04', 'NUMERO', 10, NULL),
-    (plan_gratuito_id, 'MAX_GUIAS_MENSUALES', '06', 'NUMERO', 10, NULL);
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_gratuito_id, 'MAX_FACTURAS_MENSUALES', id, 'NUMERO', 30, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '01';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_gratuito_id, 'MAX_RETENCIONES_MENSUALES', id, 'NUMERO', 20, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '07';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_gratuito_id, 'MAX_NOTAS_CREDITO_MENSUALES', id, 'NUMERO', 10, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '04';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_gratuito_id, 'MAX_GUIAS_MENSUALES', id, 'NUMERO', 10, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '06';
 
     -- PLAN PROFESIONAL
     INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_valor, valor_numero, valor_booleano) VALUES
@@ -173,11 +176,14 @@ BEGIN
     (plan_profesional_id, 'IA_ACCESO_LOCAL', 'BOOLEANO', NULL, TRUE),
     (plan_profesional_id, 'IA_ACCESO_NUBE', 'BOOLEANO', NULL, TRUE);
 
-    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento, tipo_valor, valor_numero, valor_booleano) VALUES
-    (plan_profesional_id, 'MAX_FACTURAS_MENSUALES', '01', 'NUMERO', 500, NULL),
-    (plan_profesional_id, 'MAX_RETENCIONES_MENSUALES', '07', 'NUMERO', 300, NULL),
-    (plan_profesional_id, 'MAX_NOTAS_CREDITO_MENSUALES', '04', 'NUMERO', 100, NULL),
-    (plan_profesional_id, 'MAX_GUIAS_MENSUALES', '06', 'NUMERO', 200, NULL);
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_profesional_id, 'MAX_FACTURAS_MENSUALES', id, 'NUMERO', 500, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '01';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_profesional_id, 'MAX_RETENCIONES_MENSUALES', id, 'NUMERO', 300, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '07';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_profesional_id, 'MAX_NOTAS_CREDITO_MENSUALES', id, 'NUMERO', 100, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '04';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_profesional_id, 'MAX_GUIAS_MENSUALES', id, 'NUMERO', 200, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '06';
 
     -- PLAN EMPRESARIAL
     INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_valor, valor_numero, valor_booleano) VALUES
@@ -185,10 +191,13 @@ BEGIN
     (plan_empresarial_id, 'IA_ACCESO_LOCAL', 'BOOLEANO', NULL, TRUE),
     (plan_empresarial_id, 'IA_ACCESO_NUBE', 'BOOLEANO', NULL, TRUE);
 
-    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento, tipo_valor, valor_numero, valor_booleano) VALUES
-    (plan_empresarial_id, 'MAX_FACTURAS_MENSUALES', '01', 'NUMERO', 999999, NULL),
-    (plan_empresarial_id, 'MAX_RETENCIONES_MENSUALES', '07', 'NUMERO', 999999, NULL),
-    (plan_empresarial_id, 'MAX_NOTAS_CREDITO_MENSUALES', '04', 'NUMERO', 999999, NULL),
-    (plan_empresarial_id, 'MAX_GUIAS_MENSUALES', '06', 'NUMERO', 999999, NULL);
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_empresarial_id, 'MAX_FACTURAS_MENSUALES', id, 'NUMERO', 999999, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '01';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_empresarial_id, 'MAX_RETENCIONES_MENSUALES', id, 'NUMERO', 999999, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '07';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_empresarial_id, 'MAX_NOTAS_CREDITO_MENSUALES', id, 'NUMERO', 999999, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '04';
+    INSERT INTO seguridad.plan_caracteristicas (plan_id, clave_caracteristica, tipo_documento_id, tipo_valor, valor_numero, valor_booleano)
+    SELECT plan_empresarial_id, 'MAX_GUIAS_MENSUALES', id, 'NUMERO', 999999, NULL FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = '06';
     
 END $$;

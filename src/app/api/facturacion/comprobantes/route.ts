@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { extractPaginationParams, buildPaginatedResponse } from '@/shared/utils/pagination';
-import { ServicioSeguimientoUso, TipoComprobanteEnum, TipoComprobanteSri } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
+import { ServicioSeguimientoUso } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
 
 /**
  * GET /api/facturacion/comprobantes
@@ -27,8 +27,9 @@ export async function GET(req: NextRequest) {
         let paramIndex = 2;
 
         if (tipoComprobante) {
-            whereConditions.push(`c.tipo_comprobante = $${paramIndex}`);
-            values.push(tipoComprobante);
+            const tipoId = await ServicioSeguimientoUso.obtenerIdPorCodigo(tipoComprobante);
+            whereConditions.push(`c.tipo_comprobante_id = $${paramIndex}`);
+            values.push(tipoId);
             paramIndex++;
         }
 
@@ -69,7 +70,8 @@ export async function GET(req: NextRequest) {
                 text: `
                     SELECT 
                         c.id,
-                        c.tipo_comprobante AS "tipoComprobante",
+                        c.tipo_comprobante_id AS "tipoComprobanteId",
+                        ci.codigo AS "tipoComprobante",
                         ci.valor AS "tipoComprobanteNombre",
                         c.secuencial,
                         c.clave_acceso AS "claveAcceso",
@@ -89,6 +91,7 @@ export async function GET(req: NextRequest) {
                         c.ambiente_sri AS "ambienteSri",
                         c.tipo_emision_sri AS "tipoEmisionSri",
                         c.xml_firmado AS "xmlFirmado",
+                        c.mensajes_sri AS "mensajesSri",
                         c.created_at AS "createdAt",
                         c.updated_at AS "updatedAt",
                         COALESCE((
@@ -109,10 +112,13 @@ export async function GET(req: NextRequest) {
                             ) d
                         ), '[]'::json) AS detalles,
                         (
+                            COALESCE(c.mensajes_sri, '[]'::jsonb)
+                        ) AS "mensajesSri",
+                        (
                             COALESCE(c.mensajes_sri->'pagos', '[]'::jsonb)
                         ) AS pagos
                     FROM facturacion.comprobantes_electronicos c
-                    LEFT JOIN configuracion.catalogos_items ci ON ci.catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND ci.codigo = c.tipo_comprobante::text
+                    LEFT JOIN configuracion.catalogos_items ci ON ci.id = c.tipo_comprobante_id
                     LEFT JOIN directorio.terceros t ON t.id = c.cliente_id
                     LEFT JOIN configuracion.catalogos_items ci_ident ON ci_ident.catalogo_codigo = 'SRI_TIPO_IDENTIFICACION' AND ci_ident.codigo = t.tipo_identificacion
                     WHERE ${whereClause}
@@ -176,20 +182,20 @@ export async function POST(req: NextRequest) {
         // ===== VALIDACIÓN DE CUOTA DE DOCUMENTOS =====
         // Verificar si el usuario puede emitir este tipo de documento
         // ===== MAPEO DE TIPO DE COMPROBANTE A CÓDIGO SRI =====
-        const tipoDocMap: Record<string, TipoComprobanteSri> = {
-            'FACTURA': TipoComprobanteEnum.FACTURA,
-            'NOTA_CREDITO': TipoComprobanteEnum.NOTA_CREDITO,
-            'NOTA_DEBITO': TipoComprobanteEnum.NOTA_DEBITO,
-            'GUIA_REMISION': TipoComprobanteEnum.GUIA_REMISION
+        const tipoDocMap: Record<string, string> = {
+            'FACTURA': '01',
+            'NOTA_CREDITO': '04',
+            'NOTA_DEBITO': '05',
+            'GUIA_REMISION': '06'
         };
 
-        const tipoComprobante = tipoDocMap[tipoComprobanteRaw] || tipoComprobanteRaw as TipoComprobanteSri;
+        const codigoSri = tipoDocMap[tipoComprobanteRaw] || tipoComprobanteRaw;
+        const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo(codigoSri);
 
-        const tipoDocParaCuota = tipoComprobante;
-        if (tipoDocParaCuota && context.usuarioId) {
+        if (tipoComprobanteId && context.usuarioId) {
             const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(
                 context.usuarioId,
-                tipoDocParaCuota
+                tipoComprobanteId
             );
 
             if (!verificacionCuota.permitido) {
@@ -197,7 +203,7 @@ export async function POST(req: NextRequest) {
                     error: 'Cuota de documentos excedida',
                     mensaje: verificacionCuota.mensaje,
                     detalles: {
-                        tipo: tipoDocParaCuota,
+                        tipo: codigoSri,
                         usado: verificacionCuota.actual,
                         limite: verificacionCuota.limite
                     }
@@ -205,7 +211,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        if (!tipoComprobante || !fechaEmision || !clienteId || !total || !detalles) {
+        if (!tipoComprobanteId || !fechaEmision || !clienteId || !total || !detalles) {
             return NextResponse.json(
                 { error: 'Campos requeridos: tipoComprobante, fechaEmision, clienteId, total, detalles' },
                 { status: 400 }
@@ -228,7 +234,7 @@ export async function POST(req: NextRequest) {
         const cliente = terceroResult.rows[0];
 
         // Validar límite de crédito si es Factura
-        if (tipoComprobante === TipoComprobanteEnum.FACTURA) {
+        if (codigoSri === '01') {
             const deudaActualResult = await db.query(
                 {
                     text: 'SELECT SUM(saldo_pendiente) as total_deuda FROM cartera.cartera_documentos WHERE tercero_id = $1 AND tipo_cartera = $2 AND empresa_id = $3',
@@ -271,21 +277,21 @@ export async function POST(req: NextRequest) {
 
                 // Actualizar el secuencial para que el próximo autogenerado sea mayor al manual
                 await client.query(`
-                    INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante, secuencial_actual, created_by)
+                    INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante_id, secuencial_actual, created_by)
                     VALUES($1, $2, $3 + 1, $4)
-                    ON CONFLICT(punto_emision_id, tipo_comprobante)
+                    ON CONFLICT(punto_emision_id, tipo_comprobante_id)
                     DO UPDATE SET 
                         secuencial_actual = GREATEST(configuracion.puntos_emision_secuenciales.secuencial_actual, $3 + 1), 
                         updated_at = NOW()
-                `, [puntoActivo.punto_emision_id, tipoComprobante, secuencialInt, context.usuarioId]);
+                `, [puntoActivo.punto_emision_id, tipoComprobanteId, secuencialInt, context.usuarioId]);
             } else {
                 // Generar automáticamente el siguiente secuencial
                 const secuencialConfigResult = await client.query(`
                     SELECT secuencial_actual 
                     FROM configuracion.puntos_emision_secuenciales
-                    WHERE punto_emision_id = $1 AND tipo_comprobante = $2
+                    WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
                     FOR UPDATE
-                `, [puntoActivo.punto_emision_id, tipoComprobante]);
+                `, [puntoActivo.punto_emision_id, tipoComprobanteId]);
 
                 let nextSecuencialInt = 1;
 
@@ -294,9 +300,9 @@ export async function POST(req: NextRequest) {
                 } else {
                     // Si no existe registro, crearlo (el primero será 1 y el siguiente será 2)
                     await client.query(`
-                        INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante, secuencial_actual, created_by)
+                        INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante_id, secuencial_actual, created_by)
                         VALUES($1, $2, 2, $3)
-                    `, [puntoActivo.punto_emision_id, tipoComprobante, context.usuarioId]);
+                    `, [puntoActivo.punto_emision_id, tipoComprobanteId, context.usuarioId]);
                 }
 
                 if (secuencialConfigResult.rows.length > 0) {
@@ -304,8 +310,8 @@ export async function POST(req: NextRequest) {
                     await client.query(`
                         UPDATE configuracion.puntos_emision_secuenciales
                         SET secuencial_actual = secuencial_actual + 1, updated_at = NOW()
-                        WHERE punto_emision_id = $1 AND tipo_comprobante = $2
-                    `, [puntoActivo.punto_emision_id, tipoComprobante]);
+                        WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
+                    `, [puntoActivo.punto_emision_id, tipoComprobanteId]);
                 }
 
                 // Formatear secuencial actual (9 dígitos)
@@ -336,7 +342,7 @@ export async function POST(req: NextRequest) {
             // --- 1. REGISTRO DE CABECERA FACTURA ---
             const comprobanteResult = await client.query(`
                 INSERT INTO facturacion.comprobantes_electronicos
-            (empresa_id, usuario_id, tipo_comprobante, punto_emision_id, secuencial, fecha_emision,
+            (empresa_id, usuario_id, tipo_comprobante_id, punto_emision_id, secuencial, fecha_emision,
                 cliente_id, cliente_nombre, cliente_identificacion,
                 subtotal, total_descuento, iva, total, estado, clave_acceso, numero_autorizacion,
                 ambiente_sri, tipo_emision_sri, created_at, updated_at)
@@ -344,7 +350,7 @@ export async function POST(req: NextRequest) {
             ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
                 RETURNING id
             `, [
-                context.empresaId, context.usuarioId, tipoComprobante, puntoActivo.punto_emision_id, secuencial, fechaEmision,
+                context.empresaId, context.usuarioId, tipoComprobanteId, puntoActivo.punto_emision_id, secuencial, fechaEmision,
                 clienteId, clienteNombre, clienteIdentificacion, subtotal, totalDescuento, iva, total,
                 estado, claveAcceso, numeroAutorizacion, ambienteSri, tipoEmisionSri
             ]);
@@ -378,7 +384,7 @@ export async function POST(req: NextRequest) {
             }
 
             // --- 3. REGISTRO EN CARTERA ---
-            if (tipoComprobante === TipoComprobanteEnum.FACTURA) {
+            if (codigoSri === '01') {
                 const fechaVencimiento = new Date(fechaEmision);
                 fechaVencimiento.setDate(fechaVencimiento.getDate() + (cliente.dias_credito || 0));
 
@@ -440,8 +446,8 @@ export async function POST(req: NextRequest) {
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
         // Incrementar contador de uso DESPUÉS de creación exitosa
-        if (tipoDocParaCuota && context.usuarioId) {
-            await ServicioSeguimientoUso.incrementarUso(context.usuarioId, tipoDocParaCuota);
+        if (tipoComprobanteId && context.usuarioId) {
+            await ServicioSeguimientoUso.incrementarUso(context.usuarioId, tipoComprobanteId);
         }
 
         return NextResponse.json({

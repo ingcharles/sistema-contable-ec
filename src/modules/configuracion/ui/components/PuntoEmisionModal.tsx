@@ -6,7 +6,7 @@ import { Modal } from '@/shared/ui/Modal';
 import { PuntoEmision, Sucursal, UsuarioSistema } from '../../domain/types';
 import { ConfiguracionUseCases, UsuariosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
-import { TipoComprobante } from '@/shared/types';
+import { CatalogoItem } from '../../domain/types';
 
 interface PuntoEmisionModalProps {
     onClose: () => void;
@@ -26,15 +26,11 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
         permiteMultiplesUsuarios: true,
         descripcion: '',
         usuariosAsignados: [],
-        secuenciales: [
-            { tipoComprobante: TipoComprobante.FACTURA, secuencialActual: 1 },
-            { tipoComprobante: TipoComprobante.LIQUIDACION_COMPRA, secuencialActual: 1 },
-            { tipoComprobante: TipoComprobante.NOTA_CREDITO, secuencialActual: 1 },
-            { tipoComprobante: TipoComprobante.NOTA_DEBITO, secuencialActual: 1 },
-            { tipoComprobante: TipoComprobante.GUIA_REMISION, secuencialActual: 1 },
-            { tipoComprobante: TipoComprobante.RETENCION, secuencialActual: 1 }
-        ]
+        secuenciales: []
     });
+
+    const [catalogoComprobantes, setCatalogoComprobantes] = useState<CatalogoItem[]>([]);
+    const [cargandoCatalogo, setCargandoCatalogo] = useState(false);
 
     const [usuarios, setUsuarios] = useState<any[]>([]);
     const [guardando, setGuardando] = useState(false);
@@ -42,6 +38,27 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
     useEffect(() => {
+        const loadCatalogo = async () => {
+            setCargandoCatalogo(true);
+            try {
+                const items = await ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_COMPROBANTE');
+                setCatalogoComprobantes(items || []);
+
+                // Si es un punto nuevo, inicializar secuenciales con todos los tipos del catálogo
+                if (!puntoEditar) {
+                    const initialSecs = (items || []).map((item: any) => ({
+                        tipoComprobanteId: item.id,
+                        secuencialActual: 1
+                    }));
+                    setFormData(prev => ({ ...prev, secuenciales: initialSecs }));
+                }
+            } catch (error) {
+                console.error('Error al cargar catálogo SRI:', error);
+            } finally {
+                setCargandoCatalogo(false);
+            }
+        };
+
         const loadUsuarios = async () => {
             setCargandoUsuarios(true);
             try {
@@ -53,8 +70,10 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
                 setCargandoUsuarios(false);
             }
         };
+
+        loadCatalogo();
         loadUsuarios();
-    }, []);
+    }, [puntoEditar]);
 
     const handleSubmit = async () => {
         if (!formData.codigo || !formData.nombre || !formData.sucursalId) {
@@ -249,29 +268,34 @@ export const PuntoEmisionModal = ({ onClose, onSave, sucursales, puntoEditar }: 
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {formData.secuenciales?.map((sec, idx) => (
-                                    <div key={sec.tipoComprobante} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                                        <div className="flex flex-col gap-2">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter truncate">
-                                                {sec.tipoComprobante === TipoComprobante.FACTURA ? 'Factura' :
-                                                    sec.tipoComprobante === TipoComprobante.LIQUIDACION_COMPRA ? 'Liquidación' :
-                                                        sec.tipoComprobante === TipoComprobante.NOTA_CREDITO ? 'N. Crédito' :
-                                                            sec.tipoComprobante === TipoComprobante.NOTA_DEBITO ? 'N. Débito' :
-                                                                sec.tipoComprobante === TipoComprobante.GUIA_REMISION ? 'Guía' :
-                                                                    sec.tipoComprobante === TipoComprobante.RETENCION ? 'Retención' : sec.tipoComprobante}
-                                            </span>
-                                            <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    value={sec.secuencialActual}
-                                                    onChange={e => updateSecuencial(idx, Number(e.target.value))}
-                                                    className="w-full pl-3 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-right font-black text-sri-blue outline-none focus:ring-2 focus:ring-sri-blue/10"
-                                                />
-                                                <span className="absolute -top-3 -right-1 px-1.5 py-0.5 bg-sri-blue text-[7px] text-white rounded-md font-black shadow-sm uppercase">SIGUIENTE</span>
-                                            </div>
-                                        </div>
+                                {cargandoCatalogo ? (
+                                    <div className="col-span-full py-8 text-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sri-blue mx-auto"></div>
+                                        <p className="text-[10px] text-slate-400 mt-2">Cargando tipos de comprobante...</p>
                                     </div>
-                                ))}
+                                ) : (
+                                    formData.secuenciales?.map((sec, idx) => {
+                                        const compInfo = catalogoComprobantes.find(c => c.id === sec.tipoComprobanteId);
+                                        return (
+                                            <div key={sec.tipoComprobanteId} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                                <div className="flex flex-col gap-2">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter truncate" title={compInfo?.valor}>
+                                                        {compInfo?.valor || 'Desconocido'}
+                                                    </span>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="number"
+                                                            value={sec.secuencialActual}
+                                                            onChange={e => updateSecuencial(idx, Number(e.target.value))}
+                                                            className="w-full pl-3 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-right font-black text-sri-blue outline-none focus:ring-2 focus:ring-sri-blue/10"
+                                                        />
+                                                        <span className="absolute -top-3 -right-1 px-1.5 py-0.5 bg-sri-blue text-[7px] text-white rounded-md font-black shadow-sm uppercase">SIGUIENTE</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div>
                         </div>
 

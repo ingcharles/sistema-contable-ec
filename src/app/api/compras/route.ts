@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
+import { ServicioSeguimientoUso } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
 
 /**
  * GET /api/compras
@@ -35,13 +36,14 @@ export async function GET(req: NextRequest) {
                 text: `
                     SELECT 
                         c.id, c.secuencial, c.autorizacion, c.fecha_emision as "fechaEmision",
-                        c.fecha_registro as "fechaRegistro", c.tipo_comprobante as "tipoComprobante",
+                        c.fecha_registro as "fechaRegistro", ci.codigo as "tipoComprobante",
                         c.sustento, c.descripcion, c.subtotal_iva as "subtotalIva", 
                         c.subtotal_0 as "subtotal0", c.monto_iva as "montoIva", c.total,
                         c.tiene_retencion as "tieneRetencion", c.estado_retencion as "estadoRetencion",
                         c.nro_retencion as "nroRetencion",
                         t.razon_social as "proveedorNombre", t.identificacion as "proveedorRuc"
                     FROM compras.compras c
+                    LEFT JOIN configuracion.catalogos_items ci ON c.tipo_comprobante_id = ci.id
                     INNER JOIN directorio.terceros t ON t.id = c.proveedor_id
                     WHERE c.empresa_id = $1
                     ORDER BY c.fecha_registro DESC
@@ -107,6 +109,9 @@ export async function POST(req: NextRequest) {
                 detalles = [] // Array de items comprados
             } = body;
 
+            // RESOLVER TIPO DE COMPROBANTE ID
+            const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo(tipoComprobante || '01');
+
             // VALIDACIÓN PREVIA: Verificar si ya existe una compra con este secuencial para el proveedor
             const existeCompra = await db.query({
                 text: `
@@ -115,10 +120,11 @@ export async function POST(req: NextRequest) {
                     INNER JOIN directorio.terceros t ON t.id = c.proveedor_id
                     WHERE c.empresa_id = $1 
                     AND c.proveedor_id = $2
-                    AND c.secuencial = $3
+                    AND c.tipo_comprobante_id = $3
+                    AND c.secuencial = $4
                     LIMIT 1
                 `,
-                values: [context.empresaId, proveedorId, secuencial]
+                values: [context.empresaId, proveedorId, tipoComprobanteId, secuencial]
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
             if (existeCompra.rows.length > 0) {
@@ -144,7 +150,7 @@ export async function POST(req: NextRequest) {
                 // 1. Insertar la compra y obtener el ID generado
                 const compraResult = await client.query(`
                     INSERT INTO compras.compras (
-                        empresa_id, usuario_id, proveedor_id, tipo_comprobante, 
+                        empresa_id, usuario_id, proveedor_id, tipo_comprobante_id, 
                         secuencial, autorizacion, fecha_emision, fecha_registro,
                         sustento, descripcion, subtotal_iva, subtotal_0, 
                         monto_iva, total, orden_compra_id, tiene_retencion,
@@ -156,7 +162,7 @@ export async function POST(req: NextRequest) {
                     RETURNING id
                 `, [
                     context.empresaId, context.usuarioId, tId,
-                    tipoComprobante, secuencial, autorizacion, fechaEmision, fechaRegistro,
+                    tipoComprobanteId, secuencial, autorizacion, fechaEmision, fechaRegistro,
                     sustento, descripcion, subtotalIva, subtotal0, montoIva, total,
                     ordenCompraId, tieneRetencion, estadoRetencion, nroRetencion
                 ]);

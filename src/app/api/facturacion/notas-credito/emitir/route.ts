@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
+import { ServicioSeguimientoUso } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 import { SignatureService } from '@/modules/facturacion/domain/services/SignatureService';
 import { SriWebService } from '@/modules/facturacion/domain/services/SriWebService';
@@ -98,7 +99,6 @@ export async function POST(req: NextRequest) {
         });
 
         const defaultIvaCode = idToCodeMap[paramsRow.iva_catalogo_item_id] || '4'; // Fallback to '4' (15%)
-        const defaultIvaId = paramsRow.iva_catalogo_item_id || codeToIdMap['4'];
 
         // Enriquecer detalles con códigos de IVA
         const detallesEnriquecidos = detalles.map((d: any) => ({
@@ -118,18 +118,19 @@ export async function POST(req: NextRequest) {
             const punto = pResult.rows[0];
 
             // Bloquear secuencial para lectura (SIN incrementar todavía - se incrementa solo si SRI recibe exitosamente)
+            const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('04');
             const seqResult = await client.query(`
                 SELECT secuencial_actual FROM configuracion.puntos_emision_secuenciales
-                WHERE punto_emision_id = $1 AND tipo_comprobante = '04'
+                WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
                 FOR UPDATE
-            `, [puntoEmisionId]);
+            `, [puntoEmisionId, tipoComprobanteId]);
 
             let nextSeqInt = 1;
             if (seqResult.rows.length > 0) {
                 nextSeqInt = seqResult.rows[0].secuencial_actual;
             } else {
                 // Crear registro inicial si no existe (sin incrementar aún)
-                await client.query(`INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante, secuencial_actual, created_by) VALUES($1, '04', 1, $2)`, [puntoEmisionId, context.usuarioId]);
+                await client.query(`INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante_id, secuencial_actual, created_by) VALUES($1, $2, 1, $3)`, [puntoEmisionId, tipoComprobanteId, context.usuarioId]);
             }
             const secuencialFormateado = nextSeqInt.toString().padStart(9, '0');
 
@@ -158,6 +159,7 @@ export async function POST(req: NextRequest) {
                 motivo,
                 detalles: detallesEnriquecidos,
                 ambienteSri: configSrv.ambiente_sri,
+                tipoEmisionSri: params.sriTipoEmision,
                 obligadoContabilidad: empresaDoc.es_obligado_contabilidad
             });
 
@@ -173,21 +175,26 @@ export async function POST(req: NextRequest) {
             // Persistencia Inicial (Pendiente)
             const insertResult = await client.query(`
                 INSERT INTO facturacion.comprobantes_electronicos
-                (empresa_id, usuario_id, tipo_comprobante, punto_emision_id, secuencial, fecha_emision,
+                (empresa_id, usuario_id, tipo_comprobante_id, punto_emision_id, secuencial, fecha_emision,
                 cliente_id, cliente_nombre, cliente_identificacion, subtotal, total_descuento, iva, total,
                 estado, clave_acceso, ambiente_sri, xml_firmado, mensajes_sri)
-                VALUES ($1, $2, '04', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDIENTE', $13, $14, $15, $16)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'PENDIENTE', $14, $15, $16, $17)
                 RETURNING id
             `, [
-                context.empresaId, context.usuarioId, puntoEmisionId, secuencialFormateado, fechaEmision,
+                context.empresaId, context.usuarioId, tipoComprobanteId, puntoEmisionId, secuencialFormateado, fechaEmision,
                 clienteId, cliente.razon_social, cliente.identificacion, subtotalSinImpuestos, totalDescuento, totalIva, valorModificacion,
-                accessKey, parseInt(configSrv.ambiente_sri), signedXml, { mensajes: [] }
+                accessKey, parseInt(configSrv.ambiente_sri), signedXml, {
+                    mensajes: [],
+                    codDocModificado,
+                    numDocModificado,
+                    fechaEmisionDocSustento,
+                    motivo
+                }
             ]);
             const comprobanteId = insertResult.rows[0].id;
 
             // Guardar detalles de la nota de crédito
             for (const d of detallesEnriquecidos) {
-                const ivaId = codeToIdMap[d.codigoIVA] || defaultIvaId;
                 await client.query(`
                     INSERT INTO facturacion.comprobantes_detalles(
                         comprobante_id, 
@@ -198,9 +205,10 @@ export async function POST(req: NextRequest) {
                         descuento,
                         total, 
                         valor_iva, 
-                        iva_catalogo_item_id
+                        codigo_iva,
+                        tarifa
                     )
-                    VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 `, [
                     comprobanteId,
                     d.codigoPrincipal || 'NC',
@@ -210,7 +218,8 @@ export async function POST(req: NextRequest) {
                     d.descuento || 0,
                     d.baseImponible,
                     d.valorIVA || 0,
-                    ivaId
+                    d.codigoIVA,
+                    d.tarifa
                 ]);
             }
 
@@ -223,7 +232,8 @@ export async function POST(req: NextRequest) {
                 subtotalSinImpuestos,
                 valorModificacion,
                 totalIva,
-                detalles: detallesEnriquecidos
+                detalles: detallesEnriquecidos,
+                tipoComprobanteId
             };
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
@@ -237,77 +247,154 @@ export async function POST(req: NextRequest) {
         try {
             const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.url_recepcion);
 
+            // 🔄 RECOVERY FLOW: Detectar "CLAVE ACCESO REGISTRADA"
+            const claveAccesoRegistrada = recepcionResult.mensajes?.some((m: any) =>
+                m.identificador === '43' || m.mensaje?.toUpperCase().includes('CLAVE ACCESO REGISTRADA')
+            );
+
             if (recepcionResult.estado === 'RECIBIDA') {
-                fueRecibida = true; // ✅ Comprobante RECIBIDO por SRI - secuencial debe incrementarse
+                fueRecibida = true;
                 try {
+                    // Agregar espera de 3 segundos antes de consultar autorización
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+
                     const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
                     estadoSri = autorizacionResult.estado;
+
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
                     fechaAutorizacion = autorizacionResult.fechaAutorizacion;
                     mensajesSri = autorizacionResult.mensajes || [];
                 } catch (authError: any) {
                     console.error('Error en autorización SRI:', authError);
-                    estadoSri = 'ERROR_AUTORIZACION';
+                    estadoSri = 'ERROR';
                     mensajesSri = [{ tipo: 'ERROR', mensaje: authError.message || 'Error al consultar autorización' }];
                 }
+            } else if (claveAccesoRegistrada) {
+                // 🔄 CLAVE YA REGISTRADA: Consultar directamente autorización
+                console.log(`🔄 Recovery Flow NC: Clave ${persistentData.claveAcceso} ya registrada en SRI`);
+                fueRecibida = true;
+
+                try {
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    estadoSri = autorizacionResult.estado;
+
+                    numAutorizacion = autorizacionResult.numeroAutorizacion;
+                    fechaAutorizacion = autorizacionResult.fechaAutorizacion;
+                    mensajesSri = autorizacionResult.mensajes || [];
+                    mensajesSri.push({ tipo: 'INFO', mensaje: 'Recuperado automáticamente - Clave ya registrada en SRI' });
+                } catch (authError: any) {
+                    console.error('Error en autorización SRI (recovery):', authError);
+                    estadoSri = 'ERROR';
+                    mensajesSri = [{ tipo: 'ERROR', mensaje: authError.message || 'Error al consultar autorización en recovery' }];
+                }
             } else {
-                // Comprobante RECHAZADO en recepción (no fue RECIBIDA)
+                // Verificar PROCESAMIENTO en mensajes de recepción (Code 70)
+                // Se verifica siempre, por si el estado fue DEVUELTA pero con aviso de procesamiento
+
+                // Comprobante RECHAZADO en recepción
                 estadoSri = recepcionResult.estado;
                 mensajesSri = recepcionResult.mensajes || [{ tipo: 'ERROR', mensaje: 'Comprobante rechazado en recepción' }];
             }
         } catch (sriError: any) {
             console.error('Error comunicación SRI:', sriError);
-            estadoSri = 'ERROR_TECNICO';
+            estadoSri = 'ERROR';
             mensajesSri = [{ tipo: 'ERROR', mensaje: sriError.message || 'Error de comunicación con SRI' }];
         }
 
-        // --- STEP 3: FINALIZE STATE ---
-        await db.transaction(async (client) => {
-            // Actualizar estado del comprobante
-            await client.query(`
-                UPDATE facturacion.comprobantes_electronicos
-                SET estado = $1, numero_autorizacion = $2, fecha_autorizacion = $3, mensajes_sri = $4, updated_at = NOW()
-                WHERE id = $5
-            `, [estadoSri, numAutorizacion, fechaAutorizacion, { mensajes: mensajesSri }, persistentData.comprobanteId]);
+        // --- STEP 3: FINALIZE STATE & EFFECT (DB TRANSACTION) ---
+        // Consolidar TODOS los efectos en una sola transacción atómica
+        // Si falla, el comprobante se marca como ERROR_INTERNO para revisión manual
+        try {
+            await db.transaction(async (client) => {
+                // Bloquear el comprobante para evitar condiciones de carrera
+                const comprobanteCheck = await client.query(`
+                    SELECT id, estado FROM facturacion.comprobantes_electronicos 
+                    WHERE id = $1 FOR UPDATE
+                `, [persistentData.comprobanteId]);
 
-            // INCREMENTAR SECUENCIAL solo si fue RECIBIDA por el SRI (según regla: incrementar únicamente cuando estado RECIBIDA)
-            if (fueRecibida) {
-                await client.query(`
-                    UPDATE configuracion.puntos_emision_secuenciales
-                    SET secuencial_actual = secuencial_actual + 1, updated_at = NOW()
-                    WHERE punto_emision_id = $1 AND tipo_comprobante = '04'
-                `, [puntoEmisionId]);
-            }
-
-            if (estadoSri === 'AUTORIZADO') {
-                // Asiento Contable
-                const asientoNo = `NC-${persistentData.punto.codigo_establecimiento}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
-                const asientoResult = await client.query(`
-                    INSERT INTO contabilidad.asientos(empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
-                    VALUES($1, $2, $3, $4, 'NOTA CRÉDITO S/FACTURA ' || $5 || ' - ' || $6, 'EGRESO', 'MAYORIZADO')
-                    RETURNING id
-                `, [context.empresaId, context.usuarioId, asientoNo, fechaEmision, numDocModificado || '', cliente.razon_social]);
-                const asientoId = asientoResult.rows[0].id;
-
-                // CXC (Haber - Disminuye deuda)
-                await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, 0, $3, 'DEVOLUCIÓN DEUDA POR NOTA CRÉDITO')`,
-                    [asientoId, paramsRow.cuenta_cxc_clientes || '1.1.02.01', persistentData.valorModificacion]);
-
-                // Devolución en Ventas (Debe)
-                await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, $3, 0, 'DEVOLUCIÓN EN VENTAS')`,
-                    [asientoId, paramsRow.cuenta_devolucion_ventas || '4.1.01.02', persistentData.subtotalSinImpuestos]);
-
-                if (persistentData.totalIva > 0) {
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, $3, 0, 'IVA EN VENTAS (NC)')`,
-                        [asientoId, paramsRow.cuenta_iva_por_pagar || '2.1.03.01', persistentData.totalIva]);
+                if (comprobanteCheck.rows.length === 0) {
+                    throw new Error('Comprobante no encontrado - posible inconsistencia en la base de datos');
                 }
 
-                // TODO: Reingreso de Inventario si aplica?
-                // Las NC pueden implicar retorno de mercadería.
-                // Por ahora no lo gestiona el body explícitamente como retorno de items, sino como valores.
-                // Si se quisiera retorno, se necesitaría lógica de kardex "ENTRADA".
+                // Actualizar estado del comprobante
+                await client.query(`
+                    UPDATE facturacion.comprobantes_electronicos
+                    SET estado = $1, numero_autorizacion = $2, fecha_autorizacion = $3, mensajes_sri = $4, updated_at = NOW()
+                    WHERE id = $5
+                `, [estadoSri, numAutorizacion, fechaAutorizacion, { mensajes: mensajesSri }, persistentData.comprobanteId]);
+
+                // INCREMENTAR SECUENCIAL solo si fue RECIBIDA por el SRI (según regla: incrementar únicamente cuando estado RECIBIDA)
+                if (fueRecibida) {
+                    const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('04');
+                    await client.query(`
+                        UPDATE configuracion.puntos_emision_secuenciales
+                        SET secuencial_actual = secuencial_actual + 1, updated_at = NOW()
+                        WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
+                    `, [puntoEmisionId, tipoComprobanteId]);
+                }
+
+                if (estadoSri === 'AUTORIZADO') {
+                    // Asiento Contable
+                    const asientoNo = `NC-${persistentData.punto.codigo_establecimiento}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
+                    const asientoResult = await client.query(`
+                        INSERT INTO contabilidad.asientos(empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
+                        VALUES($1, $2, $3, $4, 'NOTA CRÉDITO S/FACTURA ' || $5 || ' - ' || $6, 'EGRESO', 'MAYORIZADO')
+                        RETURNING id
+                    `, [context.empresaId, context.usuarioId, asientoNo, fechaEmision, numDocModificado || '', cliente.razon_social]);
+                    const asientoId = asientoResult.rows[0].id;
+
+                    // CXC (Haber - Disminuye deuda)
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, 0, $3, 'DEVOLUCIÓN DEUDA POR NOTA CRÉDITO')`,
+                        [asientoId, paramsRow.cuenta_cxc_clientes || '1.1.02.01', persistentData.valorModificacion]);
+
+                    // Devolución en Ventas (Debe)
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, $3, 0, 'DEVOLUCIÓN EN VENTAS')`,
+                        [asientoId, paramsRow.cuenta_devolucion_ventas || '4.1.01.02', persistentData.subtotalSinImpuestos]);
+
+                    if (persistentData.totalIva > 0) {
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, $3, 0, 'IVA EN VENTAS (NC)')`,
+                            [asientoId, paramsRow.cuenta_iva_por_pagar || '2.1.03.01', persistentData.totalIva]);
+                    }
+                }
+            }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+        } catch (txError: any) {
+            // Si falla la Transaction 2, el comprobante ya está en el SRI
+            // Marcamos el comprobante como ERROR_INTERNO para revisión manual
+            console.error('Error en Transaction 2 (efectos secundarios NC):', txError);
+
+            try {
+                await db.query({
+                    text: `UPDATE facturacion.comprobantes_electronicos 
+                           SET estado = 'ERROR', 
+                               mensajes_sri = $1,
+                               updated_at = NOW()
+                           WHERE id = $2`,
+                    values: [
+                        {
+                            mensajes: mensajesSri,
+                            error_interno: txError.message,
+                            estado_sri_original: estadoSri,
+                            requiere_revision: true
+                        },
+                        persistentData.comprobanteId
+                    ]
+                }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+            } catch (compensationError) {
+                console.error('Error en compensación:', compensationError);
             }
-        }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+
+            // Retornar error con información útil para el usuario
+            return NextResponse.json({
+                success: false,
+                id: persistentData.comprobanteId,
+                secuencial: persistentData.secuencial,
+                claveAcceso: persistentData.claveAcceso,
+                estado: 'ERROR_INTERNO',
+                estadoSriOriginal: estadoSri,
+                error: `Comprobante ${estadoSri} en SRI pero ocurrió un error al guardar efectos secundarios: ${txError.message}`,
+                requiereRevision: true
+            }, { status: 500 });
+        }
 
         return NextResponse.json({
             success: true,

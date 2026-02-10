@@ -72,8 +72,8 @@ export interface ContabilidadRepository {
     getAsientos(empresaId: string): Promise<AsientoContable[]>;
     saveAsiento(asiento: AsientoContable): Promise<void>;
     getCentrosCostos(empresaId: string): Promise<CentroCosto[]>;
-    getPlanCuentas(empresaId: string): Promise<any[]>;
-    saveCuenta(cuenta: any): Promise<void>;
+    getPlanCuentas(empresaId: string): Promise<CuentaContable[]>;
+    saveCuenta(cuenta: CuentaContable): Promise<void>;
     deleteCuenta(codigo: string): Promise<void>;
     getBalanceGeneral(empresaId: string, fechaCorte: string): Promise<BalanceGeneral>;
     getEstadoResultados(empresaId: string, fechaInicio: string, fechaFin: string): Promise<EstadoResultados>;

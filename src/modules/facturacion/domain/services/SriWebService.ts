@@ -103,10 +103,9 @@ export class SriWebService {
     private static parseAutorizacionResponse(xml: string): SriRespuesta {
         const parser = new DOMParser();
         const doc = parser.parseFromString(xml, 'text/xml');
-
+        console.log("doc", doc);
         // La estructura de respuesta de autorización es más compleja, puede tener múltiples autorizaciones
         const autorizacion = doc.getElementsByTagName('autorizacion')[0];
-
         if (!autorizacion) {
             return { estado: 'NO AUTORIZADO' }; // O error de proceso
         }

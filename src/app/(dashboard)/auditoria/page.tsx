@@ -33,8 +33,7 @@ export default function AuditoriaPage() {
         setLoading(true);
         try {
             const response: any = await AuditoriaUseCases.consultarLogs({
-                ...filters,
-                empresaId: currentEmpresa.id
+                ...filters
             });
             setLogs(response.data);
 

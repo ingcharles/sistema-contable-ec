@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
                 // Inventario
                 cuentaSobranteInventario: '4.2.01.01',
                 cuentaFaltanteInventario: '5.2.01.01',
+                sriTipoEmision: '1',
                 fechaCierre: null
             });
         }
@@ -110,6 +111,7 @@ export async function GET(req: NextRequest) {
             // Inventario
             cuentaSobranteInventario: row.cuenta_sobrante_inventario || '4.2.01.01',
             cuentaFaltanteInventario: row.cuenta_faltante_inventario || '5.2.01.01',
+            sriTipoEmision: row.sri_tipo_emision || '1',
             fechaCierre: row.fecha_cierre,
             ivaValor: row.iva_valor ? Number(row.iva_valor) : 15, // Default to 15 if not set
             ivaCodigo: row.iva_codigo || '4',
@@ -143,7 +145,8 @@ export async function POST(req: NextRequest) {
             fechaCierre,
             cuentaSueldos, cuentaAportePatronal, cuentaDecimoTercero, cuentaDecimoCuarto,
             cuentaIessPorPagar, cuentaSueldosPorPagar, cuentaProvDecimoTercero, cuentaProvDecimoCuarto,
-            cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario
+            cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario,
+            sriTipoEmision
         } = body;
 
         await db.query(
@@ -161,8 +164,9 @@ export async function POST(req: NextRequest) {
                         cuenta_prov_decimo_tercero, cuenta_prov_decimo_cuarto,
                         cuenta_caja_chica, cuenta_gastos_varios,
                         cuenta_sobrante_inventario, cuenta_faltante_inventario,
+                        sri_tipo_emision,
                         updated_at, updated_by
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, NOW(), $34)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, NOW(), $35)
                     ON CONFLICT (empresa_id) DO UPDATE SET
                         sbu = EXCLUDED.sbu,
                         iva_catalogo_item_id = EXCLUDED.iva_catalogo_item_id,
@@ -196,6 +200,7 @@ export async function POST(req: NextRequest) {
                         cuenta_gastos_varios = EXCLUDED.cuenta_gastos_varios,
                         cuenta_sobrante_inventario = EXCLUDED.cuenta_sobrante_inventario,
                         cuenta_faltante_inventario = EXCLUDED.cuenta_faltante_inventario,
+                        sri_tipo_emision = EXCLUDED.sri_tipo_emision,
                         updated_at = NOW(),
                         updated_by = EXCLUDED.updated_by
                 `,
@@ -209,6 +214,7 @@ export async function POST(req: NextRequest) {
                     cuentaSueldos, cuentaAportePatronal, cuentaDecimoTercero, cuentaDecimoCuarto,
                     cuentaIessPorPagar, cuentaSueldosPorPagar, cuentaProvDecimoTercero, cuentaProvDecimoCuarto,
                     cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario,
+                    sriTipoEmision,
                     context.usuarioId
                 ]
             },

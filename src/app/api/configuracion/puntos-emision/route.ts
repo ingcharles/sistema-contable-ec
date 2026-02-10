@@ -29,7 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                         s.nombre as "sucursalNombre",
                         s.codigo as "sucursalCodigo",
                         COALESCE(
-                            (SELECT json_agg(json_build_object('tipoComprobante', pes.tipo_comprobante, 'secuencialActual', pes.secuencial_actual))
+                            (SELECT json_agg(json_build_object('tipoComprobanteId', pes.tipo_comprobante_id, 'secuencialActual', pes.secuencial_actual))
                              FROM configuracion.puntos_emision_secuenciales pes 
                              WHERE pes.punto_emision_id = pe.id),
                             '[]'::json
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
 
+        let id: string;
         // Usamos una transacción para insertar el punto y sus secuenciales
         await db.transaction(async (client) => {
             const result = await client.query(
@@ -97,11 +98,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
                 [sucursalId, codigo, nombre, activo, requiereAsignacion, permiteMultiplesUsuarios, descripcion, context.usuarioId]
             );
-            const id = result.rows[0].id;
+            id = result.rows[0].id;
             for (const seq of secuenciales) {
                 await client.query(
-                    `INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante, secuencial_actual) VALUES ($1, $2, $3)`,
-                    [id, seq.tipoComprobante, seq.secuencialActual]
+                    `INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante_id, secuencial_actual) VALUES ($1, $2, $3)`,
+                    [id, seq.tipoComprobanteId, seq.secuencialActual]
                 );
             }
 
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             }
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
-        return NextResponse.json({ success: true, id, message: 'Punto de emisión creado exitosamente' }, { status: 201 });
+        return NextResponse.json({ success: true, id: id!, message: 'Punto de emisión creado exitosamente' }, { status: 201 });
     } catch (error: any) {
         console.error('Error al crear punto de emisión:', error);
         return NextResponse.json({ error: 'Error al crear punto de emisión', details: error.message }, { status: 500 });
@@ -171,24 +172,24 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
 
             // 2. Actualizar secuenciales (Upsert: Update si existe, Insert si no)
             for (const seq of secuenciales) {
-                // Verificamos si existe
+                // Verificamos si existe por ID de catálogo
                 const existing = await client.query(
                     `SELECT 1 FROM configuracion.puntos_emision_secuenciales 
-                     WHERE punto_emision_id = $1 AND tipo_comprobante = $2`,
-                    [id, seq.tipoComprobante]
+                     WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2`,
+                    [id, seq.tipoComprobanteId]
                 );
 
                 if (existing.rowCount && existing.rowCount > 0) {
                     await client.query(
                         `UPDATE configuracion.puntos_emision_secuenciales 
                          SET secuencial_actual = $3
-                         WHERE punto_emision_id = $1 AND tipo_comprobante = $2`,
-                        [id, seq.tipoComprobante, seq.secuencialActual]
+                         WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2`,
+                        [id, seq.tipoComprobanteId, seq.secuencialActual]
                     );
                 } else {
                     await client.query(
-                        `INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante, secuencial_actual) VALUES ($1, $2, $3)`,
-                        [id, seq.tipoComprobante, seq.secuencialActual]
+                        `INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante_id, secuencial_actual) VALUES ($1, $2, $3)`,
+                        [id, seq.tipoComprobanteId, seq.secuencialActual]
                     );
                 }
             }

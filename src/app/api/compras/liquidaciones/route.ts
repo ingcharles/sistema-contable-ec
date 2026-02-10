@@ -81,10 +81,20 @@ export async function POST(req: NextRequest) {
             // 3. Registrar detalles
             for (const d of detalles) {
                 await client.query(`
-                    INSERT INTO compras.compras_detalles (
-                        id, compra_id, descripcion, cantidad, precio_unitario, total
-                    ) VALUES ($1, $2, $3, $4, $5, $6)
-                `, [crypto.randomUUID(), compraId, d.descripcion, d.cantidad, d.precioUnitario, d.total]);
+                    INSERT INTO compras.compras_detalle (
+                        id, compra_id, descripcion, cantidad, precio_unitario, total, porcentaje_iva, valor_iva, codigo_iva
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                `, [
+                    crypto.randomUUID(),
+                    compraId,
+                    d.descripcion,
+                    d.cantidad,
+                    d.precioUnitario,
+                    d.total,
+                    d.tarifa || 0,
+                    d.valorIVA || 0,
+                    d.codigoIVA || '0'
+                ]);
             }
 
             // 4. Registrar en cartera como pendiente de pago

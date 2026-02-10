@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { ParametrosContablesValidator } from '@/modules/contabilidad/application/services/ParametrosContablesValidator';
+import { NOMINA_CONSTANTS } from '@/shared/constants/nomina.constants';
 
 /**
  * GET /api/nomina/roles
@@ -129,20 +130,23 @@ export async function POST(req: NextRequest) {
 
             // Calcular valores base para cada empleado
             const rolesGenerados: any[] = [];
-            const sbu2024 = 460.00; // Salario Básico Unificado 2024
+            const sbuVigente = Number(params.sbu) || NOMINA_CONSTANTS.SBU_DEFAULT;
+            const pctAportePersonal = (Number(params.aporte_personal_iess) || NOMINA_CONSTANTS.APORTE_PERSONAL_DEFAULT) / 100;
+            const pctAportePatronal = (Number(params.aporte_patronal_iess) || NOMINA_CONSTANTS.APORTE_PATRONAL_DEFAULT) / 100;
+            const pctFondoReserva = (Number(params.fondo_reserva_porcentaje) || 8.33) / 100;
 
             for (const empleado of empleados) {
                 const sueldoBase = parseFloat(empleado.sueldo_base);
 
                 // 1. Cálculos de Egresos (Aporte Personal)
-                const aportePersonal = sueldoBase * 0.0945; // 9.45% IESS
+                const aportePersonal = sueldoBase * pctAportePersonal; // Parametrizado
 
                 // 2. Provisiones y Beneficios (Gastos para la empresa)
-                const aportePatronal = sueldoBase * 0.1215; // 12.15% IESS
-                const decimoTercero = sueldoBase / 12;
-                const decimoCuarto = sbu2024 / 12;
-                const fondosReserva = sueldoBase * 0.0833; // Simplificado: 8.33%
-                const vacaciones = sueldoBase / 24;
+                const aportePatronal = sueldoBase * pctAportePatronal; // Parametrizado
+                const decimoTercero = sueldoBase / NOMINA_CONSTANTS.MESES_ANIO;
+                const decimoCuarto = sbuVigente / NOMINA_CONSTANTS.MESES_ANIO;
+                const fondosReserva = sueldoBase * pctFondoReserva; // Parametrizado
+                const vacaciones = sueldoBase / (Number(params.divisor_vacaciones) || 24);
 
                 const totalIngresos = sueldoBase;
                 const totalEgresos = aportePersonal; // Sin considerar préstamos/anticipos aquí

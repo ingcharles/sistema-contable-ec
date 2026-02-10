@@ -92,7 +92,6 @@ export default function GuiasRemisionPage() {
                 <GuiaRemisionModal
                     onClose={() => setShowModalGuia(false)}
                     onSave={() => { loadData(); setShowModalGuia(false); }}
-                    empresaId={currentEmpresa?.id || ''}
                 />
             )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Truck, MapPin, Package, User, Plus, AlertCircle } from 'lucide-react';
+import { Save, Truck, MapPin, Package, User, Plus, AlertCircle, FileText } from 'lucide-react';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
@@ -11,12 +11,12 @@ import { TransportistaModal } from './TransportistaModal';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { getLocalDateIso } from '@/shared/utils/dateUtils';
+import { useEmpresa } from '@/shared/context/EmpresaContext';
 
 interface GuiaRemisionModalProps {
     facturaReferencia?: any;
     onClose: () => void;
     onSave: () => void;
-    empresaId: string;
 }
 
 export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRemisionModalProps) => {
@@ -25,11 +25,13 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     const { transportistas, cargarTransportistas } = useTransportistas();
     const [transportistaId, setTransportistaId] = useState('');
     const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
-    const [puntoEmisionId, setPuntoEmisionId] = useState(puntoActivo?.puntoEmisionId || '');
+    const puntoEmisionId = puntoActivo?.puntoEmisionId;
     const [puntoPartida, setPuntoPartida] = useState('Matriz / Bodega Principal');
     const [puntoDestino, setPuntoDestino] = useState(facturaReferencia?.direccion || '');
+    const [fechaEmision, setFechaEmision] = useState(getLocalDateIso());
     const [fechaInicio, setFechaInicio] = useState(getLocalDateIso());
     const [fechaFin, setFechaFin] = useState(getLocalDateIso());
+
     const [motivo, setMotivo] = useState(MotivoTraslado.VENTA);
     const [showNuevoTransportista, setShowNuevoTransportista] = useState(false);
     const [guardando, setGuardando] = useState(false);
@@ -44,19 +46,16 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
             try {
                 if (puntosContext && puntosContext.length > 0) {
                     setPuntosEmision(puntosContext);
-                    if (!puntoEmisionId && puntoActivo) setPuntoEmisionId(puntoActivo.puntoEmisionId || puntosContext[0].id);
-                    else if (!puntoEmisionId && puntosContext.length > 0) setPuntoEmisionId(puntosContext[0].puntoEmisionId || puntosContext[0].id);
                 } else {
                     const puntos = await FacturacionUseCases.listarPuntosEmision();
                     setPuntosEmision(puntos);
-                    if (!puntoEmisionId && puntos.length > 0) setPuntoEmisionId(puntos[0].id);
                 }
             } catch (e) {
                 console.error('Error al cargar puntos de emisión:', e);
             }
         };
         cargarPuntos();
-    }, [puntosContext, puntoActivo, puntoEmisionId]);
+    }, [puntosContext]);
 
     useEffect(() => {
         if (transportistas.length > 0 && !transportistaId) {
@@ -65,6 +64,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     }, [transportistas, transportistaId]);
 
     const handleGuardar = async () => {
+        if (!currentEmpresa) return;
         if (!transportistaId || !puntoPartida || !puntoDestino || !puntoEmisionId) {
             setErrorValidacion('Por favor complete los campos obligatorios.');
             return;
@@ -93,9 +93,11 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
 
             const payload = {
                 puntoEmisionId,
+                generarGuia: true,
                 transportistaId,
-                fechaEmision: getLocalDateIso(),
+                fechaEmision,
                 dirPartida: puntoPartida,
+                clienteId: facturaReferencia?.clienteId,
                 destinatarios: [
                     {
                         identificacion: facturaReferencia?.identificacionComprador || '9999999999999',
@@ -104,7 +106,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                         motivo: motivo,
                         numDocSustento: facturaReferencia?.secuencial?.replace(/-/g, ''),
                         fechaEmisionDocSustento: facturaReferencia?.fechaEmision || getLocalDateIso(),
-                        detalles: facturaReferencia?.items?.map((i: any) => ({
+                        detalles: (facturaReferencia?.detalles || facturaReferencia?.items)?.map((i: any) => ({
                             codigoPrincipal: i.codigo || i.codigoPrincipal || 'S/N',
                             descripcion: i.nombre || i.descripcion,
                             cantidad: i.cantidad || 1
@@ -169,37 +171,35 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                         </div>
                         <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Punto de Emisión y Secuencial</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gradient-to-br from-slate-50 to-slate-100/50 p-6 rounded-2xl border border-slate-200 shadow-sm mb-6">
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                <Plus size={14} className="text-sri-blue" /> Punto de Emisión *
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 font-mono">
+                                <FileText size={14} className="text-sri-blue" /> Punto de Emisión (Estab-PtoEmi-Secuencial)
                             </label>
-                            <select
-                                value={puntoEmisionId}
-                                onChange={(e) => setPuntoEmisionId(e.target.value)}
-                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-bold text-sri-blue"
-                            >
-                                {puntosEmision.length === 0 && <option value="">No hay puntos disponibles</option>}
-                                {puntosEmision.map(p => (
-                                    <option key={p.puntoEmisionId || p.id} value={p.puntoEmisionId || p.id}>
-                                        {p.nombrePunto || p.nombre || 'Punto'} ({p.codigoPunto || p.codigo}) - {p.nombreSucursal || p.sucursalNombre || 'Sucursal'}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                <AlertCircle size={14} className="text-sri-blue" /> Secuencial Próximo
-                            </label>
-                            <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-black text-slate-600">
+                            <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-sri-blue">
                                 {(() => {
-                                    const p = puntosEmision.find(p => p.id === puntoEmisionId);
+                                    const p = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
                                     const seq = p?.secuenciales?.find((s: any) => s.tipoComprobante === '06')?.secuencialActual || 1;
                                     return `${p?.sucursalCodigo || '001'}-${p?.codigo || '001'}-${seq.toString().padStart(9, '0')}`;
                                 })()}
                             </div>
                         </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <AlertCircle size={14} className="text-sri-blue" /> Fecha de Emisión
+                            </label>
+                            <input
+                                type="date"
+                                value={fechaEmision}
+                                onChange={(e) => setFechaEmision(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-bold text-slate-700"
+                                disabled
+                            />
+                        </div>
                     </div>
+
+
+
 
                     <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
                         <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
@@ -313,7 +313,7 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {facturaReferencia?.items?.map((item: any, idx: number) => (
+                                {(facturaReferencia?.detalles || facturaReferencia?.items)?.map((item: any, idx: number) => (
                                     <tr key={idx} className="hover:bg-sri-blue/5 transition-colors">
                                         <td className="py-3 px-4 font-medium text-slate-700">{item.nombre || item.descripcion}</td>
                                         <td className="py-3 px-4 font-bold text-slate-400">{item.unidadMedida || 'UND'}</td>

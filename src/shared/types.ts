@@ -13,8 +13,9 @@ export enum EstadoSRI {
     PENDIENTE = 'PENDIENTE',
     AUTORIZADO = 'AUTORIZADO',
     ANULADO = 'ANULADO',
-    DEVUELTO = 'DEVUELTO',
-    RECHAZADO = 'RECHAZADO'
+    DEVUELTA = 'DEVUELTA',
+    RECHAZADO = 'RECHAZADO',
+    NO_AUTORIZADO = 'NO AUTORIZADO'
 }
 
 export enum TipoComprobante {
@@ -176,6 +177,7 @@ export interface Factura extends Auditable {
     direccionComprador?: string;
     detalles?: any[];
     totalIVA?: number;
+    mensajesSri?: any; // JSON string or object from DB
 }
 
 export interface GuiaRemision extends Auditable {

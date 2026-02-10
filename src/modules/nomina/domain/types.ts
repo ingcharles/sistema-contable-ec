@@ -109,6 +109,13 @@ export interface Liquidacion extends Auditable {
     asientoId?: string;
 }
 
+export interface PagoRol {
+    periodo: string;
+    fechaPago: string;
+    bancoId?: string;
+    metodoPago: string;
+}
+
 export interface NominaRepository {
     getEmpleados(empresaId: string): Promise<Empleado[]>;
     saveEmpleado(empleado: Empleado): Promise<void>;

@@ -15,6 +15,7 @@ export interface DetalleFactura {
     codigoIVA: string; // Catálogo 4 (Tarifa IVA)
     baseImponible: number;
     valorIVA: number;
+    tarifa: number;
     total: number;
 }
 

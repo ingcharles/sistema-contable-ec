@@ -183,7 +183,7 @@ export default function FirmaElectronicaConfigPage() {
                                     </div>
                                     <div className="flex justify-between items-center py-2 border-b border-slate-200">
                                         <span className="text-sm text-slate-500">Expira el</span>
-                                        <span className="text-sm font-mono font-medium">{certificadoInfo.fechaExpiracion}</span>
+                                        <span className="text-sm font-mono font-medium">{certificadoInfo.fechaExpiracion?.split('T')[0]}</span>
                                     </div>
                                     <div className="flex justify-between items-center py-2 border-b border-slate-200">
                                         <span className="text-sm text-slate-500">Días restantes</span>

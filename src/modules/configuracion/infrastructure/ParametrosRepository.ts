@@ -57,6 +57,7 @@ export class ParametrosRepository {
             cuentaSobranteInventario: row.cuenta_sobrante_inventario || '4.2.01.01',
             cuentaFaltanteInventario: row.cuenta_faltante_inventario || '5.2.01.01',
 
+            sriTipoEmision: row.sri_tipo_emision || '1',
             fechaCierre: row.fecha_cierre
         };
     }

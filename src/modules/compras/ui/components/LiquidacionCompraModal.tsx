@@ -6,11 +6,11 @@ import { Modal } from '@/shared/ui/Modal';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
-import { ComprasUseCases, ContabilidadUseCases, ConfiguracionUseCases, FacturacionUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
+import { ComprasUseCases, ConfiguracionUseCases, InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { Producto } from '@/modules/inventario/domain/types';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
+
 
 interface Props {
     onClose: () => void;
@@ -21,12 +21,20 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     const { currentEmpresa } = useEmpresa();
     const { puntoActivo } = usePuntoEmision();
 
-    const [estab, setEstab] = useState(puntoActivo?.codigoEstablecimiento || '001');
-    const [ptoEmi, setPtoEmi] = useState(puntoActivo?.codigoPunto || '001');
-    const [secuencial, setSecuencial] = useState('');
+    const [generarGuia, setGenerarGuia] = useState(false);
+    const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
+
+    useEffect(() => {
+        const loadPuntos = async () => {
+            const res = await FacturacionUseCases.listarPuntosEmision();
+            setPuntosEmision(res || []);
+        };
+        loadPuntos();
+    }, []);
+
+    const puntoEmisionId = puntoActivo?.puntoEmisionId;
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [productos, setProductos] = useState<Producto[]>([]);
-    const [bodegas, setBodegas] = useState<any[]>([]);
 
     const [nombre, setNombre] = useState('');
     const [identificacion, setIdentificacion] = useState('');
@@ -43,6 +51,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         codigoIVA: '0',
         baseImponible: 0,
         valorIVA: 0,
+        tarifa: 0,
         total: 0
     }]);
 
@@ -54,10 +63,6 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     const [catalogoIdentificacion, setCatalogoIdentificacion] = useState<any[]>([]);
     const [catalogoIva, setCatalogoIva] = useState<any[]>([]);
     const [catalogoFormasPago, setCatalogoFormasPago] = useState<any[]>([]);
-    const [catalogoCodigoImpuesto, setCatalogoCodigoImpuesto] = useState<any[]>([]);
-    const [catalogoTipoEmision, setCatalogoTipoEmision] = useState<any[]>([]);
-    const [catalogoTipoComprobante, setCatalogoTipoComprobante] = useState<any[]>([]);
-    const [catalogoAmbiente, setCatalogoAmbiente] = useState<any[]>([]);
 
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
@@ -67,22 +72,14 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     useEffect(() => {
         const cargarCatalogos = async () => {
             try {
-                const [iden, iva, pagos, codImp, tEmi, tComp, ambRes] = await Promise.all([
+                const [iden, iva, pagos] = await Promise.all([
                     ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_IDENTIFICACION'),
                     ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_IMPUESTO_IVA'),
-                    ConfiguracionUseCases.obtenerCatalogo('SRI_FORMA_PAGO'),
-                    ConfiguracionUseCases.obtenerCatalogo('SRI_CODIGO_IMPUESTO'),
-                    ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_EMISION'),
-                    ConfiguracionUseCases.obtenerCatalogo('SRI_TIPO_COMPROBANTE'),
-                    ConfiguracionUseCases.obtenerAmbientesSRI()
+                    ConfiguracionUseCases.obtenerCatalogo('SRI_FORMA_PAGO')
                 ]);
                 setCatalogoIdentificacion(iden);
                 setCatalogoIva(iva);
                 setCatalogoFormasPago(pagos);
-                setCatalogoCodigoImpuesto(codImp);
-                setCatalogoTipoEmision(tEmi);
-                setCatalogoTipoComprobante(tComp);
-                setCatalogoAmbiente(ambRes.ambientes || []);
             } catch (error) {
                 console.error('Error al cargar catálogos:', error);
             }
@@ -115,13 +112,8 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         }
     }, [totales.importeTotal]);
 
-    // Sincronizar con punto activo si cambia
-    useEffect(() => {
-        if (puntoActivo) {
-            setEstab(puntoActivo.codigoEstablecimiento);
-            setPtoEmi(puntoActivo.codigoPunto);
-        }
-    }, [puntoActivo]);
+    // Limpieza de efectos obsoletos de sincronización manual
+    useEffect(() => { }, [puntoActivo]);
 
     const parametros = currentEmpresa?.parametros;
 
@@ -155,8 +147,6 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         const loadData = async () => {
             const prodRes = await InventarioUseCases.listarProductos('?limit=1000');
             setProductos(prodRes.data || []);
-            const bodRes = await InventarioUseCases.listarBodegas();
-            setBodegas(bodRes || []);
         };
         loadData();
     }, []);
@@ -173,6 +163,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         else if (detalle.codigoIVA === '2') porcentaje = 0.12;
 
         detalle.valorIVA = detalle.baseImponible * porcentaje;
+        detalle.tarifa = porcentaje * 100;
         detalle.total = detalle.baseImponible + detalle.valorIVA;
 
         nuevosDetalles[index] = detalle;
@@ -181,7 +172,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
     };
 
     const handleGuardar = async () => {
-        if (!nombre || !identificacion || !secuencial || detalles.some(d => !d.descripcion)) {
+        if (!nombre || !identificacion || !puntoEmisionId || detalles.some(d => !d.descripcion)) {
             setErrorValidacion('Por favor complete todos los campos obligatorios.');
             return;
         }
@@ -190,7 +181,8 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
         setErrorValidacion(null);
         try {
             const payload = {
-                puntoEmisionId: puntoActivo?.puntoEmisionId || '',
+                puntoEmisionId,
+                generarGuia,
                 fechaEmision,
                 proveedor: {
                     tipoIdentificacion,
@@ -200,12 +192,14 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                 },
                 detalles: detalles.map(d => ({
                     ...d,
-                    codigoImpuesto: catalogoCodigoImpuesto.find(i => i.valor === 'IVA')?.codigo || '2'
+                    codigo_iva: d.codigoIVA,
+                    porcentaje_iva: d.tarifa
                 })),
                 pagos
             };
 
-            const res = await ComprasUseCases.emitirLiquidacion(payload);
+            // @ts-ignore - registrarLiquidacion exists in ComprasUseCases
+            const res = await ComprasUseCases.registrarLiquidacion(payload);
 
             if (res.success) {
                 if (res.estado === 'AUTORIZADO') {
@@ -270,26 +264,37 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                     </div>
                 )}
                 {/* Encabezado Documento */}
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Información del Documento</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Establecimiento</label>
-                            <input type="text" value={estab} onChange={e => setEstab(e.target.value)} maxLength={3} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Punto Emisión</label>
-                            <input type="text" value={ptoEmi} onChange={e => setPtoEmi(e.target.value)} maxLength={3} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Secuencial</label>
-                            <input type="text" value={secuencial} onChange={e => setSecuencial(e.target.value)} maxLength={9} placeholder="000000001" className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono text-sri-blue font-bold" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Fecha Emisión</label>
-                            <input type="date" value={fechaEmision} onChange={e => setFechaEmision(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all" />
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase font-mono">Punto de Emisión (Estab-PtoEmi-Secuencial)</label>
+                        <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-sri-blue">
+                            {(() => {
+                                const p = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
+                                const seq = p?.secuenciales?.find((s: any) => s.tipoComprobante === '03')?.secuencialActual || 1;
+                                return `${p?.sucursalCodigo || '001'}-${p?.codigo || '001'}-${seq.toString().padStart(9, '0')}`;
+                            })()}
                         </div>
                     </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Fecha Emisión</label>
+                        <input type="date" value={fechaEmision} onChange={e => setFechaEmision(e.target.value)} className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold text-slate-700" disabled />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-4 bg-emerald-50 rounded-2xl border border-emerald-100 mb-4">
+                    <Truck className="text-emerald-500" size={20} />
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            checked={generarGuia}
+                            onChange={(e) => setGenerarGuia(e.target.checked)}
+                            className="w-5 h-5 rounded border-emerald-200 text-emerald-600 focus:ring-emerald-500 transition-all"
+                        />
+                        <div>
+                            <span className="text-sm font-black text-emerald-800 uppercase tracking-wider">Generar Guía de Remisión</span>
+                            <p className="text-[10px] text-emerald-600 font-bold uppercase opacity-70">Se generará un documento de traslado automáticamente</p>
+                        </div>
+                    </label>
                 </div>
 
                 {/* Beneficiario */}
@@ -344,7 +349,7 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                         <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                             <Calculator size={18} className="text-sri-blue" /> Detalles de la Liquidación
                         </h3>
-                        <button onClick={() => setDetalles([...detalles, { codigoPrincipal: 'GEN-01', descripcion: '', cantidad: 1, precioUnitario: 0, descuento: 0, codigoIVA: '0', baseImponible: 0, valorIVA: 0, total: 0 }])} className="px-4 py-2 bg-sri-blue/10 text-sri-blue rounded-xl text-xs font-black flex items-center gap-2 hover:bg-sri-blue hover:text-white transition-all">
+                        <button onClick={() => setDetalles([...detalles, { codigoPrincipal: 'GEN-01', descripcion: '', cantidad: 1, precioUnitario: 0, descuento: 0, codigoIVA: '0', baseImponible: 0, valorIVA: 0, tarifa: 0, total: 0 }])} className="px-4 py-2 bg-sri-blue/10 text-sri-blue rounded-xl text-xs font-black flex items-center gap-2 hover:bg-sri-blue hover:text-white transition-all">
                             <Plus size={16} /> Añadir Ítem
                         </button>
                     </div>
@@ -392,10 +397,22 @@ export const LiquidacionCompraModal = ({ onClose, onSave }: Props) => {
                                             </div>
                                         </td>
                                         <td className="px-4 py-4">
-                                            <input type="number" value={d.cantidad} onChange={e => handleActualizarDetalle(i, 'cantidad', Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-center font-bold text-slate-700 outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all" />
+                                            <input
+                                                type="number"
+                                                value={d.cantidad}
+                                                onChange={e => handleActualizarDetalle(i, 'cantidad', parseFloat(e.target.value) || 0)}
+                                                step="1"
+                                                className="w-full px-3 py-2 text-center font-bold bg-white text-sri-blue border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono"
+                                            />
                                         </td>
                                         <td className="px-4 py-4">
-                                            <input type="number" value={d.precioUnitario} onChange={e => handleActualizarDetalle(i, 'precioUnitario', Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-right font-bold text-slate-700 outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-mono" />
+                                            <input
+                                                type="number"
+                                                value={d.precioUnitario}
+                                                onChange={e => handleActualizarDetalle(i, 'precioUnitario', parseFloat(e.target.value) || 0)}
+                                                step="0.01"
+                                                className="w-full px-3 py-2 text-right font-bold font-mono bg-white text-sri-blue border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                                            />
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <select value={d.codigoIVA} onChange={e => handleActualizarDetalle(i, 'codigoIVA', e.target.value)} className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-black text-sri-blue outline-none border-none">

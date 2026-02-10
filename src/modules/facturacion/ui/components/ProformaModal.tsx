@@ -1,7 +1,7 @@
-'use client';
-
+import { useState, useEffect } from 'react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { InventarioUseCases, TercerosUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Proforma } from '@/modules/facturacion/domain/types';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Save, Plus, Trash2 } from 'lucide-react';
@@ -12,7 +12,7 @@ interface ProformaModalProps {
     open: boolean;
     onClose: () => void;
     onSave: () => void;
-    proforma?: any;
+    proforma?: Proforma;
 }
 
 export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModalProps) {
@@ -37,9 +37,9 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
         if (open) {
             loadInitialData();
             if (proforma) {
-                setClienteId(proforma.cliente_id);
+                setClienteId(proforma.clienteId);
                 setFecha(proforma.fecha);
-                setValidezDias(proforma.validez_dias);
+                // setValidezDias(proforma.validezDias); // Adjust if validezDias is on Proforma
                 setObservaciones(proforma.observaciones || '');
                 setItems(proforma.detalles || []);
             } else {
@@ -69,18 +69,18 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
         const prod = productos.find(p => p.id === selectedProducto);
         if (!prod) return;
 
-        const subtotal = prod.precio_venta * cantidad;
+        const subtotal = prod.precioVenta * cantidad;
         const ivaValue = (parametros?.ivaValor || 15) / 100;
-        const valorIva = prod.graba_iva ? subtotal * ivaValue : 0;
+        const valorIva = prod.grabaIva ? subtotal * ivaValue : 0;
 
         const newItem = {
-            producto_id: prod.id,
+            productoId: prod.id,
             descripcion: prod.nombre,
             cantidad,
-            precio_unitario: prod.precio_venta,
+            precioUnitario: prod.precioVenta,
             subtotal,
-            porcentaje_iva: prod.graba_iva ? (parametros?.ivaValor || 15) : 0,
-            valor_iva: valorIva,
+            porcentajeIva: prod.grabaIva ? (parametros?.ivaValor || 15) : 0,
+            valorIva: valorIva,
             total: subtotal + valorIva
         };
 
@@ -94,11 +94,11 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
     };
 
     const totals = items.reduce((acc, item) => ({
-        subtotal_iva: acc.subtotal_iva + (item.porcentaje_iva > 0 ? item.subtotal : 0),
-        subtotal_0: acc.subtotal_0 + (item.porcentaje_iva === 0 ? item.subtotal : 0),
-        monto_iva: acc.monto_iva + item.valor_iva,
+        subtotalIva: acc.subtotalIva + (item.porcentajeIva > 0 ? item.subtotal : 0),
+        subtotal0: acc.subtotal0 + (item.porcentajeIva === 0 ? item.subtotal : 0),
+        valorIva: acc.valorIva + item.valorIva,
         total: acc.total + item.total
-    }), { subtotal_iva: 0, subtotal_0: 0, monto_iva: 0, total: 0 });
+    }), { subtotalIva: 0, subtotal0: 0, valorIva: 0, total: 0 });
 
     const handleSave = async () => {
         if (!clienteId || items.length === 0) {
@@ -110,9 +110,9 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
         try {
             const payload = {
                 id: proforma?.id,
-                cliente_id: clienteId,
+                clienteId: clienteId,
                 fecha,
-                validez_dias: validezDias,
+                // validezDias: validezDias,
                 observaciones,
                 items,
                 ...totals
@@ -147,7 +147,7 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
                         >
                             <option value="">Seleccionar Cliente...</option>
                             {clientes.map(c => (
-                                <option key={c.id} value={c.id}>{c.razon_social} ({c.identificacion})</option>
+                                <option key={c.id} value={c.id}>{c.razonSocial} ({c.identificacion})</option>
                             ))}
                         </select>
                     </div>
@@ -182,7 +182,7 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
                         >
                             <option value="">Buscar producto...</option>
                             {productos.map(p => (
-                                <option key={p.id} value={p.id}>{p.nombre} - {formatMoney(p.precio_venta)}</option>
+                                <option key={p.id} value={p.id}>{p.nombre} - {formatMoney(p.precioVenta)}</option>
                             ))}
                         </select>
                     </div>
@@ -218,7 +218,7 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
                                 <tr key={idx} className="hover:bg-slate-50">
                                     <td className="px-4 py-3">{item.descripcion}</td>
                                     <td className="px-4 py-3 text-right font-medium">{item.cantidad}</td>
-                                    <td className="px-4 py-3 text-right text-slate-500">{formatMoney(item.precio_unitario)}</td>
+                                    <td className="px-4 py-3 text-right text-slate-500">{formatMoney(item.precioUnitario)}</td>
                                     <td className="px-4 py-3 text-right font-bold text-slate-700">{formatMoney(item.total)}</td>
                                     <td className="px-4 py-3">
                                         <button onClick={() => removeItem(idx)} className="text-slate-400 hover:text-red-500 transition-colors">
@@ -250,15 +250,15 @@ export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModal
                     <div className="bg-slate-50 p-6 rounded-2xl flex flex-col gap-3">
                         <div className="flex justify-between items-center text-slate-600">
                             <span className="text-sm font-medium">Subtotal Gravado ({parametros?.ivaEtiqueta || '15%'})</span>
-                            <span className="font-bold">{formatMoney(totals.subtotal_iva)}</span>
+                            <span className="font-bold">{formatMoney(totals.subtotalIva)}</span>
                         </div>
                         <div className="flex justify-between items-center text-slate-600">
                             <span className="text-sm font-medium">Subtotal Exento (0%)</span>
-                            <span className="font-bold">{formatMoney(totals.subtotal_0)}</span>
+                            <span className="font-bold">{formatMoney(totals.subtotal0)}</span>
                         </div>
                         <div className="flex justify-between items-center text-slate-600">
                             <span className="text-sm font-medium">IVA ({parametros?.ivaEtiqueta || '15%'})</span>
-                            <span className="font-bold">{formatMoney(totals.monto_iva)}</span>
+                            <span className="font-bold">{formatMoney(totals.valorIva)}</span>
                         </div>
                         <div className="border-t border-slate-200 mt-2 pt-4 flex justify-between items-center text-indigo-900">
                             <span className="text-lg font-black uppercase tracking-wider">Total</span>

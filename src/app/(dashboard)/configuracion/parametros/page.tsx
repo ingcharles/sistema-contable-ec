@@ -5,10 +5,10 @@ import { Settings, Save } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { Button } from '@/shared/ui/Button';
 import { useToast } from '@/shared/context/ToastContext';
 import { CuentaContable } from '@/shared/types';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
+import { NOMINA_CONSTANTS } from '@/shared/constants/nomina.constants';
 
 export default function ParametrosConfigPage() {
     const { currentEmpresa } = useEmpresa();
@@ -16,9 +16,10 @@ export default function ParametrosConfigPage() {
     const { showToast } = useToast();
     const [planCuentasMovimiento, setPlanCuentasMovimiento] = useState<CuentaContable[]>([]);
 
-    // Cargar Catálogo IVA
-    const { getCatalogo } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA']);
+    // Cargar Catálogos SRI
+    const { getCatalogo } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA', 'SRI_TIPO_EMISION']);
     const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
+    const tiposEmision = getCatalogo('SRI_TIPO_EMISION');
     console.log("a", tarifasIVA);
     useEffect(() => {
         if (!currentEmpresa) return;
@@ -87,6 +88,28 @@ export default function ParametrosConfigPage() {
                             </div>
                         </div>
                         <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">
+                                Tipo de Emisión (SRI)
+                            </label>
+                            <select
+                                value={parametros.sriTipoEmision || '1'}
+                                onChange={e => {
+                                    setParametros({ ...parametros, sriTipoEmision: e.target.value })
+                                }}
+                                className="w-full border rounded-lg p-2.5 text-sm"
+                            >
+                                {tiposEmision.map(t => (
+                                    <option key={t.codigo} value={t.codigo}>{t.valor} ({t.codigo})</option>
+                                ))}
+                                {tiposEmision.length === 0 && (
+                                    <>
+                                        <option value="1">NORMAL (1)</option>
+                                        <option value="2">INDISPONIBILIDAD DEL SISTEMA (2)</option>
+                                    </>
+                                )}
+                            </select>
+                        </div>
+                        <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">Máximo Consumidor Final ($)</label>
                             <input
                                 type="number"
@@ -101,6 +124,53 @@ export default function ParametrosConfigPage() {
                                 type="date"
                                 value={parametros.fechaCierre ? parametros.fechaCierre.split('T')[0] : ''}
                                 onChange={e => setParametros({ ...parametros, fechaCierre: e.target.value || null })}
+                                className="w-full border rounded-lg p-2.5 text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Valores de Nómina */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-4 col-span-1 md:col-span-3">
+                            <h4 className="text-xs font-bold text-sri-blue uppercase tracking-widest">Valores de Nómina (%)</h4>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Aporte Personal IESS (%)</label>
+                            <input
+                                type="number"
+                                value={parametros.aportePersonalIess || NOMINA_CONSTANTS.APORTE_PERSONAL_DEFAULT}
+                                onChange={e => setParametros({ ...parametros, aportePersonalIess: Number(e.target.value) })}
+                                className="w-full border rounded-lg p-2.5 text-sm"
+                                step="0.01"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Aporte Patronal IESS (%)</label>
+                            <input
+                                type="number"
+                                value={parametros.aportePatronalIess || NOMINA_CONSTANTS.APORTE_PATRONAL_DEFAULT}
+                                onChange={e => setParametros({ ...parametros, aportePatronalIess: Number(e.target.value) })}
+                                className="w-full border rounded-lg p-2.5 text-sm"
+                                step="0.01"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Fondo Reserva (%)</label>
+                            <input
+                                type="number"
+                                value={parametros.fondoReservaPorcentaje || NOMINA_CONSTANTS.FONDO_RESERVA_PORCENTAJE_DEFAULT}
+                                onChange={e => setParametros({ ...parametros, fondoReservaPorcentaje: parseFloat(e.target.value) || 0 })}
+                                step="0.01"
+                                className="w-full border rounded-lg p-2.5 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Divisor Vacaciones</label>
+                            <input
+                                type="number"
+                                value={parametros.divisorVacaciones || 24}
+                                onChange={e => setParametros({ ...parametros, divisorVacaciones: parseInt(e.target.value) || 0 })}
+                                step="1"
                                 className="w-full border rounded-lg p-2.5 text-sm"
                             />
                         </div>
