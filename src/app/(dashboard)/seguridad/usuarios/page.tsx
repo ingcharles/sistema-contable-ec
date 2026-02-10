@@ -11,6 +11,8 @@ import { Rol } from '@/modules/seguridad/domain/types';
 import { useToast } from '@/shared/context/ToastContext';
 import { Modal } from '@/shared/ui/Modal';
 import { MultiSelect } from '@/shared/ui/MultiSelect';
+import { PlanesUseCases } from '@/modules/seguridad/application/useCases/PlanesUseCases';
+import { Plan } from '@/shared/types';
 
 interface Usuario {
     id: string;
@@ -19,6 +21,7 @@ interface Usuario {
     activo: boolean;
     roles: string[];
     password?: string;
+    planId?: string;
 }
 
 export default function UsuariosPage() {
@@ -26,6 +29,7 @@ export default function UsuariosPage() {
     const { showToast } = useToast();
     const [usuarios, setUsuarios] = useState<Usuario[]>([]);
     const [roles, setRoles] = useState<Rol[]>([]);
+    const [planes, setPlanes] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [currentUser, setCurrentUser] = useState<Partial<Usuario> | null>(null);
@@ -40,12 +44,14 @@ export default function UsuariosPage() {
     const cargarDatos = async () => {
         try {
             setLoading(true);
-            const [usersData, rolesData] = await Promise.all([
+            const [usersData, rolesData, planesData] = await Promise.all([
                 UsuariosUseCases.listarUsuarios(),
-                RolesUseCases.listarRoles()
+                RolesUseCases.listarRoles(),
+                PlanesUseCases.listarPlanes()
             ]);
             setUsuarios(usersData.usuarios || []);
             setRoles(rolesData || []);
+            setPlanes(planesData || []);
         } catch (error) {
             console.error(error);
             showToast('Error al cargar datos', 'error');
@@ -235,6 +241,22 @@ export default function UsuariosPage() {
                             onChange={(vals) => setCurrentUser({ ...currentUser, roles: vals })}
                             placeholder="Seleccione roles..."
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Plan de Suscripción</label>
+                        <select
+                            value={currentUser?.planId || ''}
+                            onChange={e => setCurrentUser({ ...currentUser, planId: e.target.value })}
+                            className="w-full border rounded-lg p-2.5 text-sm"
+                        >
+                            <option value="">-- Sin Plan --</option>
+                            {planes.map(plan => (
+                                <option key={plan.id} value={plan.id}>
+                                    {plan.nombre} ({plan.precioMensual > 0 ? `$${plan.precioMensual}` : 'Gratis'})
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="flex items-center gap-2 pt-2">

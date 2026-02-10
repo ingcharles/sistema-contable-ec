@@ -17,22 +17,24 @@ export async function GET(req: NextRequest) {
 
             // 1. Ventas del día
             const ventasToday = await client.query(`
-                SELECT COALESCE(SUM(total), 0) as total
-                FROM facturacion.comprobantes_electronicos
-                WHERE empresa_id = $1 
-                AND tipo_comprobante = '01'
-                AND fecha_emision = CURRENT_DATE
-                AND estado = 'AUTORIZADO'
+                SELECT COALESCE(SUM(c.total), 0) as total
+                FROM facturacion.comprobantes_electronicos c
+                JOIN configuracion.catalogos_items ci ON c.tipo_comprobante_id = ci.id
+                WHERE c.empresa_id = $1 
+                AND ci.codigo = '01'
+                AND c.fecha_emision = CURRENT_DATE
+                AND c.estado = 'AUTORIZADO'
             `, [context.empresaId]);
 
             // 2. Ventas del mes
             const ventasMonth = await client.query(`
-                SELECT COALESCE(SUM(total), 0) as total
-                FROM facturacion.comprobantes_electronicos
-                WHERE empresa_id = $1 
-                AND tipo_comprobante = '01'
-                AND estado = 'AUTORIZADO'
-                AND date_trunc('month', fecha_emision) = date_trunc('month', CURRENT_DATE)
+                SELECT COALESCE(SUM(c.total), 0) as total
+                FROM facturacion.comprobantes_electronicos c
+                JOIN configuracion.catalogos_items ci ON c.tipo_comprobante_id = ci.id
+                WHERE c.empresa_id = $1 
+                AND ci.codigo = '01'
+                AND c.estado = 'AUTORIZADO'
+                AND date_trunc('month', c.fecha_emision) = date_trunc('month', CURRENT_DATE)
             `, [context.empresaId]);
 
             // 3. Cuentas por Cobrar (Vencidas)

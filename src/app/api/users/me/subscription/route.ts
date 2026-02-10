@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { validateContext } from '@/shared/middleware/authContext';
+
 import { Usuario, Plan } from '@/shared/types';
+import { PermissionService } from '@/modules/seguridad/application/services/PermissionService';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,8 +36,14 @@ export async function GET(req: NextRequest) {
             usageStats: {
                 createdCompanies: 0,
                 currentMonthDocs: 0
-            }
+            },
+            permissions: [] // Inicializar vacío
         };
+
+        // Calcular permisos efectivos
+        if (userRow.plan_id) {
+            response.permissions = await PermissionService.calculateEffectivePermissions(userRow.id, userRow.plan_id);
+        }
 
         // Si tiene plan, cargamos los detalles
         if (userRow.plan_id) {

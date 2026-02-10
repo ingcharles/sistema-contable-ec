@@ -93,6 +93,7 @@ export interface Usuario {
     id: string;
     nombre: string;
     roles: ('SUPERADMIN' | 'ADMIN' | 'CONTADOR' | 'AUDITOR' | 'ASISTENTE')[];
+    permissions?: string[];
     email: string;
     plan?: Plan; // Plan poblado
     planId?: string;

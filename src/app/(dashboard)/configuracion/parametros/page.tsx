@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Settings, Save } from 'lucide-react';
+import { Button } from '@/shared/ui/Button';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';

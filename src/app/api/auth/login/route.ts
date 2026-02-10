@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { JWTService } from '@/shared/infrastructure/auth/jwt';
+import { PermissionService } from '@/modules/seguridad/application/services/PermissionService';
 import crypto from 'crypto';
 
 /**
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
         const userResult = await db.querySimple({
             text: `
                 SELECT 
-                    u.id, u.email, u.nombre, u.password_hash, u.activo,
+                    u.id, u.email, u.nombre, u.password_hash, u.activo, u.plan_id,
                     COALESCE(array_agg(r.nombre) FILTER (WHERE r.nombre IS NOT NULL), ARRAY[]::text[]) as roles
                 FROM seguridad.usuarios u
                 LEFT JOIN seguridad.usuarios_roles ur ON u.id = ur.usuario_id
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest) {
             empresaId: selectedEmpresaId,
             email: user.email,
             roles: user.roles
+            // permissions // Opcional: incluir permisos en token si se desea (puede aumentar tamaño)
         });
 
         const refreshToken = JWTService.generateRefreshToken(user.id);
@@ -139,6 +141,11 @@ export async function POST(req: NextRequest) {
             ]
         });
 
+
+
+        // Calcular permisos efectivos
+        const permissions = await PermissionService.calculateEffectivePermissions(user.id, user.plan_id);
+
         await db.querySimple({
             text: `UPDATE seguridad.usuarios SET ultimo_acceso = NOW() WHERE id = $1`,
             values: [user.id]
@@ -150,7 +157,8 @@ export async function POST(req: NextRequest) {
                 id: user.id,
                 email: user.email,
                 nombre: user.nombre,
-                roles: user.roles
+                roles: user.roles,
+                permissions // Incluir permisos calculados
             },
             empresaId: selectedEmpresaId,
             accessToken,

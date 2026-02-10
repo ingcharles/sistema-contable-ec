@@ -21,12 +21,13 @@ export async function GET(req: NextRequest) {
         // 1. Total Ventas del Mes (Facturas emitidas autorizadas o autorizadas en este mes)
         const ventasResult = await db.query({
             text: `
-                SELECT COALESCE(SUM(total), 0) as total 
-                FROM facturacion.comprobantes_electronicos 
-                WHERE empresa_id = $1 
-                AND tipo_comprobante = '01' 
-                AND estado IN ('AUTORIZADO')
-                AND fecha_emision >= $2 AND fecha_emision <= $3
+                SELECT COALESCE(SUM(c.total), 0) as total 
+                FROM facturacion.comprobantes_electronicos c
+                JOIN configuracion.catalogos_items ci ON c.tipo_comprobante_id = ci.id
+                WHERE c.empresa_id = $1 
+                AND ci.codigo = '01' 
+                AND c.estado IN ('AUTORIZADO')
+                AND c.fecha_emision >= $2 AND c.fecha_emision <= $3
             `,
             values: [empresaId, inicioMes, finMes]
         }, { empresaId: empresaId!, usuarioId: context.usuarioId! });
@@ -88,12 +89,20 @@ export async function GET(req: NextRequest) {
                 )
                 SELECT 
                     to_char(m.mes, 'Mon') as name,
-                    (SELECT COALESCE(SUM(total), 0) FROM facturacion.comprobantes_electronicos WHERE empresa_id = $1 AND tipo_comprobante = '01' AND date_trunc('month', fecha_emision) = m.mes AND estado IN ('AUTORIZADO', 'BORRADOR')) as ingresos,
+                    (
+                        SELECT COALESCE(SUM(c.total), 0) 
+                        FROM facturacion.comprobantes_electronicos c
+                        JOIN configuracion.catalogos_items ci ON c.tipo_comprobante_id = ci.id
+                        WHERE c.empresa_id = $1 
+                        AND ci.codigo = '01' 
+                        AND date_trunc('month', c.fecha_emision) = m.mes 
+                        AND c.estado IN ('AUTORIZADO', 'BORRADOR')
+                    ) as ingresos,
                     (SELECT COALESCE(SUM(total), 0) FROM compras.compras WHERE empresa_id = $1 AND date_trunc('month', fecha_emision) = m.mes) as compras,
-                (SELECT COALESCE(SUM(neto_pagar + aporte_patronal + decimo_tercero + decimo_cuarto + fondos_reserva + vacaciones), 0) FROM nomina.nomina_roles WHERE empresa_id = $1 AND periodo = to_char(m.mes, 'YYYY-MM')) as nomina
-            FROM meses m
-            ORDER BY m.mes ASC
-        `,
+                    (SELECT COALESCE(SUM(neto_pagar + aporte_patronal + decimo_tercero + decimo_cuarto + fondos_reserva + vacaciones), 0) FROM nomina.nomina_roles WHERE empresa_id = $1 AND periodo = to_char(m.mes, 'YYYY-MM')) as nomina
+                FROM meses m
+                ORDER BY m.mes ASC
+            `,
             values: [empresaId]
         }, { empresaId: empresaId!, usuarioId: context.usuarioId! });
 

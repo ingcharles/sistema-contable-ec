@@ -10,6 +10,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<boolean>;
     logout: () => void;
     loading: boolean;
+    can: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,7 +20,8 @@ const MOCK_USER: Usuario = {
     id: 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
     nombre: 'Carlos Contador',
     email: 'admin@ecucontable.com',
-    roles: ['CONTADOR', 'ADMIN']
+    roles: ['CONTADOR', 'ADMIN', 'SUPERADMIN'],
+    permissions: ['SEGURIDAD_USUARIOS_VER', 'SEGURIDAD_ROLES_VER'] // Mock permissions
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -42,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             // Asegurar que los IDs estén en localStorage antes de hacer la petición
             localStorage.setItem('current_usuario_id', userId);
-            
+
             const subscriptionData = await UsuariosUseCases.obtenerSuscripcion();
             setUser(prev => {
                 if (!prev) return null;
@@ -79,8 +81,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('current_usuario_id');
     };
 
+    const can = (permission: string): boolean => {
+        if (!user || !user.permissions) return false;
+        return user.permissions.includes(permission);
+    };
+
     return (
-        <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, loading }}>
+        <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, loading, can }}>
             {children}
         </AuthContext.Provider>
     );
