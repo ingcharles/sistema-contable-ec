@@ -24,6 +24,8 @@ export const ICON_MAP: Record<string, LucideIcon> = {
     Settings
 };
 
+export const DEFAULT_VALIDEZ_DIAS = 15;
+
 
 // export const MOCK_EMPRESAS: Empresa[] = [
 //     {

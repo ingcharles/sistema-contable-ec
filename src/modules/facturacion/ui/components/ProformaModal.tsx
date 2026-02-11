@@ -7,6 +7,7 @@ import { Button } from '@/shared/ui/Button';
 import { Save, Plus, Trash2, User, FileText } from 'lucide-react';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { getLocalDateIso } from '@/shared/utils/dateUtils';
+import { DEFAULT_VALIDEZ_DIAS } from '@/shared/constants';
 
 interface ProformaModalProps {
     open: boolean;
@@ -16,7 +17,7 @@ interface ProformaModalProps {
 }
 
 
-const DEFAULT_VALIDEZ_DIAS = 15;
+
 
 export function ProformaModal({ open, onClose, onSave, proforma }: ProformaModalProps) {
     const { currentEmpresa } = useEmpresa();
