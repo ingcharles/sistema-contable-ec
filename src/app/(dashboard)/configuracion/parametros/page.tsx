@@ -21,7 +21,6 @@ export default function ParametrosConfigPage() {
     const { getCatalogo } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA', 'SRI_TIPO_EMISION']);
     const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
     const tiposEmision = getCatalogo('SRI_TIPO_EMISION');
-    console.log("a", tarifasIVA);
     useEffect(() => {
         if (!currentEmpresa) return;
         cargarParametros();

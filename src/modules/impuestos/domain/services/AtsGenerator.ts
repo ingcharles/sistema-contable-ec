@@ -158,7 +158,7 @@ export class AtsGenerator {
 
                     xml += `      <estabRetencion1>001</estabRetencion1>\n`;
                     xml += `      <ptoEmiRetencion1>001</ptoEmiRetencion1>\n`;
-                    xml += `      <secRetencion1>${(c.nro_retencion || '000000001').substring(8)}</secRetencion1>\n`;
+                    xml += `      <secRetencion1>${(c.nro_retencion).substring(8)}</secRetencion1>\n`;
                     xml += `      <autRetencion1>0000000000</autRetencion1>\n`;
                     xml += `      <fechaEmiRet1>${this.fmtDate(c.fecha_emision)}</fechaEmiRet1>\n`;
                 }

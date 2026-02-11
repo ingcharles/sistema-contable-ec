@@ -589,6 +589,7 @@ model PlanFeature {
   id              String   @id @default(uuid())
   planId          String   @map("plan_id")
   featureKey      String   @map("feature_key") // 'MAX_DOCS', 'IA_ACCESS'
+  tipoDocumentoId String?  @map("tipo_documento_id")
   valueType       String   @map("value_type") // 'NUMBER', 'BOOLEAN'
   valueNumber     Int?     @map("value_number")
   valueBool       Boolean? @map("value_bool")

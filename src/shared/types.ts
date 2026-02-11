@@ -61,10 +61,9 @@ export interface ParametrosEmpresa {
     cuentaIvaPorPagar: string;
     cuentaCostoVentas: string;
     fechaCierre: string | null;
-    // Datos adicionales que puedan venir de la base de datos
-    ivaValor?: number; // Porcentaje calculado (ej: 15)
-    ivaCodigo?: string; // Código SRI (ej: '4')
-    ivaEtiqueta?: string; // Etiqueta (ej: '15%')
+    ivaValor: number;
+    ivaCodigo: string;
+    ivaEtiqueta: string;
 }
 
 export interface Empresa {

@@ -13,7 +13,7 @@ import { formatMoney } from '@/shared/utils/formatearDinero';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
-import { obtenerPeriodoFiscal } from '@/shared/utils/dateUtils';
+import { obtenerPeriodoFiscal, getLocalDateIso } from '@/shared/utils/dateUtils';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Modal } from '@/shared/ui/Modal';
 import { Trash2, Plus } from 'lucide-react';
@@ -41,16 +41,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     const [proveedorNombre, setProveedorNombre] = useState(ordenPrevia?.proveedor.razonSocial || xmlPrevio?.razonSocialEmisor || '');
     const [proveedorRuc, setProveedorRuc] = useState(ordenPrevia?.proveedor.ruc || xmlPrevio?.rucEmisor || '');
 
-    // Obtener fecha actual en zona horaria local (no UTC)
-    const getFechaLocal = () => {
-        const hoy = new Date();
-        const dia = String(hoy.getDate()).padStart(2, '0');
-        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-        const anio = hoy.getFullYear();
-        return `${anio}-${mes}-${dia}`;
-    };
-
-    const [fechaEmision, setFechaEmision] = useState(xmlPrevio?.fechaEmision || getFechaLocal());
+    const [fechaEmision, setFechaEmision] = useState(xmlPrevio?.fechaEmision || getLocalDateIso());
     const [secuencial, setSecuencial] = useState(xmlPrevio?.secuencial || '');
     const [autorizacion, setAutorizacion] = useState(xmlPrevio?.claveAcceso || '');
     const [sustento, setSustento] = useState<SustentoTributario>(SustentoTributario.CREDITO_TRIBUTARIO);
@@ -244,19 +235,11 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                 }
                 const numDocSustentoFormateado = numDocSustentoLimpio;
 
-                // Determinar el código de IVA según el porcentaje configurado
-                const getCodigoIva = (porcentaje: number): string => {
-                    if (porcentaje === 0) return '0';
-                    if (porcentaje === 12) return '2';
-                    if (porcentaje === 14) return '3';
-                    if (porcentaje === 15) return '4';
-                    if (porcentaje === 5) return '5';
-                    return '0';
-                };
-
                 const ivaPorcentajeActual = parametros?.ivaValor;
                 const tieneIva = subtotalIva > 0 && montoIva > 0;
-                const codigoIvaDocSustento = tieneIva ? getCodigoIva(ivaPorcentajeActual) : '0';
+
+                // Si hay IVA, usar el código configurado en la empresa, caso contrario '0'
+                const codigoIvaDocSustento = tieneIva ? (parametros?.ivaCodigo) : '0';
                 const tarifaIvaDocSustento = tieneIva ? ivaPorcentajeActual.toString() : '0';
                 const baseImponibleIvaDocSustento = tieneIva ? subtotalIva : (subtotalIva + subtotal0);
 

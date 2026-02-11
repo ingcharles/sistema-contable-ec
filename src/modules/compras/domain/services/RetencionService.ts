@@ -65,7 +65,7 @@ export class RetencionService {
                     WHERE s.empresa_id = $1 AND s.es_matriz = true AND pe.codigo = $2 LIMIT 1
                 ) AND tipo_comprobante_id = $3
             `,
-            values: [empresaId, data.pto_emi || '001', tipoComprobanteId]
+            values: [empresaId, data.pto_emi, tipoComprobanteId]
         });
 
         let nextSeqInt = seqResult.rows.length > 0 ? seqResult.rows[0].secuencial_actual : 1;
@@ -95,8 +95,8 @@ export class RetencionService {
                 nombreComercial: data.emp_nombre_comercial,
                 ruc: data.emp_ruc,
                 codDoc: '07', // Retención
-                estab: data.estab || '001',
-                ptoEmi: data.pto_emi || '001',
+                estab: data.estab,
+                ptoEmi: data.pto_emi,
                 secuencial: nextSecuencial,
                 dirMatriz: data.emp_dir,
                 agenteRetencion: data.emp_agente_ret,
@@ -167,7 +167,7 @@ export class RetencionService {
                 )
                 ON CONFLICT (punto_emision_id, tipo_comprobante_id) 
                 DO UPDATE SET secuencial_actual = EXCLUDED.secuencial_actual + 1
-            `, [empresaId, data.pto_emi || '001', tipoComprobanteId, nextSeqInt]);
+            `, [empresaId, data.pto_emi, tipoComprobanteId, nextSeqInt]);
 
             // Actualizar compra con referencia
             await client.query(`

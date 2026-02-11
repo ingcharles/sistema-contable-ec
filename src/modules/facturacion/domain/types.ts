@@ -15,6 +15,7 @@ export interface Proforma extends Auditable {
     iva: number;
     total: number;
     estado: 'PENDIENTE' | 'FACTURADA' | 'ANULADA';
+    observaciones?: string;
     detalles: any[]; // Or reuse DetalleFactura if appropriate
 }
 

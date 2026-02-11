@@ -18,17 +18,37 @@ export class BaseUseCase {
     protected static async request(url: string, options: RequestInit = {}) {
         const headers = { ...this.getHeaders(), ...options.headers };
         const res = await fetch(url, { ...options, headers });
+
         if (!res.ok) {
-            const err = await res.json();
-            // Crear error con detalles completos del SRI
-            const error = new Error(err.error || err.message || 'Error en la petición al servidor') as any;
-            error.details = err.details;
-            error.xml = err.xml;
-            error.success = err.success;
+            let errorDetails: any = { error: 'Error en la petición al servidor' };
+
+            try {
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    errorDetails = await res.json();
+                } else {
+                    const text = await res.text();
+                    errorDetails = { error: `Error ${res.status}: ${res.statusText}`, details: text.substring(0, 100) };
+                }
+            } catch (e) {
+                errorDetails = { error: `Error ${res.status}: ${res.statusText}` };
+            }
+
+            const error = new Error(errorDetails.error || errorDetails.message || 'Error en la petición') as any;
+            error.details = errorDetails.details;
+            error.xml = errorDetails.xml;
+            error.success = errorDetails.success;
             error.status = res.status;
-            console.error('Error API:', err);
+
+            console.error('Error API:', errorDetails);
             throw error;
         }
-        return await res.json();
+
+        try {
+            return await res.json();
+        } catch (e) {
+            console.error('Error parseando JSON de respuesta exitosa:', e);
+            throw new Error('La respuesta del servidor no es un JSON válido');
+        }
     }
 }

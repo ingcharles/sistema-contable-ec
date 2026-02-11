@@ -112,7 +112,7 @@ export function NotaCreditoCompraModal({ onClose, onSave }: { onClose: () => voi
 
         // Calcular totales finales
         const subtotal = formData.items.reduce((acc, item) => acc + item.total, 0);
-        const ivaRate = (parametros?.ivaValor || 15) / 100;
+        const ivaRate = (parametros?.ivaValor) / 100;
         const iva = subtotal * ivaRate;
         const total = subtotal + iva;
 
@@ -142,7 +142,7 @@ export function NotaCreditoCompraModal({ onClose, onSave }: { onClose: () => voi
     };
 
     const subtotal = formData.items.reduce((acc, item) => acc + (item.cantidad * item.precio_unitario), 0);
-    const ivaRate = (parametros?.ivaValor || 15) / 100;
+    const ivaRate = (parametros?.ivaValor) / 100;
     const iva = subtotal * ivaRate;
     const total = subtotal + iva;
 

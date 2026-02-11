@@ -21,10 +21,9 @@ interface GuiaRemisionModalProps {
 
 export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRemisionModalProps) => {
     const { currentEmpresa } = useEmpresa();
-    const { puntoActivo, puntosDisponibles: puntosContext } = usePuntoEmision();
+    const { puntoActivo } = usePuntoEmision();
     const { transportistas, cargarTransportistas } = useTransportistas();
     const [transportistaId, setTransportistaId] = useState('');
-    const [puntosEmision, setPuntosEmision] = useState<any[]>([]);
     const puntoEmisionId = puntoActivo?.puntoEmisionId;
     const [puntoPartida, setPuntoPartida] = useState('Matriz / Bodega Principal');
     const [puntoDestino, setPuntoDestino] = useState(facturaReferencia?.direccion || '');
@@ -36,26 +35,39 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     const [showNuevoTransportista, setShowNuevoTransportista] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
+    const [secuencial, setSecuencial] = useState('');
+    const [estab, setEstab] = useState(puntoActivo?.codigoEstablecimiento);
+    const [ptoEmi, setPtoEmi] = useState(puntoActivo?.codigoPunto);
+
+    // Cargar secuencial automático
+    useEffect(() => {
+        const cargarSecuencial = async () => {
+            if (puntoEmisionId) {
+                try {
+                    const data = await FacturacionUseCases.obtenerSiguienteSecuencial(puntoEmisionId, '06');
+                    if (data.success) {
+                        setSecuencial(data.secuencial);
+                    }
+                } catch (error) {
+                    console.error('Error al cargar secuencial:', error);
+                }
+            }
+        };
+        cargarSecuencial();
+    }, [puntoEmisionId]);
+
+    // Sincronizar estab y ptoEmi
+    useEffect(() => {
+        if (puntoActivo) {
+            setEstab(puntoActivo.codigoEstablecimiento);
+            setPtoEmi(puntoActivo.codigoPunto);
+        }
+    }, [puntoActivo]);
 
     useEffect(() => {
         cargarTransportistas();
     }, [cargarTransportistas]);
 
-    useEffect(() => {
-        const cargarPuntos = async () => {
-            try {
-                if (puntosContext && puntosContext.length > 0) {
-                    setPuntosEmision(puntosContext);
-                } else {
-                    const puntos = await FacturacionUseCases.listarPuntosEmision();
-                    setPuntosEmision(puntos);
-                }
-            } catch (e) {
-                console.error('Error al cargar puntos de emisión:', e);
-            }
-        };
-        cargarPuntos();
-    }, [puntosContext]);
 
     useEffect(() => {
         if (transportistas.length > 0 && !transportistaId) {
@@ -71,13 +83,12 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
         }
 
         const transportista = transportistas.find(t => t.id === transportistaId);
-        const puntoEmi = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
 
         if (!transportista) {
             setErrorValidacion('Seleccione un transportista válido');
             return;
         }
-        if (!puntoEmi) {
+        if (!puntoActivo) {
             setErrorValidacion('Debe seleccionar un punto de emisión válido');
             return;
         }
@@ -86,10 +97,9 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
         setErrorValidacion(null);
         try {
             const transportista = transportistas.find(t => t.id === transportistaId);
-            const puntoEmi = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
 
             if (!transportista) throw new Error('Seleccione un transportista válido');
-            if (!puntoEmi) throw new Error('Debe seleccionar un punto de emisión válido');
+            if (!puntoActivo) throw new Error('Debe seleccionar un punto de emisión válido');
 
             const payload = {
                 puntoEmisionId,
@@ -169,19 +179,15 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                         <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
                             <Save size={16} />
                         </div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Punto de Emisión y Secuencial</h3>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Información del Comprobante</h3>
                     </div>
                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 font-mono">
-                                <FileText size={14} className="text-sri-blue" /> Punto de Emisión (Estab-PtoEmi-Secuencial)
+                                <FileText size={14} className="text-sri-blue" /> Número de Guía de Remisión (Estab-PtoEmi-Secuencial)
                             </label>
-                            <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-sri-blue">
-                                {(() => {
-                                    const p = puntosEmision.find(p => (p.puntoEmisionId || p.id) === puntoEmisionId);
-                                    const seq = p?.secuenciales?.find((s: any) => s.tipoComprobante === '06')?.secuencialActual || 1;
-                                    return `${p?.sucursalCodigo || '001'}-${p?.codigo || '001'}-${seq.toString().padStart(9, '0')}`;
-                                })()}
+                            <div className="px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-sri-blue">
+                                {estab}-{ptoEmi}-{secuencial.padStart(9, '0')}
                             </div>
                         </div>
                         <div className="space-y-1.5">

@@ -280,9 +280,10 @@ export function FacturaRIDE({ comprobante }: FacturaRIDEProps) {
     }
 
     // Totales calculados para el pie
-    const subtotal15 = data
-        ? data.totalConImpuestos.find(i => i.codigoPorcentaje === '4' || i.codigoPorcentaje === '2')?.baseImponible || 0
-        : comprobante.detalles?.filter((d: any) => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc: number, d: any) => acc + Number(d.baseImponible), 0) || 0;
+    const codigosNoGraban = ['0', '6', '7'];
+    const subtotalGravado = data
+        ? data.totalConImpuestos.filter(i => !codigosNoGraban.includes(i.codigoPorcentaje)).reduce((acc, i) => acc + i.baseImponible, 0)
+        : comprobante.detalles?.filter((d: any) => !codigosNoGraban.includes(d.codigoIVA)).reduce((acc: number, d: any) => acc + Number(d.baseImponible), 0) || 0;
 
     const subtotal0 = data
         ? data.totalConImpuestos.find(i => i.codigoPorcentaje === '0')?.baseImponible || 0
@@ -438,8 +439,8 @@ export function FacturaRIDE({ comprobante }: FacturaRIDEProps) {
                                 <td className="px-3 py-1.5 text-right font-bold">${Number(factor.totalSinImpuestos).toFixed(2)}</td>
                             </tr>
                             <tr>
-                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal 15%</td>
-                                <td className="px-3 py-1.5 text-right">${Number(subtotal15).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal {currentEmpresa?.parametros?.ivaEtiqueta || 'IVA'}</td>
+                                <td className="px-3 py-1.5 text-right">${Number(subtotalGravado).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal 0%</td>
@@ -450,7 +451,7 @@ export function FacturaRIDE({ comprobante }: FacturaRIDEProps) {
                                 <td className="px-3 py-1.5 text-right text-red-600">${Number(factor.totalDescuento || 0).toFixed(2)}</td>
                             </tr>
                             <tr>
-                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA 15%</td>
+                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA {currentEmpresa?.parametros?.ivaEtiqueta || ''}</td>
                                 <td className="px-3 py-1.5 text-right font-bold">${Number(valorIva).toFixed(2)}</td>
                             </tr>
                             <tr className="text-white" style={{ backgroundColor: colors.primary }}>

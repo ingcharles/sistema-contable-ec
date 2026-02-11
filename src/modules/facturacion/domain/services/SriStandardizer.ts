@@ -34,9 +34,9 @@ export class SriStandardizer {
                 ruc: data.ruc,
                 claveAcceso: data.claveAcceso || '',
                 codDoc: data.codDoc || '01',
-                estab: (data.estab || '001').padStart(3, '0'),
-                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
-                secuencial: (data.secuencial || '').padStart(9, '0'),
+                estab: (data.estab).padStart(3, '0'),
+                ptoEmi: (data.ptoEmi).padStart(3, '0'),
+                secuencial: (data.secuencial).padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 agenteRetencion: data.agenteRetencion,
                 regimenMicroempresas: data.regimenMicroempresas,
@@ -101,9 +101,9 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 codDoc: data.codDoc || '03',
-                estab: (data.estab || '001').padStart(3, '0'),
-                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
-                secuencial: (data.secuencial || '').padStart(9, '0'),
+                estab: (data.estab).padStart(3, '0'),
+                ptoEmi: (data.ptoEmi).padStart(3, '0'),
+                secuencial: (data.secuencial).padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -177,9 +177,9 @@ export class SriStandardizer {
                 razonSocial: data.razonSocial,
                 ruc: data.ruc,
                 codDoc: data.codDoc || '04',
-                estab: (data.estab || '001').padStart(3, '0'),
-                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
-                secuencial: (data.secuencial || '').padStart(9, '0'),
+                estab: (data.estab).padStart(3, '0'),
+                ptoEmi: (data.ptoEmi).padStart(3, '0'),
+                secuencial: (data.secuencial).padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -250,9 +250,9 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 codDoc: data.codDoc || '05',
-                estab: (data.estab || '001').padStart(3, '0'),
-                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
-                secuencial: (data.secuencial || '').padStart(9, '0'),
+                estab: (data.estab).padStart(3, '0'),
+                ptoEmi: (data.ptoEmi).padStart(3, '0'),
+                secuencial: (data.secuencial).padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -309,9 +309,9 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial,
                 ruc: data.ruc,
                 codDoc: data.codDoc || '07',
-                estab: (data.estab || '001').padStart(3, '0'),
-                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
-                secuencial: (data.secuencial || '').padStart(9, '0'),
+                estab: (data.estab).padStart(3, '0'),
+                ptoEmi: (data.ptoEmi).padStart(3, '0'),
+                secuencial: (data.secuencial).padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -369,9 +369,9 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 codDoc: data.codDoc || '06',
-                estab: (data.estab || '001').padStart(3, '0'),
-                ptoEmi: (data.ptoEmi || '001').padStart(3, '0'),
-                secuencial: (data.secuencial || '').padStart(9, '0'),
+                estab: (data.estab).padStart(3, '0'),
+                ptoEmi: (data.ptoEmi).padStart(3, '0'),
+                secuencial: (data.secuencial).padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -417,7 +417,7 @@ export class SriStandardizer {
     }
 
     private static formatNumDoc(numDoc: string = '', defaultEstab?: string, defaultPtoEmi?: string): string {
-        if (!numDoc) return `${(defaultEstab || '001').padStart(3, '0')}-${(defaultPtoEmi || '001').padStart(3, '0')}-000000001`;
+        if (!numDoc) return `${(defaultEstab).padStart(3, '0')}-${(defaultPtoEmi).padStart(3, '0')}-000000001`;
 
         // Si ya tiene el formato correcto, devolverlo
         if (/^\d{3}-\d{3}-\d{9}$/.test(numDoc)) return numDoc;
@@ -430,8 +430,8 @@ export class SriStandardizer {
 
         // Si es solo el secuencial, concatenar establecimiento y punto de emisión
         const secuencial = numDoc.padStart(9, '0');
-        const estab = (defaultEstab || '001').padStart(3, '0');
-        const ptoEmi = (defaultPtoEmi || '001').padStart(3, '0');
+        const estab = (defaultEstab).padStart(3, '0');
+        const ptoEmi = (defaultPtoEmi).padStart(3, '0');
 
         return `${estab}-${ptoEmi}-${secuencial}`;
     }

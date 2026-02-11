@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { Empresa } from '@/shared/types';
 import { ConfiguracionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { useAuth } from '@/shared/context/AuthContext';
 
 interface EmpresaContextType {
     currentEmpresa: Empresa;
@@ -15,12 +16,19 @@ interface EmpresaContextType {
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined);
 
 export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { user, isAuthenticated } = useAuth();
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [currentEmpresa, _setCurrentEmpresa] = useState<Empresa | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const refreshEmpresas = async () => {
+        if (!isAuthenticated) {
+            setIsLoading(false);
+            return;
+        }
+
         try {
+            setIsLoading(true);
             const data = await ConfiguracionUseCases.listarEmpresas();
 
             // Cargar parámetros para cada empresa
@@ -72,7 +80,7 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     React.useEffect(() => {
         refreshEmpresas();
-    }, []);
+    }, [user?.id, isAuthenticated]);
 
     React.useEffect(() => {
         if (currentEmpresa && typeof window !== 'undefined') {

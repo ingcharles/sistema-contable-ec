@@ -1,4 +1,4 @@
-import { Compra, OrdenCompra } from '@/modules/compras/domain/types';
+import { Compra, OrdenCompra, RegistrarCompraConRetencionInput } from '@/modules/compras/domain/types';
 import { SriLiquidacionInput } from '@/modules/facturacion/domain/SriTypes';
 import { BaseUseCase } from '@/modules/shared/application/useCases/BaseUseCase';
 
@@ -17,7 +17,7 @@ export class ComprasUseCases extends BaseUseCase {
         });
     }
 
-    static async registrarCompraConRetencion(data: { compra: Compra, retencion: any }) {
+    static async registrarCompraConRetencion(data: RegistrarCompraConRetencionInput) {
         return this.request('/api/compras/registrar-con-retencion', {
             method: 'POST',
             body: JSON.stringify(data)

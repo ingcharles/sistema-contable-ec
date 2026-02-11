@@ -66,6 +66,13 @@ export interface FacturaViewModel {
     fechaAutorizacion?: string;
     numeroAutorizacion?: string;
     observaciones?: string;
+
+    // Campos de contexto para emisión (opcionales)
+    puntoEmisionId?: string;
+    clienteId?: string;
+    clienteNombre?: string;
+    clienteIdentificacion?: string;
+    ivaRate?: number;
 }
 
 

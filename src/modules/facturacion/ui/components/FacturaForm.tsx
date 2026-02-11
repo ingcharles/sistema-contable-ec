@@ -14,6 +14,7 @@ import { FacturaViewModel, DetalleFactura, PagoFactura } from '../../domain/Fact
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
+import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { useToast } from '@/shared/context/ToastContext';
@@ -50,19 +51,17 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     // Cargar catálogos dinámicos
     const { getCatalogo } = useCatalogos([
         'SRI_TIPO_IDENTIFICACION',
-        'SRI_TIPO_IMPUESTO_IVA',
         'SRI_FORMA_PAGO'
     ]);
 
     const tiposIdentificacion = getCatalogo('SRI_TIPO_IDENTIFICACION');
-    const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
     const formasPago = getCatalogo('SRI_FORMA_PAGO');
 
     const defaultIVA = useMemo(() => {
-        if (!parametros?.ivaCatalogoItemId || !tarifasIVA.length) return '4'; // Fallback a 15% (código 4)
-        const item = tarifasIVA.find(t => t.id === parametros.ivaCatalogoItemId);
-        return item ? item.codigo : '4';
-    }, [parametros?.ivaCatalogoItemId, tarifasIVA]);
+        return parametros?.ivaCodigo || '4';
+    }, [parametros?.ivaCodigo]);
+
+
 
     // Cargar secuencial automático
     useEffect(() => {
@@ -154,7 +153,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         codigoIVA: defaultIVA,
         baseImponible: 0,
         valorIVA: 0,
-        tarifa: 0,
+        tarifa: parametros?.ivaValor || 15,
         total: 0,
     }]);
 
@@ -236,7 +235,7 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             codigoIVA: defaultIVA,
             baseImponible: 0,
             valorIVA: 0,
-            tarifa: 15,
+            tarifa: parametros?.ivaValor || 15,
             total: 0,
         }]);
     };
@@ -263,17 +262,10 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         detalle.baseImponible = (detalle.cantidad * detalle.precioUnitario) - detalle.descuento;
 
         let porcentajeIVA = 0;
-        const tarifaSeleccionada = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
-
-        if (tarifaSeleccionada) {
-            if (tarifaSeleccionada.valorNumerico !== undefined) {
-                porcentajeIVA = tarifaSeleccionada.valorNumerico / 100;
-            } else {
-                const match = tarifaSeleccionada.valor.match(/(\d+)%/);
-                if (match) {
-                    porcentajeIVA = parseInt(match[1]) / 100;
-                }
-            }
+        if (detalle.codigoIVA === (parametros?.ivaCodigo)) {
+            porcentajeIVA = (parametros?.ivaValor || 15) / 100;
+        } else {
+            porcentajeIVA = 0;
         }
 
         detalle.valorIVA = detalle.baseImponible * porcentajeIVA;
@@ -361,12 +353,12 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         try {
             const res = await FacturacionUseCases.vender({
                 ...nuevaFactura,
-                ambiente: currentEmpresa?.ambienteSriNombre || 'PRUEBAS',
+                ambiente: currentEmpresa?.ambienteSriNombre || '1',
                 puntoEmisionId: puntoActivo?.puntoEmisionId,
                 clienteId: clienteId || identificacion,
                 clienteNombre: razonSocial,
                 clienteIdentificacion: identificacion,
-                ivaRate: parametros?.ivaValor || 15,
+                ivaRate: parametros?.ivaValor,
                 // Pass the configured code to the backend use case if needed, 
                 // though the standardizer will handle it based on detail codes now.
             });
@@ -388,15 +380,18 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     return (
         <form id={id} onSubmit={handleSubmit} className="space-y-8">
             {/* Encabezado Técnico */}
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
-                <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <FileText size={16} /> Información del Comprobante
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                    <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                        <FileText size={16} />
+                    </div>
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Información del Comprobante</h3>
+                </div>
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase font-mono">Número de factura (Estab-PtoEmi-Secuencial)</label>
                         <Input
-                            value={`${estab || '001'}-${ptoEmi || '001'}-${secuencial || '000000001'}`}
+                            value={`${estab}-${ptoEmi}-${secuencial}`}
                             onChange={(e) => handleNumeroFacturaChange(e.target.value)}
                             placeholder="001-001-000000001"
                             className="font-mono font-bold text-sri-blue bg-slate-100"
@@ -419,11 +414,14 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             </div>
 
             {/* Datos del Cliente */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm relative">
-                <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <User size={16} /> Datos del Comprador
-                    </h4>
+            <div className="space-y-4">
+                <div className="flex justify-between items-center mb-4 pb-3 border-b-2 border-sri-blue/10">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <User size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Datos del Comprador</h3>
+                    </div>
                     <div className="relative w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                         <input
@@ -450,7 +448,9 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                         )}
                     </div>
                 </div>
+            </div>
 
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
@@ -521,10 +521,13 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
 
             {/* Detalles */}
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <Calculator size={16} /> Detalles de Factura
-                    </h4>
+                <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-sri-blue/10">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <Calculator size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Detalles de Factura</h3>
+                    </div>
                     <Button type="button" onClick={agregarDetalle} variant="secondary" size="sm" className="flex items-center gap-2">
                         <Plus size={14} /> Agregar Ítem
                     </Button>
@@ -598,13 +601,9 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-bold text-center text-slate-600">
-                                            {(() => {
-                                                const tarifa = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
-                                                if (detalle.codigoIVA === '2') return `12%`;
-                                                if (detalle.codigoIVA === '4') return `${parametros?.ivaValor || 15}%`;
-                                                if (detalle.codigoIVA === '0') return '0%';
-                                                return tarifa ? tarifa.valor : '0%';
-                                            })()}
+                                            {detalle.codigoIVA === (parametros?.ivaCodigo)
+                                                ? (parametros?.ivaEtiqueta || '15%')
+                                                : '0%'}
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-right font-black text-slate-900">
@@ -630,10 +629,13 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             {/* Pie de Factura: Pago y Totales */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 <div className="lg:col-span-2 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <CreditCard size={16} /> Formas de Pago
-                        </h4>
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                                <CreditCard size={16} />
+                            </div>
+                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Formas de Pago</h3>
+                        </div>
                         <Button type="button" onClick={agregarPago} variant="secondary" size="sm" className="flex items-center gap-2">
                             <Plus size={14} /> Agregar Pago
                         </Button>
@@ -707,22 +709,24 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                     </div>
                 </div>
 
-                <div className="bg-sri-blue p-8 rounded-3xl text-white shadow-xl shadow-blue-900/20 space-y-4">
-                    <div className="flex justify-between text-blue-100 font-medium">
-                        <span>Subtotal Sin Impuestos:</span>
-                        <span className="font-bold text-white">${totales.totalSinImpuestos.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-blue-100 font-medium">
-                        <span>Descuento Total:</span>
-                        <span className="font-bold text-white">${totales.totalDescuento.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-blue-100 font-medium">
-                        <span>IVA ({parametros?.ivaEtiqueta || '15%'}):</span>
-                        <span className="font-bold text-white">${totales.totalIVA.toFixed(2)}</span>
-                    </div>
-                    <div className="pt-4 border-t border-white/10 flex justify-between items-center">
-                        <span className="text-lg font-black uppercase tracking-wider">Importe Total:</span>
-                        <span className="text-3xl font-black">${totales.importeTotal.toFixed(2)}</span>
+                <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <div className="w-80 space-y-2 text-right">
+                        <div className="flex justify-between text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span>Subtotal Sin Impuestos:</span>
+                            <span className="font-mono text-sm">{formatearDinero(totales.totalSinImpuestos)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span>Descuento Total:</span>
+                            <span className="font-mono text-sm">{formatearDinero(totales.totalDescuento)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span>IVA ({parametros?.ivaEtiqueta || '15%'}):</span>
+                            <span className="font-mono text-sm">{formatearDinero(totales.totalIVA)}</span>
+                        </div>
+                        <div className="flex justify-between font-black text-sri-blue pt-2 mt-2 border-t border-slate-200">
+                            <span className="text-xs uppercase tracking-widest">Importe Total:</span>
+                            <span className="text-2xl font-mono">{formatearDinero(totales.importeTotal)}</span>
+                        </div>
                     </div>
                 </div>
             </div>

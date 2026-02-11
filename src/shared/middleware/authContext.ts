@@ -17,6 +17,7 @@ export function validateContext(req: NextRequest): SecurityContext {
     // Intentar extraer de JWT
     const authHeader = req.headers.get('authorization');
     const token = JWTService.extractTokenFromHeader(authHeader);
+    console.log('Token:', token);
 
     if (token) {
         try {

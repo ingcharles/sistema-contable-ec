@@ -15,7 +15,7 @@ interface FacturaDTO {
         id: string;
         ruc: string;
         razonSocial: string;
-        direccion: string;
+        direccion?: string;
         email?: string;
     };
     detalles: DetalleDTO[];
@@ -58,7 +58,7 @@ export const facturaMapper = {
                 id: '', // No disponible en el ViewModel actual
                 ruc: viewModel.identificacionComprador,
                 razonSocial: viewModel.razonSocialComprador,
-                direccion: viewModel.direccionComprador || '',
+                direccion: viewModel.direccionComprador,
                 email: viewModel.emailComprador,
             },
             detalles: viewModel.detalles.map((detalle) => ({
@@ -99,9 +99,9 @@ export const facturaMapper = {
             razonSocial: '', // Info de la empresa emisora
             ruc: '',
             codDoc: '01',
-            estab: estab || '001',
-            ptoEmi: ptoEmi || '001',
-            secuencial: secuencial || '000000001',
+            estab: estab,
+            ptoEmi: ptoEmi,
+            secuencial: secuencial,
             dirMatriz: '',
             fechaEmision: dto.fechaEmision,
             obligadoContabilidad: 'NO',
