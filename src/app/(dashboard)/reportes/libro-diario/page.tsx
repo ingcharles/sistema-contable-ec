@@ -73,6 +73,7 @@ export default function LibroDiarioPage() {
             },
             headers,
             data,
+            headerColor: getBrandColor(currentEmpresa),
             filename: `libro_diario_${desde}_${hasta}.xlsx`
         });
     };

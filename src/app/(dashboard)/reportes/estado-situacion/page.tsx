@@ -117,6 +117,7 @@ export default function EstadoSituacionPage() {
             },
             headers,
             data,
+            headerColor: getBrandColor(currentEmpresa),
             filename: `estado_situacion_${fechaFin}.xlsx`
         });
     };

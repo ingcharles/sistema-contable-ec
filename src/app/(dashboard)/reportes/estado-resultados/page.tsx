@@ -112,6 +112,7 @@ export default function EstadoResultadosPage() {
             },
             headers,
             data,
+            headerColor: getBrandColor(currentEmpresa),
             filename: `estado_resultados_${fechaInicio}_${fechaFin}.xlsx`
         });
     };
