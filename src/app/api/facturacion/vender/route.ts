@@ -421,45 +421,47 @@ export async function POST(req: NextRequest) {
                     `, [context.empresaId, context.usuarioId, persistentData.secuencial, clienteId, clienteNombre, fechaEmision, fechaVencimiento, persistentData.importeTotal, persistentData.importeTotal]);
 
                     // Asiento Contable
-                    const asientoNo = `VTA-${persistentData.puntoActivo.codigo_establecimiento}-${persistentData.puntoActivo.codigo_punto}-${persistentData.secuencial}`;
+                    const asientoNo = `FAC-${persistentData.puntoActivo.codigo_establecimiento}-${persistentData.puntoActivo.codigo_punto}-${persistentData.secuencial}`;
+                    const glosaFactura = `VENTA SEGÚN FACTURA ${persistentData.secuencial} - ${clienteNombre}`;
                     const asientoResult = await client.query(`
                         INSERT INTO contabilidad.asientos(empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
-                        VALUES($1, $2, $3, $4, 'VENTA SEGÚN FACTURA ' || $6 || ' - ' || $5, 'INGRESO', 'MAYORIZADO')
+                        VALUES($1, $2, $3, $4, $5, 'INGRESO', 'MAYORIZADO')
                         RETURNING id
-                    `, [context.empresaId, context.usuarioId, asientoNo, fechaEmision, clienteNombre, asientoNo]);
+                    `, [context.empresaId, context.usuarioId, asientoNo, fechaEmision, glosaFactura]);
                     const asientoId = asientoResult.rows[0].id;
 
                     // Asiento Detalles
                     await client.query(`
-                        INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
-                        VALUES($1, $2, $3, 0, 'CUENTAS POR COBRAR CLIENTES')
-                    `, [asientoId, paramsRow.cuenta_cxc_clientes || '1.1.02.01', persistentData.importeTotal]);
+                        INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                        VALUES($1, $2, $3, 0, 'CUENTAS POR COBRAR CLIENTES', $4)
+                    `, [asientoId, paramsRow.cuenta_cxc_clientes, persistentData.importeTotal, glosaFactura]);
 
                     for (const d of persistentData.detallesConDatos) {
                         const valorSinIva = d.total - d.valorIVA;
                         await client.query(`
-                            INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
-                            VALUES($1, $2, 0, $3, 'VENTA DE ' || $4)
-                        `, [asientoId, d.cuenta_venta || paramsRow.cuenta_ventas || '4.1.01.01', valorSinIva, d.descripcion]);
+                            INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                            VALUES($1, $2, 0, $3, 'VENTA DE ' || $4, $5)
+                        `, [asientoId, d.cuenta_venta || paramsRow.cuenta_ventas, valorSinIva, d.descripcion, glosaFactura]);
 
                         if (d.graba_iva) {
                             await client.query(`
-                                INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
-                                VALUES($1, $2, 0, $3, 'IVA EN VENTAS')
-                            `, [asientoId, paramsRow.cuenta_iva_por_pagar || '2.1.03.01', d.valorIVA]);
+                                INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                                VALUES($1, $2, 0, $3, 'IVA EN VENTAS', $4)
+                            `, [asientoId, paramsRow.cuenta_iva_por_pagar, d.valorIVA, glosaFactura]);
                         }
 
                         if (d.id && d.cuenta_inventario && d.cuenta_costo_venta) {
                             const costoTotal = d.cantidad * d.costo_promedio;
+                            const glosaCosto = `COSTO VENTA FACTURA ${persistentData.secuencial} - ${d.descripcion}`;
                             await client.query(`
-                                INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
-                                VALUES($1, $2, $3, 0, 'COSTO DE VENTA - ' || $4)
-                            `, [asientoId, d.cuenta_costo_venta, costoTotal, d.descripcion]);
+                                INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                                VALUES($1, $2, $3, 0, 'COSTO DE VENTA - ' || $4, $5)
+                            `, [asientoId, d.cuenta_costo_venta, costoTotal, d.descripcion, glosaCosto]);
 
                             await client.query(`
-                                INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
-                                VALUES($1, $2, 0, $3, 'SALIDA DE INVENTARIO - ' || $4)
-                            `, [asientoId, d.cuenta_inventario, costoTotal, d.descripcion]);
+                                INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                                VALUES($1, $2, 0, $3, 'SALIDA DE INVENTARIO - ' || $4, $5)
+                            `, [asientoId, d.cuenta_inventario, costoTotal, d.descripcion, glosaCosto]);
                         }
                     }
                 }

@@ -15,9 +15,8 @@ export const useComprobantes = () => {
         try {
             const data = await FacturacionUseCases.listarComprobantes();
             setComprobantes(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar comprobantes');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar comprobantes');
         } finally {
             setLoading(false);
         }
@@ -45,9 +44,8 @@ export const useGuiasRemision = () => {
         try {
             const data = await FacturacionUseCases.listarGuias();
             setGuias(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar guías de remisión');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar guías de remisión');
         } finally {
             setLoading(false);
         }
@@ -74,9 +72,9 @@ export const useFacturacionMutations = () => {
         try {
             const result = await FacturacionUseCases.emitirFactura(factura);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al emitir factura');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al emitir factura';
+            setError(msg);
             throw err;
         } finally {
             setEmitiendo(false);
@@ -89,9 +87,9 @@ export const useFacturacionMutations = () => {
         try {
             const result = await FacturacionUseCases.guardarGuiaRemision(guia);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar guía de remisión');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar guía de remisión';
+            setError(msg);
             throw err;
         } finally {
             setEmitiendo(false);

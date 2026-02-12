@@ -15,6 +15,11 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        const { searchParams } = new URL(req.url);
+        const estado = searchParams.get('estado');
+        const desde = searchParams.get('desde');
+        const hasta = searchParams.get('hasta');
+
         const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('06');
         let whereConditions = ['empresa_id = $1', "tipo_comprobante_id = $2"];
         let values: any[] = [context.empresaId, tipoComprobanteId];

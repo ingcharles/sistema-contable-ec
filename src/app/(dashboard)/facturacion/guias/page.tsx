@@ -10,7 +10,6 @@ import { GuiaRemisionModal } from '@/modules/facturacion/ui/components/GuiaRemis
 import { GuiaRemision } from '@/modules/facturacion/domain/guias';
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { XmlModal } from '@/modules/facturacion/ui/components/XmlModal';
-import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
 
 // Componentes de Tablas
 import { GuiasRemisionTable } from '@/modules/facturacion/ui/components/GuiasRemisionTable';
@@ -42,17 +41,17 @@ export default function GuiasRemisionPage() {
     const handleReemitir = async (row: any) => {
         try {
             setLoading(true);
-            const dataSri = SriStandardizer.standardizeFactura(row);
-            const res = await FacturacionUseCases.emitirFactura(dataSri);
+            const res = await FacturacionUseCases.reemitir(row.id, '06');
 
-            if (res.estado === 'AUTORIZADO') {
-                alert('¡Documento autorizado exitosamente!');
+            if (res.success || res.estado === 'AUTORIZADO') {
+                alert('¡Guía autorizada exitosamente!');
                 loadData();
             } else {
-                alert('Error SRI: ' + JSON.stringify(res.error || res.detalles));
+                alert('Error SRI: ' + JSON.stringify(res.error || res.detalles || res.message));
             }
-        } catch (err: any) {
-            alert('Error al re-emitir: ' + err.message);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error desconocido';
+            alert('Error al re-emitir: ' + msg);
         } finally {
             setLoading(false);
         }

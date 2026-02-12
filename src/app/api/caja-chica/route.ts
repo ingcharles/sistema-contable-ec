@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
                     const numero = `VAL-${String(siguiente).padStart(3, '0')}`;
 
                     // Insertar nuevo vale
-                    const insertResult = await client.query(
+                    await client.query(
                         {
                             text: `INSERT INTO caja_chica.movimientos 
                   (caja_id, empresa_id, usuario_id, numero, fecha, beneficiario, concepto, monto, tipo, estado)
@@ -192,7 +192,6 @@ export async function POST(req: NextRequest) {
                         }
                     );
 
-                    const valeId = insertResult.rows[0].id;
 
                     // --- GENERACIÓN DE ASIENTO CONTABLE ---
                     const paramsResult = await client.query('SELECT cuenta_caja_chica, cuenta_gastos_varios FROM configuracion.parametros WHERE empresa_id = $1', [context.empresaId]);
@@ -209,15 +208,15 @@ export async function POST(req: NextRequest) {
                     ]);
                     const asientoId = asientoResult.rows[0].id;
 
-                    const ctaCajaChica = params.cuenta_caja_chica || '1.1.01.02';
-                    const ctaGasto = vale.cuentaContable || params.cuenta_gastos_varios || '5.2.01.99';
+                    const ctaCajaChica = params.cuenta_caja_chica;
+                    const ctaGasto = params.cuenta_gastos_varios;
 
                     if (vale.tipo === 'EGRESO') {
-                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, $4)`, [asientoId, ctaGasto, vale.monto, vale.concepto]);
-                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, $4)`, [asientoId, ctaCajaChica, vale.monto, vale.concepto]);
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, $4, $5)`, [asientoId, ctaGasto, vale.monto, vale.concepto, glosa]);
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, $4, $5)`, [asientoId, ctaCajaChica, vale.monto, vale.concepto, glosa]);
                     } else {
-                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, $4)`, [asientoId, ctaCajaChica, vale.monto, vale.concepto]);
-                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, $4)`, [asientoId, ctaGasto, vale.monto, vale.concepto]);
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, $4, $5)`, [asientoId, ctaCajaChica, vale.monto, vale.concepto, glosa]);
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, $4, $5)`, [asientoId, ctaGasto, vale.monto, vale.concepto, glosa]);
                     }
                 }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 

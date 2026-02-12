@@ -57,6 +57,7 @@ export interface MovimientoKardex extends Auditable {
     referenciaComprobante: string;
 
     // Cantidades
+    cantidad?: number; // Usado para comandos de ajuste
     cantidadEntrada: number;
     cantidadSalida: number;
     saldoCantidad: number;

@@ -1,9 +1,10 @@
 import { useState, Fragment } from 'react';
-import { ChevronDown, ChevronRight, Printer, Download, Search, Filter } from 'lucide-react';
+import { ChevronDown, ChevronRight, Printer, Download, Search } from 'lucide-react';
 import { AsientoContable } from '../../domain/types';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 import { Empresa } from '@/shared/types';
+import { ReportHeader } from './ReportHeader';
 
 interface LibroDiarioTableProps {
     asientos: AsientoContable[];
@@ -28,26 +29,45 @@ export const LibroDiarioTable = ({ asientos, loading, empresa, fechaInicio, fech
         a.detalles.some(d => d.cuentaNombre.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleExportExcel = () => {
+        const headers = ['Fecha', 'Número', 'Glosa / Descripción', 'Total Debe', 'Total Haber'];
+        const rows = safeAsientos.map(a => [
+            a.fecha,
+            a.numero,
+            `"${a.glosa}"`,
+            a.totalDebe,
+            a.totalHaber
+        ]);
+
+        const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `libro_diario_${empresa?.razonSocial.replace(/\s+/g, '_')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        <div id="reporte-contable" className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden print:shadow-none print:border-none print:rounded-none">
             {/* Cabecera con datos de la empresa */}
             {empresa && (
-                <div className="text-center p-6 pb-4 border-b-2 border-slate-200 bg-slate-50/30">
-                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{empresa.razonSocial}</h2>
-                    <p className="text-xs text-slate-600 mt-1">RUC: {empresa.ruc}</p>
-                    <p className="text-xs text-slate-500 mt-1">{empresa.direccionMatriz}</p>
-                    <h3 className="text-lg font-bold text-sri-blue uppercase mt-3">Libro Diario General</h3>
-                    {fechaInicio && fechaFin && (
-                        <p className="text-slate-500 font-medium text-sm mt-1">
-                            Del {new Date(fechaInicio + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
-                        </p>
-                    )}
-                    <p className="text-xs text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
-                </div>
+                <ReportHeader
+                    empresa={empresa}
+                    titulo="Libro Diario General"
+                    fechaInicio={fechaInicio}
+                    fechaFin={fechaFin}
+                />
             )}
 
             {/* Toolbar */}
-            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/50">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/50 print:hidden">
                 <div className="relative w-full sm:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
@@ -59,14 +79,11 @@ export const LibroDiarioTable = ({ asientos, loading, empresa, fechaInicio, fech
                     />
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" className="flex items-center gap-2">
-                        <Filter size={16} /> Filtros
-                    </Button>
-                    <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                    <Button variant="secondary" size="sm" onClick={handlePrint} className="flex items-center gap-2">
                         <Printer size={16} /> Imprimir
                     </Button>
-                    <Button variant="secondary" size="sm" className="flex items-center gap-2">
-                        <Download size={16} /> Exportar
+                    <Button variant="secondary" size="sm" onClick={handleExportExcel} className="flex items-center gap-2">
+                        <Download size={16} /> Excel
                     </Button>
                 </div>
             </div>
@@ -125,6 +142,7 @@ export const LibroDiarioTable = ({ asientos, loading, empresa, fechaInicio, fech
                                                             <tr>
                                                                 <th className="px-4 py-2">Código</th>
                                                                 <th className="px-4 py-2">Cuenta Contable</th>
+                                                                <th className="px-4 py-2">Glosa</th>
                                                                 <th className="px-4 py-2 text-right">Debe</th>
                                                                 <th className="px-4 py-2 text-right">Haber</th>
                                                             </tr>
@@ -134,6 +152,7 @@ export const LibroDiarioTable = ({ asientos, loading, empresa, fechaInicio, fech
                                                                 <tr key={idx}>
                                                                     <td className="px-4 py-2 font-mono text-slate-500">{det.cuentaCodigo}</td>
                                                                     <td className="px-4 py-2 text-slate-700">{det.cuentaNombre}</td>
+                                                                    <td className="px-4 py-2 text-slate-500 italic uppercase" style={{ fontSize: '10px' }}>{det.glosa || asiento.glosa}</td>
                                                                     <td className="px-4 py-2 text-right font-mono text-slate-600">
                                                                         {det.debe > 0 ? formatMoney(det.debe) : '-'}
                                                                     </td>
@@ -143,7 +162,7 @@ export const LibroDiarioTable = ({ asientos, loading, empresa, fechaInicio, fech
                                                                 </tr>
                                                             ))}
                                                             <tr className="bg-slate-50 font-bold text-slate-700 border-t border-slate-200">
-                                                                <td colSpan={2} className="px-4 py-2 text-right">TOTALES:</td>
+                                                                <td colSpan={3} className="px-4 py-2 text-right">TOTALES:</td>
                                                                 <td className="px-4 py-2 text-right">{formatMoney(asiento.totalDebe)}</td>
                                                                 <td className="px-4 py-2 text-right">{formatMoney(asiento.totalHaber)}</td>
                                                             </tr>

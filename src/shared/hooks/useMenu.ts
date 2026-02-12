@@ -40,9 +40,8 @@ export const useMenu = () => {
             const tree = buildMenuTree(data);
             setMenuItems(tree);
             return tree;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar el menú');
-            console.error('Error loading menu:', err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar el menú');
         } finally {
             setLoading(false);
         }

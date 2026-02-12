@@ -109,24 +109,24 @@ export async function POST(req: NextRequest) {
 
             // Detalle 1: Proveedores (Debe) -> Disminuye Deuda
             await client.query(`
-                INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto)
-                VALUES ($1, $2, $3, 0, $4)
-            `, [asientoId, cuentaCxp, total, `NC Prov: ${secuencial}`]);
+                INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                VALUES ($1, $2, $3, 0, $4, $5)
+            `, [asientoId, cuentaCxp, total, `NC Prov: ${secuencial}`, glosaAsiento]);
 
             // Detalle 2: Inventario (Haber) -> Salida/Devolución
             if (subtotal > 0) {
                 await client.query(`
-                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto)
-                    VALUES ($1, $2, 0, $3, $4)
-                `, [asientoId, cuentaInventario, subtotal, `Devolución Mercadería`]);
+                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                    VALUES ($1, $2, 0, $3, $4, $5)
+                `, [asientoId, cuentaInventario, subtotal, `Devolución Mercadería`, glosaAsiento]);
             }
 
             // Detalle 3: IVA (Haber) -> Ajuste Crédito Tributario
             if (iva > 0) {
                 await client.query(`
-                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto)
-                    VALUES ($1, $2, 0, $3, $4)
-                `, [asientoId, cuentaIva, iva, `Ajuste IVA Compras`]);
+                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                    VALUES ($1, $2, 0, $3, $4, $5)
+                `, [asientoId, cuentaIva, iva, `Ajuste IVA Compras`, glosaAsiento]);
             }
 
             // 4. Integración Cartera (CXP): Registrar Movimiento

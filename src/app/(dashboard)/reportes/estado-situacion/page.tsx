@@ -6,8 +6,13 @@ import { ContabilidadUseCases } from '@/modules/shared/application/useCases/syst
 import { BalanceGeneral } from '@/modules/contabilidad/domain/types';
 import { CuentaRow } from '@/modules/contabilidad/ui/components/CuentaRow';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { Filter, Printer, Download, Sparkles, TrendingUp } from 'lucide-react';
+import { Printer, Download, Sparkles, TrendingUp, FileText } from 'lucide-react';
+import { usePdfExport } from '@/modules/shared/hooks/usePdfExport';
+import { useExcelExport } from '@/modules/shared/hooks/useExcelExport';
 import { Button } from '@/shared/ui/Button';
+import { FinancialReportFilter } from '@/modules/contabilidad/ui/components/FinancialReportFilter';
+import { ReportHeader } from '@/modules/contabilidad/ui/components/ReportHeader';
+import { getBrandColor } from '@/shared/utils/brandColors';
 
 export default function EstadoSituacionPage() {
     const { currentEmpresa } = useEmpresa();
@@ -34,36 +39,86 @@ export default function EstadoSituacionPage() {
 
     useEffect(() => {
         if (currentEmpresa?.id) loadData();
-    }, [currentEmpresa?.id]);
+    }, [currentEmpresa?.id, fechaFin]);
+
+    const { exportToPdf } = usePdfExport();
+
+    const handleExportPdf = () => {
+        if (!balance) return;
+
+        const columns = ['CÓDIGO', 'CUENTA', 'SALDO'];
+        const data: any[] = [];
+
+        const addCuenta = (c: any) => {
+            data.push([c.codigo, c.nombre, formatMoney(c.saldo)]);
+            if (c.subcuentas) c.subcuentas.forEach(addCuenta);
+        };
+
+        if (balance.activos) addCuenta(balance.activos);
+        if (balance.pasivos) addCuenta(balance.pasivos);
+        if (balance.patrimonio) addCuenta(balance.patrimonio);
+
+        data.push(['', 'TOTAL ACTIVOS', formatMoney(balance.totalActivos)]);
+        data.push(['', 'TOTAL PASIVOS', formatMoney(balance.totalPasivos)]);
+        data.push(['', 'TOTAL PATRIMONIO', formatMoney(balance.totalPatrimonio)]);
+        data.push(['', 'TOTAL PASIVO + PATRIMONIO', formatMoney(balance.totalPasivos + balance.totalPatrimonio)]);
+
+        exportToPdf({
+            title: 'Estado de Situación Financiera',
+            empresa: currentEmpresa ? {
+                razonSocial: currentEmpresa.razonSocial,
+                ruc: currentEmpresa.ruc,
+                direccion: (currentEmpresa as any).direccion || ''
+            } : { razonSocial: 'Empresa', ruc: '9999999999001' },
+            periodo: {
+                inicio: new Date(fechaFin), // Estado de situacion es 'al', pero usaremos fechaFin como inicio y fin para simplificar o solo fin
+                fin: new Date(fechaFin)
+            },
+            columns,
+            data,
+            headerColor: getBrandColor(currentEmpresa),
+            filename: `estado_situacion_${fechaFin}.pdf`
+        });
+    };
+
+    const { exportToExcel } = useExcelExport();
 
     const handleExportBalance = () => {
         if (!balance) return;
 
-        const headers = ['Código', 'Cuenta', 'Saldo'];
-        const rows: any[] = [];
+        const headers = ['CÓDIGO', 'CUENTA', 'SALDO'];
+        const data: any[] = [];
 
         const addCuenta = (c: any) => {
-            rows.push([c.codigo, `"${c.nombre}"`, c.saldo]);
+            data.push([c.codigo, c.nombre, formatMoney(c.saldo)]);
             if (c.subcuentas) c.subcuentas.forEach(addCuenta);
         };
 
-        addCuenta(balance.activos);
-        rows.push(['', 'TOTAL ACTIVOS', balance.totalActivos]);
-        addCuenta(balance.pasivos);
-        rows.push(['', 'TOTAL PASIVOS', balance.totalPasivos]);
-        addCuenta(balance.patrimonio);
-        rows.push(['', 'TOTAL PATRIMONIO', balance.totalPatrimonio]);
-        rows.push(['', 'TOTAL PASIVO + PATRIMONIO', balance.totalPasivos + balance.totalPatrimonio]);
+        if (balance.activos) addCuenta(balance.activos);
+        if (balance.pasivos) addCuenta(balance.pasivos);
+        if (balance.patrimonio) addCuenta(balance.patrimonio);
 
-        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `balance_general_${currentEmpresa?.razonSocial.replace(/\s+/g, '_')}_${fechaFin}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        data.push(['', 'TOTAL ACTIVOS', formatMoney(balance.totalActivos)]);
+        data.push(['', 'TOTAL PASIVOS', formatMoney(balance.totalPasivos)]);
+        data.push(['', 'TOTAL PATRIMONIO', formatMoney(balance.totalPatrimonio)]);
+        data.push(['', 'TOTAL PASIVO + PATRIMONIO', formatMoney(balance.totalPasivos + balance.totalPatrimonio)]);
+
+        exportToExcel({
+            title: 'Estado de Situación Financiera',
+            empresa: currentEmpresa ? {
+                razonSocial: currentEmpresa.razonSocial,
+                ruc: currentEmpresa.ruc,
+                direccion: (currentEmpresa as any).direccion || ''
+            } : { razonSocial: 'Empresa', ruc: '9999999999001' },
+            periodo: {
+                corte: new Date(fechaFin),
+                inicio: new Date(fechaFin),
+                fin: new Date(fechaFin)
+            },
+            headers,
+            data,
+            filename: `estado_situacion_${fechaFin}.xlsx`
+        });
     };
 
     if (!currentEmpresa) return null;
@@ -73,43 +128,36 @@ export default function EstadoSituacionPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Estado de Situación Financiera</h1>
-                    <p className="text-slate-500 text-sm mt-1">Balance General.</p>
+                    <p className="text-slate-500 text-sm mt-1">Estructura de activos, pasivos y patrimonio a una fecha de corte.</p>
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-100 flex flex-wrap gap-4 items-end">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Fecha de Corte</label>
-                    <input
-                        type="date"
-                        value={fechaFin}
-                        onChange={e => setFechaFin(e.target.value)}
-                        className="border border-slate-200 rounded px-3 py-1.5 text-sm"
-                    />
-                </div>
-                <Button variant="secondary" className="flex items-center gap-2" onClick={loadData}>
-                    <Filter size={16} /> Actualizar
-                </Button>
-            </div>
+            <FinancialReportFilter
+                showRange={false}
+                showCutoff={true}
+                initialValues={{ fechaCorte: fechaFin }}
+                onFilter={(vals) => setFechaFin(vals.fechaCorte!)}
+                isLoading={loading}
+            />
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in print:shadow-none print:border-none">
                 {/* Cabecera con datos de la empresa */}
-                <div className="text-center p-8 pb-6 border-b-2 border-slate-200 bg-slate-50/30">
-                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{currentEmpresa.razonSocial}</h2>
-                    <p className="text-sm text-slate-600 mt-1">RUC: {currentEmpresa.ruc}</p>
-                    <p className="text-sm text-slate-500 mt-1">{currentEmpresa.direccionMatriz}</p>
-                    <h3 className="text-xl font-bold text-sri-blue uppercase mt-4">Estado de Situación Financiera</h3>
-                    <p className="text-slate-500 font-medium mt-1">Al {new Date(fechaFin + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                    <p className="text-sm text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
-                </div>
+                <ReportHeader
+                    empresa={currentEmpresa}
+                    titulo="Estado de Situación Financiera"
+                    fechaCorte={fechaFin}
+                />
 
                 {/* Botones de exportación */}
-                <div className="p-4 border-b border-slate-100 flex justify-end gap-2 bg-white">
-                    <Button variant="secondary" className="flex items-center gap-2">
+                <div className="p-4 border-b border-slate-100 flex justify-end gap-2 bg-white print:hidden">
+                    <Button variant="secondary" onClick={() => window.print()} className="flex items-center gap-2">
                         <Printer size={18} /> Imprimir
                     </Button>
+                    <Button variant="secondary" onClick={handleExportPdf} className="flex items-center gap-2">
+                        <FileText size={18} /> PDF
+                    </Button>
                     <Button variant="secondary" onClick={handleExportBalance} className="flex items-center gap-2">
-                        <Download size={18} /> Exportar Excel
+                        <Download size={18} /> Excel
                     </Button>
                 </div>
 

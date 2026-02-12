@@ -162,23 +162,24 @@ export async function POST(req: NextRequest) {
                     RETURNING id
                 `, [
                     context.empresaId, context.usuarioId,
-                    `NOM-${periodo}-${empleado.cedula.slice(-4)}`,
+                    `ROL-${periodo.replace(/-/g, '')}-${empleado.cedula.slice(-4)}`,
                     glosa
                 ]);
                 const asientoId = asientoResult.rows[0].id;
 
+                const glosaAsiento = `Nómina ${periodo} - ${empleado.nombres} ${empleado.apellidos}`;
                 // Detalles del Asiento (Partida Doble)
                 // DEBE: Gastos
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'Sueldos y Salarios')`, [asientoId, params.cuenta_sueldos || '5.1.01.01', sueldoBase]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'Aporte Patronal')`, [asientoId, params.cuenta_aporte_patronal || '5.1.01.02', aportePatronal]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'Décimo Tercero')`, [asientoId, params.cuenta_decimo_tercero || '5.1.01.03', decimoTercero]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'Décimo Cuarto')`, [asientoId, params.cuenta_decimo_cuarto || '5.1.01.04', decimoCuarto]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'Sueldos y Salarios', $4)`, [asientoId, params.cuenta_sueldos, sueldoBase, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'Aporte Patronal', $4)`, [asientoId, params.cuenta_aporte_patronal, aportePatronal, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'Décimo Tercero', $4)`, [asientoId, params.cuenta_decimo_tercero, decimoTercero, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'Décimo Cuarto', $4)`, [asientoId, params.cuenta_decimo_cuarto, decimoCuarto, glosaAsiento]);
 
                 // HABER: Pasivos
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'IESS por Pagar (Per+Pat)')`, [asientoId, params.cuenta_iess_por_pagar || '2.1.03.01', aportePersonal + aportePatronal]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'Sueldos por Pagar')`, [asientoId, params.cuenta_sueldos_por_pagar || '2.1.03.02', netoPagar]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'Prov. Décimo Tercero')`, [asientoId, params.cuenta_prov_decimo_tercero || '2.1.03.03', decimoTercero]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'Prov. Décimo Cuarto')`, [asientoId, params.cuenta_prov_decimo_cuarto || '2.1.03.04', decimoCuarto]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'IESS por Pagar (Per+Pat)', $4)`, [asientoId, params.cuenta_iess_por_pagar, aportePersonal + aportePatronal, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'Sueldos por Pagar', $4)`, [asientoId, params.cuenta_sueldos_por_pagar, netoPagar, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'Prov. Décimo Tercero', $4)`, [asientoId, params.cuenta_prov_decimo_tercero, decimoTercero, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'Prov. Décimo Cuarto', $4)`, [asientoId, params.cuenta_prov_decimo_cuarto, decimoCuarto, glosaAsiento]);
 
                 // 4. Insertar Rol con todos los detalles
                 const rolResult = await client.query(`
@@ -292,7 +293,7 @@ export async function PUT(req: NextRequest) {
             `, [monto, cuentaBancoId]);
 
             // 5. Generar Asiento Contable de Pago
-            const ctaBanco = banco.cuenta_contable_codigo || '1.1.01.01';
+            const ctaBanco = banco.cuenta_contable_codigo;
 
             const asientoResult = await client.query(`
                 INSERT INTO contabilidad.asientos (empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
@@ -300,14 +301,15 @@ export async function PUT(req: NextRequest) {
                 RETURNING id
             `, [
                 context.empresaId, context.usuarioId,
-                `PAG-NOM-${Date.now().toString().slice(-6)}`,
+                `PAG-ROL-${rol.periodo.replace(/-/g, '')}-${rol.cedula.slice(-4)}`,
                 fechaPago, `Pago Nómina ${rol.periodo} - ${rol.nombres} ${rol.apellidos}`
             ]);
             const asientoId = asientoResult.rows[0].id;
 
+            const glosaAsiento = `Pago Nómina ${rol.periodo} - ${rol.nombres} ${rol.apellidos}`;
             // Detalles: DEBE Sueldos por Pagar, HABER Banco
-            await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'LIQUIDACION DE SUELDO')`, [asientoId, params.cuenta_sueldos_por_pagar || '2.1.03.02', monto]);
-            await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'PAGO CON BANCO')`, [asientoId, ctaBanco, monto]);
+            await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'LIQUIDACION DE SUELDO', $4)`, [asientoId, params.cuenta_sueldos_por_pagar, monto, glosaAsiento]);
+            await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'PAGO CON BANCO', $4)`, [asientoId, ctaBanco, monto, glosaAsiento]);
 
             // 6. Actualizar Estado del Rol
             await client.query(`

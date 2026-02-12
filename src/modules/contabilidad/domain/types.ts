@@ -14,6 +14,7 @@ export interface DetalleAsiento {
     cuentaNombre: string;
     debe: number;
     haber: number;
+    glosa?: string;
     centroCostoId?: string;
 }
 

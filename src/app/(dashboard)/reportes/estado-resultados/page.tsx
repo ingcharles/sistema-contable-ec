@@ -6,8 +6,13 @@ import { ContabilidadUseCases } from '@/modules/shared/application/useCases/syst
 import { EstadoResultados } from '@/modules/contabilidad/domain/types';
 import { CuentaRow } from '@/modules/contabilidad/ui/components/CuentaRow';
 import { formatMoney } from '@/shared/utils/formatearDinero';
-import { Filter, Printer, Download } from 'lucide-react';
+import { Printer, Download, FileText } from 'lucide-react';
+import { usePdfExport } from '@/modules/shared/hooks/usePdfExport';
+import { useExcelExport } from '@/modules/shared/hooks/useExcelExport';
 import { Button } from '@/shared/ui/Button';
+import { FinancialReportFilter } from '@/modules/contabilidad/ui/components/FinancialReportFilter';
+import { ReportHeader } from '@/modules/contabilidad/ui/components/ReportHeader';
+import { getBrandColor } from '@/shared/utils/brandColors';
 
 export default function EstadoResultadosPage() {
     const { currentEmpresa } = useEmpresa();
@@ -35,34 +40,80 @@ export default function EstadoResultadosPage() {
     };
 
     useEffect(() => {
-        if (currentEmpresa?.id) loadData();
-    }, [currentEmpresa?.id]);
+        if (currentEmpresa?.id && fechaInicio && fechaFin) loadData();
+    }, [currentEmpresa?.id, fechaInicio, fechaFin]);
+
+    const { exportToPdf } = usePdfExport();
+
+    const handleExportPdf = () => {
+        if (!estadoResultados) return;
+
+        const columns = ['CÓDIGO', 'CUENTA', 'SALDO'];
+        const data: any[] = [];
+
+        const addCuenta = (c: any) => {
+            data.push([c.codigo, c.nombre, formatMoney(c.saldo)]);
+            if (c.subcuentas) c.subcuentas.forEach(addCuenta);
+        };
+
+        if (estadoResultados.ingresos) addCuenta(estadoResultados.ingresos);
+        if (estadoResultados.gastos) addCuenta(estadoResultados.gastos);
+
+        data.push(['', 'UTILIDAD OPERATIVA', formatMoney(estadoResultados.utilidadOperativa)]);
+        data.push(['', 'UTILIDAD NETA', formatMoney(estadoResultados.utilidadNeta)]);
+
+        exportToPdf({
+            title: 'Estado de Resultados Integral',
+            empresa: currentEmpresa ? {
+                razonSocial: currentEmpresa.razonSocial,
+                ruc: currentEmpresa.ruc,
+                direccion: (currentEmpresa as any).direccion || ''
+            } : { razonSocial: 'Empresa', ruc: '9999999999001' },
+            periodo: {
+                inicio: new Date(fechaInicio),
+                fin: new Date(fechaFin)
+            },
+            columns,
+            data,
+            headerColor: getBrandColor(currentEmpresa),
+            filename: `estado_resultados_${fechaInicio}_${fechaFin}.pdf`
+        });
+    };
+
+    const { exportToExcel } = useExcelExport();
 
     const handleExportResultados = () => {
         if (!estadoResultados) return;
 
-        const headers = ['Código', 'Cuenta', 'Saldo'];
-        const rows: any[] = [];
+        const headers = ['CÓDIGO', 'CUENTA', 'SALDO'];
+        const data: any[] = [];
 
         const addCuenta = (c: any) => {
-            rows.push([c.codigo, `"${c.nombre}"`, c.saldo]);
+            data.push([c.codigo, c.nombre, formatMoney(c.saldo)]);
             if (c.subcuentas) c.subcuentas.forEach(addCuenta);
         };
 
-        addCuenta(estadoResultados.ingresos);
-        addCuenta(estadoResultados.gastos);
-        rows.push(['', 'UTILIDAD OPERATIVA', estadoResultados.utilidadOperativa]);
-        rows.push(['', 'UTILIDAD NETA', estadoResultados.utilidadNeta]);
+        if (estadoResultados.ingresos) addCuenta(estadoResultados.ingresos);
+        if (estadoResultados.gastos) addCuenta(estadoResultados.gastos);
 
-        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `estado_resultados_${currentEmpresa?.razonSocial.replace(/\s+/g, '_')}_${fechaInicio}_${fechaFin}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        data.push(['', 'UTILIDAD OPERATIVA', formatMoney(estadoResultados.utilidadOperativa)]);
+        data.push(['', 'UTILIDAD NETA', formatMoney(estadoResultados.utilidadNeta)]);
+
+        exportToExcel({
+            title: 'Estado de Resultados Integral',
+            empresa: currentEmpresa ? {
+                razonSocial: currentEmpresa.razonSocial,
+                ruc: currentEmpresa.ruc,
+                direccion: (currentEmpresa as any).direccion || ''
+            } : { razonSocial: 'Empresa', ruc: '9999999999001' },
+            periodo: {
+                inicio: new Date(fechaInicio),
+                fin: new Date(fechaFin)
+            },
+            headers,
+            data,
+            filename: `estado_resultados_${fechaInicio}_${fechaFin}.xlsx`
+        });
     };
 
     if (!currentEmpresa) return null;
@@ -72,54 +123,38 @@ export default function EstadoResultadosPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Estado de Resultados Integral</h1>
-                    <p className="text-slate-500 text-sm mt-1">Pérdidas y Ganancias.</p>
+                    <p className="text-slate-500 text-sm mt-1">Reporte detallado de ingresos, costos y gastos del periodo.</p>
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-100 flex flex-wrap gap-4 items-end">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Desde</label>
-                    <input
-                        type="date"
-                        value={fechaInicio}
-                        onChange={e => setFechaInicio(e.target.value)}
-                        className="border border-slate-200 rounded px-3 py-1.5 text-sm"
-                    />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Hasta</label>
-                    <input
-                        type="date"
-                        value={fechaFin}
-                        onChange={e => setFechaFin(e.target.value)}
-                        className="border border-slate-200 rounded px-3 py-1.5 text-sm"
-                    />
-                </div>
-                <Button variant="secondary" className="flex items-center gap-2" onClick={loadData}>
-                    <Filter size={16} /> Actualizar
-                </Button>
-            </div>
+            <FinancialReportFilter
+                initialValues={{ desde: fechaInicio, hasta: fechaFin }}
+                onFilter={(vals) => {
+                    setFechaInicio(vals.desde!);
+                    setFechaFin(vals.hasta!);
+                }}
+                isLoading={loading}
+            />
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in print:shadow-none print:border-none">
                 {/* Cabecera con datos de la empresa */}
-                <div className="text-center p-8 pb-6 border-b-2 border-slate-200 bg-slate-50/30">
-                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{currentEmpresa.razonSocial}</h2>
-                    <p className="text-sm text-slate-600 mt-1">RUC: {currentEmpresa.ruc}</p>
-                    <p className="text-sm text-slate-500 mt-1">{currentEmpresa.direccionMatriz}</p>
-                    <h3 className="text-xl font-bold text-sri-blue uppercase mt-4">Estado de Resultados Integral</h3>
-                    <p className="text-slate-500 font-medium mt-1">
-                        Del {new Date(fechaInicio + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })} al {new Date(fechaFin + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    </p>
-                    <p className="text-sm text-slate-400 mt-1">(Expresado en Dólares de los Estados Unidos de América)</p>
-                </div>
+                <ReportHeader
+                    empresa={currentEmpresa}
+                    titulo="Estado de Resultados Integral"
+                    fechaInicio={fechaInicio}
+                    fechaFin={fechaFin}
+                />
 
                 {/* Botones de exportación */}
-                <div className="p-4 border-b border-slate-100 flex justify-end gap-2 bg-white">
-                    <Button variant="secondary" className="flex items-center gap-2">
+                <div className="p-4 border-b border-slate-100 flex justify-end gap-2 bg-white print:hidden">
+                    <Button variant="secondary" onClick={() => window.print()} className="flex items-center gap-2">
                         <Printer size={18} /> Imprimir
                     </Button>
+                    <Button variant="secondary" onClick={handleExportPdf} className="flex items-center gap-2">
+                        <FileText size={18} /> PDF
+                    </Button>
                     <Button variant="secondary" onClick={handleExportResultados} className="flex items-center gap-2">
-                        <Download size={18} /> Exportar Excel
+                        <Download size={18} /> Excel
                     </Button>
                 </div>
 

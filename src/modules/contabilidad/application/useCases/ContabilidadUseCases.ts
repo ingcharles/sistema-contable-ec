@@ -57,4 +57,18 @@ export class ContabilidadUseCases extends BaseUseCase {
     static async obtenerCambiosPatrimonio(desde: string, hasta: string) {
         return this.request(`/api/contabilidad/reportes/cambios-patrimonio?desde=${desde}&hasta=${hasta}`);
     }
+
+    static async obtenerBalanceComprobacion(desde: string, hasta: string, nivel: number = 4) {
+        return this.request(`/api/contabilidad/reportes/balance-comprobacion?desde=${desde}&hasta=${hasta}&nivel=${nivel}`);
+    }
+
+    static async obtenerLibroDiario(desde: string, hasta: string, centroCostoId?: string) {
+        let url = `/api/contabilidad/reportes/libro-diario?desde=${desde}&hasta=${hasta}`;
+        if (centroCostoId) url += `&centroCostoId=${centroCostoId}`;
+        return this.request(url);
+    }
+
+    static async obtenerLibroMayor(desde: string, hasta: string, cuentaCodigo: string) {
+        return this.request(`/api/contabilidad/reportes/libro-mayor?desde=${desde}&hasta=${hasta}&cuentaCodigo=${cuentaCodigo}`);
+    }
 }

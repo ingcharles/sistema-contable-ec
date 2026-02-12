@@ -224,25 +224,23 @@ export async function POST(req: NextRequest) {
                 if (estadoSri === 'AUTORIZADO') {
                     // Asiento Contable
                     const asientoId = crypto.randomUUID();
-                    const asientoNo = `LIQ-${persistentData.punto.estab}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
+                    const glosaAsiento = 'LIQUIDACIÓN DE COMPRA ' + persistentData.proveedorName + ' - ' + persistentData.secuencial;
 
                     await client.query(`
                         INSERT INTO contabilidad.asientos(id, empresa_id, usuario_id, numero, fecha, glosa, tipo, estado) 
                         VALUES($1,$2,$3,$4,$5,$6, 'EGRESO', 'MAYORIZADO')
-                    `, [asientoId, context.empresaId, context.usuarioId, asientoNo, fechaEmision, 'LIQUIDACIÓN DE COMPRA ' + persistentData.proveedorName + ' - ' + persistentData.secuencial]);
-
-                    // Debe: Gasto/Compra (Inventario o Gasto)
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1,$2,$3,0, 'COMPRA ALIMENTOS/SERVICIOS')`,
-                        [asientoId, '5.1.01.01', persistentData.totalSinImpuestos]);
+                    `, [asientoId, context.empresaId, context.usuarioId, `LIQ-${persistentData.punto.estab}-${persistentData.punto.codigo}-${persistentData.secuencial}`, fechaEmision, glosaAsiento]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1,$2,$3,0, 'COMPRA ALIMENTOS/SERVICIOS', $4)`,
+                        [asientoId, '5.1.01.01', persistentData.totalSinImpuestos, glosaAsiento]);
 
                     if (persistentData.totalIVA > 0) {
-                        await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1,$2,$3,0, 'IVA EN COMPRAS')`,
-                            [asientoId, params.cuenta_iva_compras || '1.1.05.01', persistentData.totalIVA]);
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1,$2,$3,0, 'IVA EN COMPRAS', $4)`,
+                            [asientoId, params.cuenta_iva_compras || '1.1.05.01', persistentData.totalIVA, glosaAsiento]);
                     }
 
                     // Haber: CXP Proveedores
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1,$2,0,$3, 'CUENTAS POR PAGAR PROVEEDORES')`,
-                        [asientoId, params.cuenta_cxp_proveedores || '2.1.01.01', persistentData.importeTotal]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1,$2,0,$3, 'CUENTAS POR PAGAR PROVEEDORES', $4)`,
+                        [asientoId, params.cuenta_cxp_proveedores, persistentData.importeTotal, glosaAsiento]);
                 }
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
         } catch (txError: any) {

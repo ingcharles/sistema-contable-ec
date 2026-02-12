@@ -49,10 +49,11 @@ export function useCatalogos(codigosArray: string[]) {
                 const data = await response.json();
                 setCatalogos(data);
                 setError(null);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 // Silenciar error si el endpoint no existe aún
-                console.warn('Hook useCatalogos: No se pudieron cargar catálogos', err.message);
-                setError(err.message || 'Error desconocido');
+                const msg = err instanceof Error ? err.message : 'Error desconocido';
+                console.warn('Hook useCatalogos: No se pudieron cargar catálogos', msg);
+                setError(msg);
                 setCatalogos({}); // Retornar objeto vacío en caso de error
             } finally {
                 setLoading(false);

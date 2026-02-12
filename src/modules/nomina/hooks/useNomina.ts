@@ -15,9 +15,8 @@ export const useEmpleados = () => {
         try {
             const data = await NominaUseCases.listarEmpleados();
             setEmpleados(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar empleados');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar empleados');
         } finally {
             setLoading(false);
         }
@@ -45,9 +44,8 @@ export const useRolesPago = () => {
         try {
             const data = await NominaUseCases.listarRoles(periodo);
             setRoles(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar roles de pago');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar roles de pago');
         } finally {
             setLoading(false);
         }
@@ -74,9 +72,9 @@ export const useNominaMutations = () => {
         try {
             const result = await NominaUseCases.guardarEmpleado(empleado);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar empleado');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar empleado';
+            setError(msg);
             throw err;
         } finally {
             setProcesando(false);
@@ -89,9 +87,9 @@ export const useNominaMutations = () => {
         try {
             const result = await NominaUseCases.generarRol(periodo);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al generar rol de pago');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al generar rol de pago';
+            setError(msg);
             throw err;
         } finally {
             setProcesando(false);
@@ -104,9 +102,9 @@ export const useNominaMutations = () => {
         try {
             const result = await NominaUseCases.eliminarEmpleado(id);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al eliminar empleado');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al eliminar empleado';
+            setError(msg);
             throw err;
         } finally {
             setProcesando(false);

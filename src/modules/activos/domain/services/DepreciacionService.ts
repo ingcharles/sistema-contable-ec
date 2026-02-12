@@ -107,17 +107,18 @@ export class DepreciacionService {
             for (const item of Object.values(porCuenta)) {
                 const { cuentaGasto, cuentaDepAcum, total } = item as any;
 
+                const glosaAsiento = `Depreciación de Activos Fijos - Periodo ${periodo}`;
                 // DEBE: Gasto por Depreciación
                 await client.query(`
-                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto)
-                    VALUES ($1, $2, $3, 0, $4)
-                `, [asientoId, cuentaGasto, total, `Gasto Depreciación Periodo ${periodo}`]);
+                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                    VALUES ($1, $2, $3, 0, $4, $5)
+                `, [asientoId, cuentaGasto, total, `Gasto Depreciación Periodo ${periodo}`, glosaAsiento]);
 
                 // HABER: Depreciación Acumulada
                 await client.query(`
-                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto)
-                    VALUES ($1, $2, 0, $3, $4)
-                `, [asientoId, cuentaDepAcum, total, `Depreciación Acumulada Periodo ${periodo}`]);
+                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                    VALUES ($1, $2, 0, $3, $4, $5)
+                `, [asientoId, cuentaDepAcum, total, `Depreciación Acumulada Periodo ${periodo}`, `Depreciación de Activos Fijos - Periodo ${periodo}`]);
             }
 
             // 3.3 Actualizar cada activo
@@ -164,23 +165,6 @@ export class DepreciacionService {
         return agrupado;
     }
 
-    /**
-     * Agrupa depreciaciones por categoría de activo (Mantenido para compatibilidad si se usa en otros sitios)
-     */
-    private static agruparPorCategoria(detalles: any[]): Record<string, any> {
-        const agrupado: Record<string, any> = {};
-
-        for (const detalle of detalles) {
-            const cat = detalle.categoria || 'OTROS';
-            if (!agrupado[cat]) {
-                agrupado[cat] = { total: 0, activos: [] };
-            }
-            agrupado[cat].total += detalle.depreciacionMensual;
-            agrupado[cat].activos.push(detalle);
-        }
-
-        return agrupado;
-    }
 
     /**
      * Obtiene cuenta contable de gasto por depreciación según categoría

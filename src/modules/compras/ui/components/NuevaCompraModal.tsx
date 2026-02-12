@@ -324,7 +324,7 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
 
             // Preparar datos del asiento contable
             const selectedCentro = centrosCostos.find(c => c.id === centroCostoId);
-            const numeroAsiento = `CC-${crypto.randomUUID().slice(0, 8)}`;
+            const numeroAsiento = `COM-${secuencial.replace(/-/g, '')}`;
             const glosaAsiento = `P/R Compra Fac/${secuencial} - ${proveedorNombre} ${selectedCentro ? `(${selectedCentro.nombre})` : ''}`;
 
             // LLAMADA ÚNICA AL ENDPOINT CONSOLIDADO usando ComprasUseCases

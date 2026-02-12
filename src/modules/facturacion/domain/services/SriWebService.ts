@@ -38,9 +38,9 @@ export class SriWebService {
 
             const responseText = await response.text();
             return this.parseRecepcionResponse(responseText);
-        } catch (error: any) {
-            console.error('Error SOAP Recepción:', error);
-            throw new Error(`Error de conexión con SRI: ${error.message}`);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Error de red desconocido';
+            throw new Error(`Error de conexión con SRI (Recepción): ${msg}`);
         }
     }
 
@@ -71,9 +71,9 @@ export class SriWebService {
 
             const responseText = await response.text();
             return this.parseAutorizacionResponse(responseText);
-        } catch (error: any) {
-            console.error('Error SOAP Autorización:', error);
-            throw new Error(`Error de conexión con SRI: ${error.message}`);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Error de red desconocido';
+            throw new Error(`Error de conexión con SRI (Autorización): ${msg}`);
         }
     }
 
@@ -103,7 +103,6 @@ export class SriWebService {
     private static parseAutorizacionResponse(xml: string): SriRespuesta {
         const parser = new DOMParser();
         const doc = parser.parseFromString(xml, 'text/xml');
-        console.log("doc", doc);
         // La estructura de respuesta de autorización es más compleja, puede tener múltiples autorizaciones
         const autorizacion = doc.getElementsByTagName('autorizacion')[0];
         if (!autorizacion) {

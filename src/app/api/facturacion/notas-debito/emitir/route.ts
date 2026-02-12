@@ -312,32 +312,32 @@ export async function POST(req: NextRequest) {
                 if (estadoSri === 'AUTORIZADO') {
                     // Generar Asiento Contable
                     const asientoNo = `ND-${persistentData.punto.estab}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
-                    const glosaAsiento = `NOTA DE DÉBITO ${asientoNo} REF FACT ${numDocModificado}`;
+                    const glosaND = `NOTA DE DÉBITO ${asientoNo} REF FACT ${numDocModificado} - ${cliente.razon_social}`;
                     const asientoResult = await client.query(`
                         INSERT INTO contabilidad.asientos(empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
                         VALUES($1, $2, $3, $4, $5, 'INGRESO', 'MAYORIZADO')
                         RETURNING id
-                    `, [context.empresaId, context.usuarioId, asientoNo, fechaEmision, glosaAsiento]);
+                    `, [context.empresaId, context.usuarioId, asientoNo, fechaEmision, glosaND]);
                     const asientoId = asientoResult.rows[0].id;
 
                     // Debe: CXC Clientes
                     await client.query(`
-                        INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
-                        VALUES($1, $2, $3, 0, 'CXC NOTA DE DÉBITO') 
-                    `, [asientoId, paramsRow.cuenta_cxc_clientes || '1.1.02.01', persistentData.valorTotal]);
+                        INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                        VALUES($1, $2, $3, 0, 'CXC NOTA DE DÉBITO', $4) 
+                    `, [asientoId, paramsRow.cuenta_cxc_clientes || '1.1.02.01', persistentData.valorTotal, glosaND]);
 
                     // Haber: Ingresos/Otros Ingresos
                     const conceptoIngreso = `INGRESO POR ND: ${motivo}`;
                     await client.query(`
-                        INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
-                        VALUES($1, $2, 0, $3, $4) 
-                    `, [asientoId, paramsRow.cuenta_ventas || '4.1.01.01', persistentData.subtotal, conceptoIngreso]);
+                        INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                        VALUES($1, $2, 0, $3, $4, $5) 
+                    `, [asientoId, paramsRow.cuenta_ventas || '4.1.01.01', persistentData.subtotal, conceptoIngreso, glosaND]);
 
                     if (persistentData.totalIva > 0) {
                         await client.query(`
-                            INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
-                            VALUES($1, $2, 0, $3, 'IVA EN VENTAS (ND)') 
-                        `, [asientoId, paramsRow.cuenta_iva_por_pagar || '2.1.03.01', persistentData.totalIva]);
+                            INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                            VALUES($1, $2, 0, $3, 'IVA EN VENTAS (ND)', $4) 
+                        `, [asientoId, paramsRow.cuenta_iva_por_pagar, persistentData.totalIva, glosaND]);
                     }
 
                     // Actualizar carteras

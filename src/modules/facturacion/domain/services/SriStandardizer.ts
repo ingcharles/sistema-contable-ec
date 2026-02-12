@@ -6,7 +6,6 @@ export class SriStandardizer {
      * Estandariza los datos de una factura
      */
     static standardizeFactura(data: any): SriFactura {
-        console.log('standardizeFactura input:', data);
         // Mapeo robusto de campos (soporta ViewModel y Entidad de DB)
         const identificacion = data.identificacionComprador;
         const razonSocial = data.razonSocialComprador;
@@ -161,14 +160,14 @@ export class SriStandardizer {
         const identificacion = data.identificacionComprador || data.terceroRuc || data.terceroId;
         const razonSocial = data.razonSocialComprador || data.terceroNombre || data.razonSocial;
 
-        let tipoIdentificacion = data.tipoIdentificacionComprador || data.tipoIdentificacion;
+        let tipoIdentificacion = data.tipoIdentificacionComprador;
 
-        if (!tipoIdentificacion && identificacion) {
-            if (identificacion === '9999999999999') tipoIdentificacion = '07';
-            else if (identificacion.length === 13) tipoIdentificacion = '04';
-            else if (identificacion.length === 10) tipoIdentificacion = '05';
-            else tipoIdentificacion = '06';
-        }
+        // if (!tipoIdentificacion && identificacion) {
+        //     if (identificacion === '9999999999999') tipoIdentificacion = '07';
+        //     else if (identificacion.length === 13) tipoIdentificacion = '04';
+        //     else if (identificacion.length === 10) tipoIdentificacion = '05';
+        //     else tipoIdentificacion = '06';
+        // }
 
         return {
             infoTributaria: {
@@ -176,7 +175,7 @@ export class SriStandardizer {
                 tipoEmision: data.tipoEmisionSri,
                 razonSocial: data.razonSocial,
                 ruc: data.ruc,
-                codDoc: data.codDoc || '04',
+                codDoc: data.codDoc, //|| '04'
                 estab: (data.estab).padStart(3, '0'),
                 ptoEmi: (data.ptoEmi).padStart(3, '0'),
                 secuencial: (data.secuencial).padStart(9, '0'),
@@ -212,16 +211,16 @@ export class SriStandardizer {
                 impuestos: [
                     {
                         codigo: '2',
-                        codigoPorcentaje: d.codigoIVA || '2',
-                        tarifa: d.tarifa ?? 0,
+                        codigoPorcentaje: d.codigoIVA,
+                        tarifa: d.tarifa,
                         baseImponible: Number(Number(d.baseImponible || (d.cantidad * d.precioUnitario) || 0).toFixed(2)),
                         valor: Number(Number(d.valorIVA || ((d.baseImponible || (d.cantidad * d.precioUnitario) || 0) * ((d.tarifa ?? 0) / 100)) || 0).toFixed(2))
                     }
                 ]
             })),
             infoAdicional: [
-                { nombre: 'Direccion', valor: data.direccionComprador || data.direccion },
-                { nombre: 'Email', valor: data.emailComprador || data.email }
+                { nombre: 'Direccion', valor: data.direccionComprador },
+                { nombre: 'Email', valor: data.emailComprador }
             ].filter(i => i.valor)
         };
     }
@@ -416,8 +415,8 @@ export class SriStandardizer {
         };
     }
 
-    private static formatNumDoc(numDoc: string = '', defaultEstab?: string, defaultPtoEmi?: string): string {
-        if (!numDoc) return `${(defaultEstab).padStart(3, '0')}-${(defaultPtoEmi).padStart(3, '0')}-000000001`;
+    private static formatNumDoc(numDoc: string = '', defaultEstab: string = '001', defaultPtoEmi: string = '001'): string {
+        if (!numDoc) return `${defaultEstab.padStart(3, '0')}-${defaultPtoEmi.padStart(3, '0')}-000000001`;
 
         // Si ya tiene el formato correcto, devolverlo
         if (/^\d{3}-\d{3}-\d{9}$/.test(numDoc)) return numDoc;
@@ -430,8 +429,8 @@ export class SriStandardizer {
 
         // Si es solo el secuencial, concatenar establecimiento y punto de emisión
         const secuencial = numDoc.padStart(9, '0');
-        const estab = (defaultEstab).padStart(3, '0');
-        const ptoEmi = (defaultPtoEmi).padStart(3, '0');
+        const estab = defaultEstab.padStart(3, '0');
+        const ptoEmi = defaultPtoEmi.padStart(3, '0');
 
         return `${estab}-${ptoEmi}-${secuencial}`;
     }

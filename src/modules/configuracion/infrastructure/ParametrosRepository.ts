@@ -30,34 +30,34 @@ export class ParametrosRepository {
             cuentaAnticipoProveedores: row.cuenta_anticipo_proveedores,
 
             // Nuevas cuentas con defaults
-            cuentaVentas: row.cuenta_ventas || '4.1.01.01',
-            cuentaDevolucionVentas: row.cuenta_devolucion_ventas || '4.1.01.02',
-            cuentaCompras: row.cuenta_compras || '5.1.01.01',
-            cuentaInventario: row.cuenta_inventario || '1.1.03.01',
-            cuentaIvaPorPagar: row.cuenta_iva_por_pagar || '2.1.05.01',
-            cuentaRetIvaPorPagar: row.cuenta_ret_iva_por_pagar || '2.1.03.02',
-            cuentaCostoVentas: row.cuenta_costo_ventas || '5.1.01.01',
-            cuentaDescuentoVentas: row.cuenta_descuento_ventas || '4.1.01.03',
+            cuentaVentas: row.cuenta_ventas,
+            cuentaDevolucionVentas: row.cuenta_devolucion_ventas,
+            cuentaCompras: row.cuenta_compras,
+            cuentaInventario: row.cuenta_inventario,
+            cuentaIvaPorPagar: row.cuenta_iva_por_pagar,
+            cuentaRetIvaPorPagar: row.cuenta_ret_iva_por_pagar,
+            cuentaCostoVentas: row.cuenta_costo_ventas,
+            cuentaDescuentoVentas: row.cuenta_descuento_ventas,
 
             // Nómina
-            cuentaSueldos: row.cuenta_sueldos || '5.1.01.01',
-            cuentaAportePatronal: row.cuenta_aporte_patronal || '5.1.01.02',
-            cuentaDecimoTercero: row.cuenta_decimo_tercero || '5.1.01.03',
-            cuentaDecimoCuarto: row.cuenta_decimo_cuarto || '5.1.01.04',
-            cuentaIessPorPagar: row.cuenta_iess_por_pagar || '2.1.03.01',
-            cuentaSueldosPorPagar: row.cuenta_sueldos_por_pagar || '2.1.03.02',
-            cuentaProvDecimoTercero: row.cuenta_prov_decimo_tercero || '2.1.03.03',
-            cuentaProvDecimoCuarto: row.cuenta_prov_decimo_cuarto || '2.1.03.04',
+            cuentaSueldos: row.cuenta_sueldos,
+            cuentaAportePatronal: row.cuenta_aporte_patronal,
+            cuentaDecimoTercero: row.cuenta_decimo_tercero,
+            cuentaDecimoCuarto: row.cuenta_decimo_cuarto,
+            cuentaIessPorPagar: row.cuenta_iess_por_pagar,
+            cuentaSueldosPorPagar: row.cuenta_sueldos_por_pagar,
+            cuentaProvDecimoTercero: row.cuenta_prov_decimo_tercero,
+            cuentaProvDecimoCuarto: row.cuenta_prov_decimo_cuarto,
 
             // Caja Chica
-            cuentaCajaChica: row.cuenta_caja_chica || '1.1.01.02',
-            cuentaGastosVarios: row.cuenta_gastos_varios || '5.2.01.99',
+            cuentaCajaChica: row.cuenta_caja_chica,
+            cuentaGastosVarios: row.cuenta_gastos_varios,
 
             // Inventario
-            cuentaSobranteInventario: row.cuenta_sobrante_inventario || '4.2.01.01',
-            cuentaFaltanteInventario: row.cuenta_faltante_inventario || '5.2.01.01',
+            cuentaSobranteInventario: row.cuenta_sobrante_inventario,
+            cuentaFaltanteInventario: row.cuenta_faltante_inventario,
 
-            sriTipoEmision: row.sri_tipo_emision || '1',
+            sriTipoEmision: row.sri_tipo_emision,
             fechaCierre: row.fecha_cierre
         };
     }

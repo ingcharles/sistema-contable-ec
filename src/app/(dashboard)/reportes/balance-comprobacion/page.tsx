@@ -4,34 +4,22 @@ import { useState, useEffect } from 'react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { BalanceComprobacionTable } from '@/modules/contabilidad/ui/components/BalanceComprobacionTable';
 import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { AsientoContable } from '@/modules/contabilidad/domain/types';
-import { CuentaContable } from '@/shared/types';
-import { Filter } from 'lucide-react';
-import { Button } from '@/shared/ui/Button';
+import { FinancialReportFilter } from '@/modules/contabilidad/ui/components/FinancialReportFilter';
 
 export default function BalanceComprobacionPage() {
     const { currentEmpresa } = useEmpresa();
-    const [asientos, setAsientos] = useState<AsientoContable[]>([]);
-    const [planCuentas, setPlanCuentas] = useState<CuentaContable[]>([]);
+    const [datos, setDatos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [fechaInicio, setFechaInicio] = useState<string>('');
-    const [fechaFin, setFechaFin] = useState<string>('');
-
-    useEffect(() => {
-        setFechaInicio(`${new Date().getFullYear()}-01-01`);
-        setFechaFin(new Date().toISOString().split('T')[0]);
-    }, []);
+    const [fechaInicio, setFechaInicio] = useState<string>(`${new Date().getFullYear()}-01-01`);
+    const [fechaFin, setFechaFin] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [nivel, setNivel] = useState(4);
 
     const loadData = async () => {
         if (!currentEmpresa) return;
         setLoading(true);
         try {
-            const [dataAsientos, dataPC] = await Promise.all([
-                ContabilidadUseCases.listarAsientos(),
-                ContabilidadUseCases.listarCuentas()
-            ]);
-            setAsientos(Array.isArray(dataAsientos) ? dataAsientos : []);
-            setPlanCuentas(Array.isArray(dataPC) ? dataPC : []);
+            const res = await ContabilidadUseCases.obtenerBalanceComprobacion(fechaInicio, fechaFin, nivel);
+            setDatos(Array.isArray(res) ? res : []);
         } catch (error) {
             console.error('Error cargando balance comprobacion:', error);
         } finally {
@@ -41,7 +29,7 @@ export default function BalanceComprobacionPage() {
 
     useEffect(() => {
         if (currentEmpresa?.id) loadData();
-    }, [currentEmpresa?.id]);
+    }, [currentEmpresa?.id, fechaInicio, fechaFin, nivel]);
 
     if (!currentEmpresa) return null;
 
@@ -54,27 +42,23 @@ export default function BalanceComprobacionPage() {
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-100 flex flex-wrap gap-4 items-end">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Desde</label>
-                    <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className="border border-slate-200 rounded px-3 py-1.5 text-sm" />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Hasta</label>
-                    <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="border border-slate-200 rounded px-3 py-1.5 text-sm" />
-                </div>
-                <Button variant="secondary" className="flex items-center gap-2" onClick={loadData}>
-                    <Filter size={16} /> Generar Balance
-                </Button>
-            </div>
+            <FinancialReportFilter
+                showLevel={true}
+                initialValues={{ desde: fechaInicio, hasta: fechaFin, nivel }}
+                onFilter={(vals) => {
+                    setFechaInicio(vals.desde!);
+                    setFechaFin(vals.hasta!);
+                    setNivel(vals.nivel!);
+                }}
+                isLoading={loading}
+            />
 
             <BalanceComprobacionTable
-                asientos={asientos}
+                datos={datos}
                 fechaInicio={fechaInicio}
                 fechaFin={fechaFin}
                 loading={loading}
                 empresa={currentEmpresa}
-                planCuentas={planCuentas}
             />
         </div>
     );

@@ -118,10 +118,10 @@ export async function POST(req: NextRequest) {
                 const paramsResult = await client.query('SELECT cuenta_inventario, cuenta_sobrante_inventario, cuenta_faltante_inventario FROM configuracion.parametros WHERE empresa_id = $1', [context.empresaId]);
                 const params = paramsResult.rows[0] || {};
 
-                const ctaInventario = params.cuenta_inventario || '1.1.03.01';
+                const ctaInventario = params.cuenta_inventario;
                 const ctaAjuste = tipo === 'AJUSTE_POSITIVO'
-                    ? (params.cuenta_sobrante_inventario || '4.1.01.01')
-                    : (params.cuenta_faltante_inventario || '5.2.01.01');
+                    ? (params.cuenta_sobrante_inventario)
+                    : (params.cuenta_faltante_inventario);
 
                 const montoTotal = cantidad * (costoUnitario || nuevoCosto);
 
@@ -132,20 +132,21 @@ export async function POST(req: NextRequest) {
                     RETURNING id
                 `, [
                     context.empresaId, context.usuarioId,
-                    `AJU-${movimientoId.slice(-6)}`,
+                    `AJU-${movimientoId.toString().toUpperCase().slice(-12)}`,
                     `Ajuste de Inventario (${tipo}): ${referencia || ''}`
                 ]);
                 const asientoId = asientoResult.rows[0].id;
 
+                const glosaAsiento = `Ajuste de Inventario (${tipo}): ${referencia || ''}`;
                 // 3. Partida Doble
                 if (tipo === 'AJUSTE_POSITIVO') {
                     // DEBE Inventario, HABER Ingreso (Sobrante)
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, $4)`, [asientoId, ctaInventario, montoTotal, observaciones]);
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, $4)`, [asientoId, ctaAjuste, montoTotal, observaciones]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, $4, $5)`, [asientoId, ctaInventario, montoTotal, observaciones, glosaAsiento]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, $4, $5)`, [asientoId, ctaAjuste, montoTotal, observaciones, glosaAsiento]);
                 } else {
                     // DEBE Gasto (Faltante), HABER Inventario
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, $4)`, [asientoId, ctaAjuste, montoTotal, observaciones]);
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, $4)`, [asientoId, ctaInventario, montoTotal, observaciones]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, $4, $5)`, [asientoId, ctaAjuste, montoTotal, observaciones, `Ajuste de Inventario (${tipo}): ${referencia || ''}`]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, $4, $5)`, [asientoId, ctaInventario, montoTotal, observaciones, `Ajuste de Inventario (${tipo}): ${referencia || ''}`]);
                 }
             }
 

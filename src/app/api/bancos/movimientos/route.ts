@@ -176,10 +176,10 @@ export async function POST(req: NextRequest) {
             // --- GENERACIÓN DE ASIENTO CONTABLE ---
             // 1. Obtener la cuenta contable de la cuenta bancaria
             const cuentaBancariaResult = await client.query('SELECT cuenta_contable_codigo FROM bancos.bancos_cuentas WHERE id = $1', [cuentaId]);
-            const ctaBanco = cuentaBancariaResult.rows[0]?.cuenta_contable_codigo || '1.1.01.01';
+            const ctaBanco = cuentaBancariaResult.rows[0]?.cuenta_contable_codigo;
 
             // 2. Definir la contrapartida (si viene en el body, sino una genérica o parametrizada)
-            const ctaContrapartida = body.cuentaContrapartida || '1.1.01.02'; // Por defecto Caja si no se especifica
+            const ctaContrapartida = body.cuentaContrapartida; // Por defecto Caja si no se especifica
 
             // 3. Crear el asiento
             const glosa = `${tipo}: ${concepto || referencia}`;
@@ -198,12 +198,12 @@ export async function POST(req: NextRequest) {
             // 4. Partida Doble
             if (esEgreso) {
                 // Egreso: DEBE Contrapartida, HABER Banco
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, $4)`, [asientoId, ctaContrapartida, monto, concepto]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, $4)`, [asientoId, ctaBanco, monto, concepto]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, $4, $5)`, [asientoId, ctaContrapartida, monto, concepto, glosa]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, $4, $5)`, [asientoId, ctaBanco, monto, concepto, glosa]);
             } else {
                 // Ingreso: DEBE Banco, HABER Contrapartida
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, $4)`, [asientoId, ctaBanco, monto, concepto]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, $4)`, [asientoId, ctaContrapartida, monto, concepto]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, $4, $5)`, [asientoId, ctaBanco, monto, concepto, glosa]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, $4, $5)`, [asientoId, ctaContrapartida, monto, concepto, glosa]);
             }
 
             // 5. Vincular asiento al movimiento (opcional, si existiera la columna)

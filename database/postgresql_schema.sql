@@ -223,7 +223,8 @@ CREATE TABLE contabilidad.asientos_detalles (
     cuenta_codigo VARCHAR(50) NOT NULL,
     debe NUMERIC(18,2) DEFAULT 0,
     haber NUMERIC(18,2) DEFAULT 0,
-    concepto TEXT
+    concepto TEXT,
+    glosa TEXT NOT NULL,
 );
 
 COMMENT ON TABLE contabilidad.asientos_detalles IS 'Detalle de lí­neas del asiento contable (Movimientos).';
@@ -233,6 +234,7 @@ COMMENT ON COLUMN contabilidad.asientos_detalles.cuenta_codigo IS 'Código de la
 COMMENT ON COLUMN contabilidad.asientos_detalles.debe IS 'Monto en la columna del DEBE (Débito)';
 COMMENT ON COLUMN contabilidad.asientos_detalles.haber IS 'Monto en la columna del HABER (Crédito)';
 COMMENT ON COLUMN contabilidad.asientos_detalles.concepto IS 'Descripción especí­fica de la lí­nea (opcional)';
+COMMENT ON COLUMN contabilidad.asientos_detalles.glosa IS 'Descripción o detalle general del asiento';
 
 -- ============================================================================
 -- 3. MÓDULO: DIRECTORIO (TERCEROS)
@@ -777,7 +779,7 @@ CREATE TABLE facturacion.comprobantes_electronicos (
     total_descuento NUMERIC(18,2) DEFAULT 0.00 NOT NULL,
     iva NUMERIC(18,2) NOT NULL,
     total NUMERIC(18,2) NOT NULL,
-    estado facturacion.estado_comprobante DEFAULT 'BORRADOR',
+    estado facturacion.estado_comprobante DEFAULT 'PENDIENTE',
     mensajes_sri JSONB DEFAULT NULL,
     ambiente_sri INTEGER,
     tipo_emision_sri INTEGER,

@@ -1,99 +1,163 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-import { Button } from '@/shared/ui/Button';
-import { Calendar, Download, Printer, Filter, Layers } from 'lucide-react';
+import { FinancialReportFilter } from '@/modules/contabilidad/ui/components/FinancialReportFilter';
 import { formatMoney } from '@/shared/utils/formatearDinero';
+import { Sparkles, Printer, Download, FileText } from 'lucide-react';
+import { usePdfExport } from '@/modules/shared/hooks/usePdfExport';
+import { useExcelExport } from '@/modules/shared/hooks/useExcelExport';
+import { ReportHeader } from '@/modules/contabilidad/ui/components/ReportHeader';
+import { Button } from '@/shared/ui/Button';
 
 export default function CambiosPatrimonioPage() {
-    const [desde, setDesde] = useState(new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
+    const { currentEmpresa } = useEmpresa();
+    const [datos, setDatos] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [desde, setDesde] = useState(`${new Date().getFullYear()}-01-01`);
     const [hasta, setHasta] = useState(new Date().toISOString().split('T')[0]);
-    const [data, setData] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
 
     const loadData = async () => {
+        if (!currentEmpresa) return;
         setLoading(true);
         try {
-            const res = await ContabilidadUseCases.obtenerCambiosPatrimonio(desde, hasta);
-            setData(Array.isArray(res) ? res : []);
+            const data = await ContabilidadUseCases.obtenerCambiosPatrimonio(desde, hasta);
+            setDatos(data);
         } catch (error) {
-            console.error('Error al cargar cambios patrimonio:', error);
+            console.error('Error cargando cambios patrimonio:', error);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadData();
-    }, []);
+        if (currentEmpresa?.id) loadData();
+    }, [currentEmpresa?.id, desde, hasta]);
+
+    if (!currentEmpresa) return null;
+
+    const { exportToPdf } = usePdfExport();
+
+    const handleExportPdf = () => {
+        const columns = ['CONCEPTO', 'SALDO INICIAL', 'AUMENTOS/DISMINUCIONES', 'SALDO FINAL'];
+        const data = datos.map(row => [
+            row.concepto,
+            formatMoney(row.saldos.inicial),
+            formatMoney(row.capital + row.reservas + row.resultadosAcumulados),
+            formatMoney(row.total)
+        ]);
+
+        exportToPdf({
+            title: 'Estado de Cambios en el Patrimonio',
+            empresa: currentEmpresa ? {
+                razonSocial: currentEmpresa.razonSocial,
+                ruc: currentEmpresa.ruc,
+                direccion: (currentEmpresa as any).direccion || ''
+            } : { razonSocial: 'Empresa', ruc: '9999999999001' },
+            periodo: {
+                inicio: new Date(desde),
+                fin: new Date(hasta)
+            },
+            columns,
+            data,
+            orientation: 'landscape',
+            filename: `cambios_patrimonio_${desde}_${hasta}.pdf`
+        });
+    };
+
+    const { exportToExcel } = useExcelExport();
+
+    const handleExportExcel = () => {
+        const headers = ['CONCEPTO', 'SALDO INICIAL', 'AUMENTOS / DISMINUCIONES', 'SALDO FINAL'];
+        const data = datos.map(row => [
+            row.concepto,
+            formatMoney(row.saldos.inicial),
+            formatMoney(row.capital + row.reservas + row.resultadosAcumulados),
+            formatMoney(row.total)
+        ]);
+
+        exportToExcel({
+            title: 'Estado de Cambios en el Patrimonio',
+            empresa: currentEmpresa ? {
+                razonSocial: currentEmpresa.razonSocial,
+                ruc: currentEmpresa.ruc,
+                direccion: (currentEmpresa as any).direccion || ''
+            } : { razonSocial: 'Empresa', ruc: '9999999999001' },
+            periodo: {
+                inicio: new Date(desde),
+                fin: new Date(hasta)
+            },
+            headers,
+            data,
+            filename: `cambios_patrimonio_${desde}_${hasta}.xlsx`
+        });
+    };
 
     return (
-        <div className="space-y-10 p-10 pb-32">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-8 p-8 max-w-[1400px] mx-auto pb-32">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
                 <div>
-                    <h1 className="text-5xl font-black text-slate-800 tracking-tighter mb-2">Estado de Cambios en el Patrimonio</h1>
-                    <p className="text-slate-500 font-bold flex items-center gap-2 uppercase tracking-widest text-[10px]">
-                        <Layers className="text-indigo-500" size={16} />
-                        Evolución de las cuentas patrimoniales
+                    <h1 className="text-2xl font-bold text-slate-800">Estado de Cambios en el Patrimonio</h1>
+                    <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
+                        <Sparkles size={16} className="text-indigo-500" />
+                        Evolución del capital, reservas y resultados acumulados.
                     </p>
-                </div>
-
-                <div className="flex items-center gap-3 bg-white p-3 rounded-[28px] border border-slate-100 shadow-sm">
-                    <div className="flex items-center gap-2 px-4 border-r border-slate-100">
-                        <Calendar size={18} className="text-indigo-500" />
-                        <input
-                            type="date"
-                            value={desde}
-                            onChange={(e) => setDesde(e.target.value)}
-                            className="text-sm font-bold text-slate-700 bg-transparent border-none p-0 focus:ring-0"
-                        />
-                    </div>
-                    <div className="flex items-center gap-2 px-4">
-                        <Calendar size={18} className="text-indigo-500" />
-                        <input
-                            type="date"
-                            value={hasta}
-                            onChange={(e) => setHasta(e.target.value)}
-                            className="text-sm font-bold text-slate-700 bg-transparent border-none p-0 focus:ring-0"
-                        />
-                    </div>
-                    <Button onClick={loadData} isLoading={loading} className="h-12 w-12 p-0 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-100">
-                        <Filter size={20} />
-                    </Button>
                 </div>
             </div>
 
-            {/* Report Table */}
-            <div className="bg-white rounded-[40px] border border-slate-100 shadow-2xl shadow-indigo-100/20 overflow-hidden">
+            <FinancialReportFilter
+                initialValues={{ desde, hasta }}
+                onFilter={(vals) => {
+                    setDesde(vals.desde!);
+                    setHasta(vals.hasta!);
+                }}
+                isLoading={loading}
+            />
+
+            <div id="reporte-contable" className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden animate-in fade-in duration-700 print:shadow-none print:border-none print:rounded-none">
+                <ReportHeader
+                    empresa={currentEmpresa}
+                    titulo="Estado de Cambios en el Patrimonio"
+                    fechaInicio={desde}
+                    fechaFin={hasta}
+                />
+
+                <div className="p-4 border-b border-slate-100 flex justify-end gap-2 bg-slate-50/50 print:hidden">
+                    <Button variant="secondary" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
+                        <Printer size={16} /> Imprimir
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={handleExportPdf} className="flex items-center gap-2">
+                        <FileText size={16} /> PDF
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={handleExportExcel} className="flex items-center gap-2">
+                        <Download size={16} /> Excel
+                    </Button>
+                </div>
+
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
-                        <thead>
-                            <tr className="bg-slate-900 text-white font-black uppercase tracking-widest text-[11px]">
-                                <th className="px-8 py-6 text-left border-r border-white/5">Concepto</th>
-                                <th className="px-8 py-6 text-right border-r border-white/5">Capital Social</th>
-                                <th className="px-8 py-6 text-right border-r border-white/5">Reservas</th>
-                                <th className="px-8 py-6 text-right border-r border-white/5">Resul. Acumulados</th>
-                                <th className="px-8 py-6 text-right bg-indigo-600">Total Patrimonio</th>
+                    <table className="w-full">
+                        <thead className="text-[10px] uppercase font-black text-slate-400 tracking-widest border-b border-slate-50 bg-slate-50/30">
+                            <tr>
+                                <th className="px-8 py-5 text-left">Concepto</th>
+                                <th className="px-8 py-5 text-right">Saldo Inicial</th>
+                                <th className="px-8 py-5 text-right">Aumentos / Disminuciones</th>
+                                <th className="px-8 py-5 text-right bg-indigo-50/30 font-black">Saldo Final</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.map((row, idx) => (
-                                <tr key={idx} className={`group ${idx === 0 || idx === data.length - 1 ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}>
-                                    <td className={`px-8 py-6 border-r border-slate-50 ${idx === 0 || idx === data.length - 1 ? 'font-black text-slate-800' : 'font-bold text-slate-600'}`}>
-                                        {row.concepto}
+                        <tbody className="divide-y divide-slate-50">
+                            {loading ? (
+                                <tr><td colSpan={4} className="p-20 text-center text-slate-300 font-black uppercase text-xs tracking-widest">Analizando patrimonio...</td></tr>
+                            ) : datos.length === 0 ? (
+                                <tr><td colSpan={4} className="p-20 text-center text-slate-300 font-bold">No se detectaron cambios en el patrimonio en este periodo.</td></tr>
+                            ) : datos.map((row, idx) => (
+                                <tr key={idx} className="group hover:bg-slate-50/50 transition-all">
+                                    <td className="px-8 py-6 font-black text-slate-700">{row.concepto}</td>
+                                    <td className="px-8 py-6 text-right font-bold text-slate-400">{formatMoney(row.saldos.inicial)}</td>
+                                    <td className={`px-8 py-6 text-right font-black ${row.capital + row.reservas + row.resultadosAcumulados >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        {formatMoney(row.capital + row.reservas + row.resultadosAcumulados)}
                                     </td>
-                                    <td className="px-8 py-6 text-right border-r border-slate-50 font-medium text-slate-700">
-                                        {formatMoney(row.capital)}
-                                    </td>
-                                    <td className="px-8 py-6 text-right border-r border-slate-50 font-medium text-slate-700">
-                                        {formatMoney(row.reservas)}
-                                    </td>
-                                    <td className="px-8 py-6 text-right border-r border-slate-50 font-medium text-slate-700">
-                                        {formatMoney(row.resultadosAcumulados)}
-                                    </td>
-                                    <td className={`px-8 py-6 text-right ${idx === 0 || idx === data.length - 1 ? 'font-black text-indigo-700 bg-indigo-50/30' : 'font-black text-slate-900'}`}>
+                                    <td className="px-8 py-6 text-right font-black text-slate-800 bg-indigo-50/5 text-lg">
                                         {formatMoney(row.total)}
                                     </td>
                                 </tr>
@@ -101,31 +165,6 @@ export default function CambiosPatrimonioPage() {
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            {/* Legend / Info */}
-            <div className="p-8 bg-indigo-50/50 rounded-[32px] border border-indigo-100/50 text-indigo-900 max-w-2xl">
-                <h4 className="font-black mb-2 flex items-center gap-2 uppercase tracking-widest text-xs">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                    Notas al Estado Financiero
-                </h4>
-                <p className="text-sm font-medium leading-relaxed opacity-70">
-                    Este reporte refleja las variaciones patrimoniales originadas durante el periodo seleccionado,
-                    incluyendo aportes de capital, constitución de reservas legal y estatutaria, y la distribución o acumulación
-                    del resultado neto del ejercicio.
-                </p>
-            </div>
-
-            {/* Floating Actions */}
-            <div className="fixed bottom-10 right-10 flex gap-4">
-                <Button variant="secondary" className="h-16 px-10 rounded-2xl bg-white border-slate-200 text-slate-800 font-black shadow-2xl gap-3 hover:scale-105 transition-transform">
-                    <Printer size={20} />
-                    Imprimir
-                </Button>
-                <Button className="h-16 px-10 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black shadow-2xl gap-3 shadow-indigo-200 hover:scale-105 transition-transform">
-                    <Download size={20} />
-                    Descargar Excel
-                </Button>
             </div>
         </div>
     );

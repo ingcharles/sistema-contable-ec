@@ -336,24 +336,25 @@ export async function POST(req: NextRequest) {
                 if (estadoSri === 'AUTORIZADO') {
                     // Asiento Contable
                     const asientoNo = `NC-${persistentData.punto.codigo_establecimiento}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
+                    const glosaNC = `NOTA CRÉDITO S/FACTURA ${numDocModificado || ''} - ${cliente.razon_social}`;
                     const asientoResult = await client.query(`
                         INSERT INTO contabilidad.asientos(empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
-                        VALUES($1, $2, $3, $4, 'NOTA CRÉDITO S/FACTURA ' || $5 || ' - ' || $6, 'EGRESO', 'MAYORIZADO')
+                        VALUES($1, $2, $3, $4, $5, 'EGRESO', 'MAYORIZADO')
                         RETURNING id
-                    `, [context.empresaId, context.usuarioId, asientoNo, fechaEmision, numDocModificado || '', cliente.razon_social]);
+                    `, [context.empresaId, context.usuarioId, asientoNo, fechaEmision, glosaNC]);
                     const asientoId = asientoResult.rows[0].id;
 
                     // CXC (Haber - Disminuye deuda)
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, 0, $3, 'DEVOLUCIÓN DEUDA POR NOTA CRÉDITO')`,
-                        [asientoId, paramsRow.cuenta_cxc_clientes || '1.1.02.01', persistentData.valorModificacion]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1, $2, 0, $3, 'DEVOLUCIÓN DEUDA POR NOTA CRÉDITO', $4)`,
+                        [asientoId, paramsRow.cuenta_cxc_clientes, persistentData.valorModificacion, glosaNC]);
 
                     // Devolución en Ventas (Debe)
-                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, $3, 0, 'DEVOLUCIÓN EN VENTAS')`,
-                        [asientoId, paramsRow.cuenta_devolucion_ventas || '4.1.01.02', persistentData.subtotalSinImpuestos]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1, $2, $3, 0, 'DEVOLUCIÓN EN VENTAS', $4)`,
+                        [asientoId, paramsRow.cuenta_devolucion_ventas, persistentData.subtotalSinImpuestos, glosaNC]);
 
                     if (persistentData.totalIva > 0) {
-                        await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto) VALUES($1, $2, $3, 0, 'IVA EN VENTAS (NC)')`,
-                            [asientoId, paramsRow.cuenta_iva_por_pagar || '2.1.03.01', persistentData.totalIva]);
+                        await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1, $2, $3, 0, 'IVA EN VENTAS (NC)', $4)`,
+                            [asientoId, paramsRow.cuenta_iva_por_pagar, persistentData.totalIva, glosaNC]);
                     }
                 }
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });

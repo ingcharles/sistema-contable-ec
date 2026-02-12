@@ -17,9 +17,8 @@ export const useTransportistas = () => {
         try {
             const data = await FacturacionUseCases.listarTransportistas();
             setTransportistas(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar transportistas');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar transportistas');
         } finally {
             setLoading(false);
         }
@@ -31,9 +30,9 @@ export const useTransportistas = () => {
         try {
             const result = await FacturacionUseCases.guardarTransportista(transportista);
             return result.data;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar transportista');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar transportista';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);

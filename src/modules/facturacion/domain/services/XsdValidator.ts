@@ -46,7 +46,6 @@ export class XsdValidator {
 
             // Intento 1: libxmljs2 (rápido, nativo)
             try {
-                console.log('Validando con libxmljs2');
                 const libxml = require('libxmljs2');
                 const schemaContent = fs.readFileSync(schemaPath, 'utf8');
                 const xsdDoc = libxml.parseXml(schemaContent);
@@ -63,10 +62,9 @@ export class XsdValidator {
                 }
 
                 return true;
-            } catch (nativeError: any) {
+            } catch (nativeError: unknown) {
                 // Intento 2: fallback con validador XSD en subproceso Node (requiere Java instalado)
                 try {
-                    console.log('Validando con subproceso Node child_process');
                     await new Promise<void>((resolve, reject) => {
                         const scriptPath = path.join(process.cwd(), 'src', 'scripts', 'validate_xsd.cjs');
                         const child = spawn(process.execPath, [scriptPath, schemaPath], {
@@ -86,20 +84,20 @@ export class XsdValidator {
                         child.stdin.end();
                     });
                     return true;
-                } catch (fallbackError: any) {
-                    const nativeMsg = nativeError?.message || 'libxmljs2 no disponible';
-                    const fallbackMsg = fallbackError?.message || 'validador XSD no disponible';
+                } catch (fallbackError: unknown) {
+                    const nativeMsg = nativeError instanceof Error ? nativeError.message : 'libxmljs2 no disponible';
+                    const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : 'validador XSD no disponible';
                     throw new Error(`No se pudo validar XSD localmente. Detalles: ${nativeMsg}. ${fallbackMsg}. Asegure Java instalado o libxmljs2 compilado.`);
                 }
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Re-throw validation errors as is, wrap others
-            if (error.message && error.message.includes('Error de Validación XSD')) {
+            if (error instanceof Error && error.message.includes('Error de Validación XSD')) {
                 throw error;
             }
-            console.error('XSD Validation Exception:', error);
-            throw new Error(`Falló el proceso de validación XSD: ${error.message}`);
+            const msg = error instanceof Error ? error.message : 'Error desconocido';
+            throw new Error(`Falló el proceso de validación XSD: ${msg}`);
         }
     }
 }

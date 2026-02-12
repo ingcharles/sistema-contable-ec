@@ -14,12 +14,10 @@ export const useCuentasContables = () => {
         setError(null);
         try {
             const response = await ContabilidadUseCases.listarCuentas();
-            // La API devuelve { data: [], pagination: {} }
             const data = response.data || [];
             setCuentas(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar cuentas');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar cuentas');
         } finally {
             setLoading(false);
         }
@@ -49,9 +47,8 @@ export const useTodasLasCuentas = () => {
             const listaCuentas = response.data || [];
             setCuentas(listaCuentas);
             return listaCuentas;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar cuentas');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar cuentas');
             return [];
         } finally {
             setLoading(false);
@@ -82,9 +79,8 @@ export const useCuentasMovimiento = () => {
             const listaCuentas = response.data || [];
             setCuentas(listaCuentas);
             return listaCuentas;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar cuentas de movimiento');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar cuentas de movimiento');
             return [];
         } finally {
             setLoading(false);
@@ -113,9 +109,8 @@ export const useAsientosContables = () => {
         try {
             const data = await ContabilidadUseCases.listarAsientos();
             setAsientos(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar asientos');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar asientos');
         } finally {
             setLoading(false);
         }
@@ -143,9 +138,8 @@ export const useCentrosCostos = () => {
         try {
             const data = await ContabilidadUseCases.listarCentrosCostos();
             setCentros(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar centros de costos');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar centros de costos');
         } finally {
             setLoading(false);
         }
@@ -172,9 +166,9 @@ export const useContabilidadMutations = () => {
         try {
             const result = await ContabilidadUseCases.registrarAsiento(asiento);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al registrar asiento');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al registrar asiento';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);
@@ -187,9 +181,9 @@ export const useContabilidadMutations = () => {
         try {
             const result = await ContabilidadUseCases.guardarCuenta(cuenta);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar cuenta');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar cuenta';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);
@@ -202,9 +196,9 @@ export const useContabilidadMutations = () => {
         try {
             const result = await ContabilidadUseCases.eliminarCuenta(codigo);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al eliminar cuenta');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al eliminar cuenta';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);
@@ -233,9 +227,9 @@ export const useReportesContables = () => {
         try {
             const data = await ContabilidadUseCases.obtenerBalanceGeneral(fechaCorte);
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al obtener balance general');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al obtener balance general';
+            setError(msg);
             throw err;
         } finally {
             setLoading(false);
@@ -248,9 +242,9 @@ export const useReportesContables = () => {
         try {
             const data = await ContabilidadUseCases.obtenerEstadoResultados(desde, hasta);
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al obtener estado de resultados');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al obtener estado de resultados';
+            setError(msg);
             throw err;
         } finally {
             setLoading(false);

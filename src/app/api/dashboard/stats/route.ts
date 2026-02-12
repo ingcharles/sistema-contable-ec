@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
                         WHERE c.empresa_id = $1 
                         AND ci.codigo = '01' 
                         AND date_trunc('month', c.fecha_emision) = m.mes 
-                        AND c.estado IN ('AUTORIZADO', 'BORRADOR')
+                        AND c.estado IN ('AUTORIZADO')
                     ) as ingresos,
                     (SELECT COALESCE(SUM(total), 0) FROM compras.compras WHERE empresa_id = $1 AND date_trunc('month', fecha_emision) = m.mes) as compras,
                     (SELECT COALESCE(SUM(neto_pagar + aporte_patronal + decimo_tercero + decimo_cuarto + fondos_reserva + vacaciones), 0) FROM nomina.nomina_roles WHERE empresa_id = $1 AND periodo = to_char(m.mes, 'YYYY-MM')) as nomina

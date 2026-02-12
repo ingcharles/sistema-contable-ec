@@ -16,8 +16,8 @@ export const useCompras = () => {
         try {
             const data = await ComprasUseCases.listarCompras();
             setCompras(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar compras');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar compras');
         } finally {
             setLoading(false);
         }
@@ -29,8 +29,8 @@ export const useCompras = () => {
         try {
             const data = await ComprasUseCases.listarOrdenes();
             setOrdenes(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar órdenes de compra');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar órdenes de compra');
         } finally {
             setLoading(false);
         }
@@ -59,8 +59,9 @@ export const useComprasMutations = () => {
         try {
             const result = await ComprasUseCases.registrarCompra(compra);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al registrar compra');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al registrar compra';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);
@@ -73,8 +74,9 @@ export const useComprasMutations = () => {
         try {
             const result = await ComprasUseCases.registrarOrden(orden);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al registrar orden de compra');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al registrar orden de compra';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);
@@ -87,8 +89,9 @@ export const useComprasMutations = () => {
         try {
             const result = await ComprasUseCases.generarRetencion(compraId);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al generar retención');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al generar retención';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);

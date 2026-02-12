@@ -12,29 +12,6 @@ import { ParametrosRepository } from '@/modules/configuracion/infrastructure/Par
 
 export const runtime = 'nodejs';
 
-/**
- * Mapea los estados del SRI a los valores válidos del enum facturacion.estado_comprobante
- * 
- * Estados SRI posibles: AUTORIZADO, DEVUELTA, NO AUTORIZADO, RECIBIDA, ERROR
- * Enum BD: 'BORRADOR', 'PENDIENTE', 'AUTORIZADO', 'RECHAZADO', 'ANULADO', 'ERROR'
- */
-// function mapSriEstadoToEnum(estadoSri: string): string {
-//     const estadoUpper = (estadoSri || '').toUpperCase();
-
-//     // Mapeo de estados SRI a enum de BD
-//     const estadosMap: Record<string, string> = {
-//         'AUTORIZADO': 'AUTORIZADO',
-//         'DEVUELTA': 'RECHAZADO',        // El SRI devolvió el documento con errores
-//         'NO AUTORIZADO': 'RECHAZADO',   // El SRI no autorizó el documento
-//         'RECHAZADO': 'RECHAZADO',
-//         'RECIBIDA': 'PENDIENTE',        // Recibido pero aún sin autorización
-//         'ERROR': 'ERROR',
-//         'PENDIENTE': 'PENDIENTE',
-//         'BORRADOR': 'BORRADOR'
-//     };
-
-//     return estadosMap[estadoUpper] || 'ERROR';
-// }
 
 /**
  * POST /api/compras/registrar-con-retencion
@@ -287,7 +264,7 @@ export async function POST(req: NextRequest) {
                     concepto: 'IVA en compras'
                 },
                 {
-                    cuentaCodigo: parametros?.cuentaCxpProveedores || '2.1.01.01',
+                    cuentaCodigo: parametros?.cuentaCxpProveedores,
                     debe: 0,
                     haber: totalPagar,
                     concepto: 'Cuentas por pagar proveedores'
@@ -296,7 +273,7 @@ export async function POST(req: NextRequest) {
 
             if (valorRetRenta > 0) {
                 detallesAsiento.push({
-                    cuentaCodigo: parametros?.cuentaRetRentaPorPagar || '2.1.03.01',
+                    cuentaCodigo: parametros?.cuentaRetRentaPorPagar,
                     debe: 0,
                     haber: valorRetRenta,
                     concepto: 'Retención Renta por pagar'
@@ -305,19 +282,18 @@ export async function POST(req: NextRequest) {
 
             if (valorRetIva > 0) {
                 detallesAsiento.push({
-                    cuentaCodigo: parametros?.cuentaRetIvaPorPagar || '2.1.03.02',
+                    cuentaCodigo: parametros?.cuentaRetIvaPorPagar,
                     debe: 0,
                     haber: valorRetIva,
                     concepto: 'Retención IVA por pagar'
                 });
             }
 
-            // Insertar detalles del asiento (sin centro_costo_id que va en la cabecera)
             for (const detalle of detallesAsiento.filter(d => d.debe > 0 || d.haber > 0)) {
                 await client.query(`
-                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto)
-                    VALUES ($1, $2, $3, $4, $5)
-                `, [asientoId, detalle.cuentaCodigo, detalle.debe, detalle.haber, detalle.concepto]);
+                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                `, [asientoId, detalle.cuentaCodigo, detalle.debe, detalle.haber, detalle.concepto, glosaAsiento]);
             }
             console.log('✅ [COMPRA] Asiento contable creado con ID:', asientoId);
 

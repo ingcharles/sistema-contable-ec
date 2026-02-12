@@ -57,10 +57,10 @@ export async function POST(req: NextRequest) {
             for (const detalle of detalles) {
                 await client.query(`
                     INSERT INTO contabilidad.asientos_detalles 
-                        (asiento_id, cuenta_codigo, debe, haber, concepto)
+                        (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                     VALUES 
-                        ($1, $2, $3, $4, $5)
-                `, [asientoId, detalle.cuentaCodigo, detalle.debe || 0, detalle.haber || 0, detalle.concepto || glosa]);
+                        ($1, $2, $3, $4, $5, $6)
+                `, [asientoId, detalle.cuentaCodigo, detalle.debe || 0, detalle.haber || 0, detalle.concepto || glosa, detalle.glosa || glosa]);
             }
 
             return { asientoId };
