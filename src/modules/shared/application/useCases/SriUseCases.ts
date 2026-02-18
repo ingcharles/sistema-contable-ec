@@ -18,4 +18,15 @@ export class SriUseCases extends BaseUseCase {
     static async obtenerAmbientes() {
         return this.request('/api/configuracion/sri/ambientes');
     }
+
+    static async guardarCredencialesSRI(data: { usuarioSri: string; claveSri: string }) {
+        return this.request('/api/configuracion/sri', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+
+    static async obtenerConfiguracion() {
+        return this.request('/api/configuracion/sri');
+    }
 }

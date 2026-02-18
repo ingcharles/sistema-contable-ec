@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Gift, Download, Calculator, FileCheck, Info, Star } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Empleado } from '@/modules/nomina/domain/types';
-import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Empleado } from '@/modules/rrhh/domain/types';
+import { RRHHUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
@@ -19,7 +19,7 @@ export default function BeneficiosPage() {
         if (!currentEmpresa) return;
         setLoading(true);
         try {
-            const dataEmp = await NominaUseCases.listarEmpleados();
+            const dataEmp = await RRHHUseCases.listarEmpleados();
             setEmpleados(dataEmp);
         } catch (error) {
             console.error('Error cargando beneficios:', error);

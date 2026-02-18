@@ -56,26 +56,26 @@ export async function POST(req: NextRequest) {
             activa = true
         } = body;
 
-        const id = crypto.randomUUID();
-
-        // Note: Assuming sucursal_id column exists. If not, remove it.
-        await db.query(
+        const result = await db.query(
             {
                 text: `
                 INSERT INTO inventario.bodegas (
-                    id, empresa_id, codigo, nombre, descripcion,
+                    empresa_id, codigo, nombre, descripcion,
                     responsable, ubicacion,
                     activa, created_at, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                RETURNING id
             `,
                 values: [
-                    id, context.empresaId, codigo, nombre, descripcion,
+                    context.empresaId, codigo, nombre, descripcion,
                     responsable, ubicacion,
                     activa
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
+
+        const id = result.rows[0].id;
 
         return NextResponse.json({
             message: 'Bodega creada exitosamente',

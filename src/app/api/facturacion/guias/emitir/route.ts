@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
             const punto = (await clientDb.query('SELECT pe.*, s.codigo as estab FROM configuracion.puntos_emision pe INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id WHERE pe.id = $1', [puntoEmisionId])).rows[0];
 
             // 1. Obtener secuencial (bloqueo)
-            const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('06');
+            const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('06');
+            const tipoComprobanteId = tipoComprobante.id;
             const seqResult = await clientDb.query("SELECT secuencial_actual FROM configuracion.puntos_emision_secuenciales WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2 FOR UPDATE", [puntoEmisionId, tipoComprobanteId]);
             let nextSeqInt = seqResult.rows.length > 0 ? seqResult.rows[0].secuencial_actual : 1;
 

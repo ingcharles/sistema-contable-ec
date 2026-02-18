@@ -18,18 +18,25 @@ interface ResultadoVerificacionCuota {
 
 export class ServicioSeguimientoUso {
     /**
-     * Obtiene el ID del catálogo para un código SRI específico
+     * Obtiene la configuración de un tipo de comprobante SRI
      */
-    static async obtenerIdPorCodigo(codigo: string): Promise<string> {
+    static async obtenerConfigComprobante(codigo: string): Promise<{ id: string, codigo: string, valor: string }> {
         const result = await db.querySimple({
-            text: `SELECT id FROM configuracion.catalogos_items 
-                   WHERE catalogo_codigo = 'SRI_TIPO_COMPROBANTE' AND codigo = $1`,
+            text: `
+                SELECT ci.id, ci.codigo, ci.valor 
+                FROM configuracion.catalogos_items ci
+                INNER JOIN configuracion.catalogos_tipos ct ON ci.catalogo_codigo = ct.codigo
+                WHERE ct.codigo = 'SRI_TIPO_COMPROBANTE' 
+                AND ci.codigo = $1 
+                AND ci.activo = true
+                AND ct.activo = true
+            `,
             values: [codigo]
         });
         if (result.rowCount === 0) {
-            throw new Error(`Código de comprobante SRI '${codigo}' no encontrado en el catálogo`);
+            throw new Error(`El tipo de comprobante '${codigo}' no está configurado en el sistema (Catálogo SRI_TIPO_COMPROBANTE).`);
         }
-        return result.rows[0].id;
+        return result.rows[0];
     }
 
     /**

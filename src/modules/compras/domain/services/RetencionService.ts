@@ -142,16 +142,16 @@ export class RetencionService {
             // Insertar comprobante emitido
             await client.query(`
                 INSERT INTO facturacion.comprobantes_electronicos (
-                    id, empresa_id, usuario_id, tipo_comprobante_id, secuencial, clave_acceso,
+                    empresa_id, usuario_id, tipo_comprobante_id, secuencial, clave_acceso,
                     fecha_emision, cliente_id, cliente_nombre, cliente_identificacion,
                     total, xml_firmado, estado, ambiente_sri, tipo_emision_sri, created_at
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, 
-                    NOW(), $7, $8, $9, 
-                    $10, $11, 'AUTORIZADO', $12, '1', NOW()
+                    $1, $2, $3, $4, $5, 
+                    NOW(), $6, $7, $8, 
+                    $9, $10, 'AUTORIZADO', $11, '1', NOW()
                 )
             `, [
-                crypto.randomUUID(), empresaId, usuarioId, tipoComprobanteId, nextSecuencial, claveAcceso,
+                empresaId, usuarioId, tipoComprobanteId, nextSecuencial, claveAcceso,
                 data.proveedor_id, data.prov_nombre, data.prov_ruc,
                 totalRetenido, xml, data.emp_ambiente || '1'
             ]);

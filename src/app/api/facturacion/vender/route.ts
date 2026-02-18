@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
         } = body;
 
         // 1. Validaciones Previas (Fuera de la transacción para no bloquear)
-        const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('01');
+        const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('01'); // Factura
+        const tipoComprobanteId = tipoComprobante.id;
 
         // 1.1 Verificar Cuota
         const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(
@@ -141,6 +142,7 @@ export async function POST(req: NextRequest) {
             razonSocial: empresaDoc.razon_social,
             nombreComercial: empresaDoc.nombre_comercial,
             ruc: empresaDoc.ruc,
+            codDoc: tipoComprobante.codigo,
             dirMatriz: empresaDoc.direccion,
             obligadoContabilidad: empresaDoc.es_obligado_contabilidad ? 'SI' : 'NO',
             ambienteSri: configSrv.ambiente_sri,
@@ -240,7 +242,7 @@ export async function POST(req: NextRequest) {
             const accessKey = XmlGenerator.generateAccessKey(dataSri);
             dataSri.infoTributaria.claveAcceso = accessKey;
             const rawXml = XmlGenerator.generateFacturaXml(dataSri);
-            await XsdValidator.validate(rawXml, '01');
+            await XsdValidator.validate(rawXml, tipoComprobante.codigo);
             const signedXml = await SignatureService.signXml(rawXml, {
                 p12Base64: configSrv.cert_p12_certificado.toString('base64'),
                 passwordP12: configSrv.cert_clave_certificado
@@ -249,13 +251,13 @@ export async function POST(req: NextRequest) {
             // 3.4 Persistencia INICIAL (Pendiente)
             const compResult = await client.query(`
                 INSERT INTO facturacion.comprobantes_electronicos
-                (empresa_id, usuario_id, tipo_comprobante, punto_emision_id, secuencial, fecha_emision,
+                (empresa_id, usuario_id, tipo_comprobante_id, punto_emision_id, secuencial, fecha_emision,
                 cliente_id, cliente_nombre, cliente_identificacion, subtotal, total_descuento, iva, total,
                 estado, clave_acceso, ambiente_sri, xml_firmado, mensajes_sri)
-                VALUES ($1, $2, '01', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDIENTE', $13, $14, $15, $16)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'PENDIENTE', $14, $15, $16, $17)
                 RETURNING id
             `, [
-                context.empresaId, context.usuarioId, puntoActivo.punto_emision_id, secuencialFormateado, fechaEmision,
+                context.empresaId, context.usuarioId, tipoComprobanteId, puntoActivo.punto_emision_id, secuencialFormateado, fechaEmision,
                 clienteId, clienteNombre, clienteIdentificacion, subtotal, totalDescuento, totalIva, importeTotal,
                 accessKey, parseInt(configSrv.ambiente_sri), signedXml, { mensajes: [], pagos }
             ]);

@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
             codDocModificado,
             numDocModificado,
             fechaEmisionDocSustento,
+            tipoEmision,
             detalles = []
         } = body;
 
@@ -118,7 +119,8 @@ export async function POST(req: NextRequest) {
             const punto = pResult.rows[0];
 
             // Bloquear secuencial para lectura (SIN incrementar todavía - se incrementa solo si SRI recibe exitosamente)
-            const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('04');
+            const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('04');
+            const tipoComprobanteId = tipoComprobante.id;
             const seqResult = await client.query(`
                 SELECT secuencial_actual FROM configuracion.puntos_emision_secuenciales
                 WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
@@ -143,12 +145,13 @@ export async function POST(req: NextRequest) {
                 razonSocial: empresaDoc.razon_social,
                 nombreComercial: empresaDoc.nombre_comercial,
                 ruc: empresaDoc.ruc,
+                codDoc: tipoComprobante.codigo,
                 estab: punto.codigo_establecimiento,
                 ptoEmi: punto.codigo,
                 secuencial: secuencialFormateado,
                 dirMatriz: empresaDoc.direccion,
                 fechaEmision,
-                tipoIdentificacionComprador: cliente.tipo_identificacion === 'CEDULA' ? '05' : '04',
+                tipoIdentificacionComprador: cliente.tipo_identificacion,
                 razonSocialComprador: cliente.razon_social,
                 identificacionComprador: cliente.identificacion,
                 codDocModificado,
@@ -159,11 +162,17 @@ export async function POST(req: NextRequest) {
                 motivo,
                 detalles: detallesEnriquecidos,
                 ambienteSri: configSrv.ambiente_sri,
-                tipoEmisionSri: params.sriTipoEmision,
+                tipoEmisionSri: tipoEmision || params.sriTipoEmision || '1',
                 obligadoContabilidad: empresaDoc.es_obligado_contabilidad
             });
 
+            console.log('--- DEBUG NC EMISSION ---');
+            console.log('codDoc from catalog:', tipoComprobante.codigo);
+            console.log('secuencialFormateado:', secuencialFormateado);
+            console.log('dataSri.infoTributaria.codDoc:', dataSri.infoTributaria.codDoc);
+
             const accessKey = XmlGenerator.generateAccessKey(dataSri);
+            console.log('Access Key Generated:', accessKey, 'Length:', accessKey.length);
             dataSri.infoTributaria.claveAcceso = accessKey;
 
             const rawXml = XmlGenerator.generateNotaCreditoXml(dataSri);
@@ -211,13 +220,13 @@ export async function POST(req: NextRequest) {
                     VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 `, [
                     comprobanteId,
-                    d.codigoPrincipal || 'NC',
-                    d.descripcion || motivo,
-                    d.cantidad || 1,
-                    d.precioUnitario || d.valorModificacion || d.baseImponible,
-                    d.descuento || 0,
+                    d.codigoPrincipal,
+                    d.descripcion,
+                    d.cantidad,
+                    d.precioUnitario,
+                    d.descuento,
                     d.baseImponible,
-                    d.valorIVA || 0,
+                    d.valorIVA,
                     d.codigoIVA,
                     d.tarifa
                 ]);
@@ -325,7 +334,8 @@ export async function POST(req: NextRequest) {
 
                 // INCREMENTAR SECUENCIAL solo si fue RECIBIDA por el SRI (según regla: incrementar únicamente cuando estado RECIBIDA)
                 if (fueRecibida) {
-                    const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('04');
+                    const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('04');
+                    const tipoComprobanteId = tipoComprobante.id;
                     await client.query(`
                         UPDATE configuracion.puntos_emision_secuenciales
                         SET secuencial_actual = secuencial_actual + 1, updated_at = NOW()

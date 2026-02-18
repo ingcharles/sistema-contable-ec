@@ -27,14 +27,20 @@ export async function POST(req: NextRequest) {
         const empresaDoc = await ReemisionService.obtenerEmpresa(context.empresaId!, context.usuarioId!);
 
         // 2. Obtener datos del comprobante
-        const compHeader = await ComprobantesRepository.obtenerCabeceraComprobante(comprobanteId, context.empresaId!);
+        const compHeader = await ComprobantesRepository.obtenerCabeceraComprobante(comprobanteId, {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
 
         if (!compHeader || compHeader.tipo_comprobante !== '01') {
             return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 });
         }
 
         // 3. Obtener detalles y cliente
-        const detalles = await ComprobantesRepository.obtenerDetalles(comprobanteId, '01');
+        const detalles = await ComprobantesRepository.obtenerDetalles(comprobanteId, '01', {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
         const cliente = (await db.query({
             text: 'SELECT * FROM directorio.terceros WHERE id = $1',
             values: [compHeader.cliente_id]

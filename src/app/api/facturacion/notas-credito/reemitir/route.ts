@@ -25,13 +25,19 @@ export async function POST(req: NextRequest) {
         const configSri = await ReemisionService.obtenerConfiguracionSri(context.empresaId!, context.usuarioId!);
         const empresaDoc = await ReemisionService.obtenerEmpresa(context.empresaId!, context.usuarioId!);
 
-        const compHeader = await ComprobantesRepository.obtenerCabeceraComprobante(comprobanteId, context.empresaId!);
+        const compHeader = await ComprobantesRepository.obtenerCabeceraComprobante(comprobanteId, {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
 
         if (!compHeader || compHeader.tipo_comprobante !== '04') {
             return NextResponse.json({ error: 'Nota de crédito no encontrada' }, { status: 404 });
         }
 
-        const detalles = await ComprobantesRepository.obtenerDetalles(comprobanteId, '04');
+        const detalles = await ComprobantesRepository.obtenerDetalles(comprobanteId, '04', {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
         const cliente = (await db.query({
             text: 'SELECT * FROM directorio.terceros WHERE id = $1',
             values: [compHeader.cliente_id]

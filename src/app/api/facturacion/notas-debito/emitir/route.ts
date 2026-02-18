@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { puntoEmisionId, fechaEmision, clienteId, motivo, codDocModificado, numDocModificado, fechaEmisionDocSustento, detalles = [] } = body;
+        const { puntoEmisionId, fechaEmision, clienteId, motivo, codDocModificado, numDocModificado, fechaEmisionDocSustento, tipoEmision, detalles = [] } = body;
 
         const configResult = await db.query({
             text: 'SELECT sc.*, sa.url_recepcion, sa.url_autorizacion, sa.valor as ambiente_sri FROM configuracion.sri_certificados sc INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id WHERE sc.empresa_id = $1 AND sc.activo = TRUE LIMIT 1',
@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
             const punto = pResult.rows[0];
 
             // Bloquear secuencial para lectura (SIN incrementar todavía - se incrementa solo si SRI recibe exitosamente)
-            const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('05');
+            const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('05');
+            const tipoComprobanteId = tipoComprobante.id;
             const seqResult = await client.query("SELECT secuencial_actual FROM configuracion.puntos_emision_secuenciales WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2 FOR UPDATE", [puntoEmisionId, tipoComprobanteId]);
             let nextSeqInt = 1;
 
@@ -118,9 +119,10 @@ export async function POST(req: NextRequest) {
                 dirMatriz: empresaDoc.direccion,
                 fechaEmision,
                 obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
-                tipoIdentificacionComprador: cliente.tipo_identificacion === 'CEDULA' ? '05' : '04',
+                tipoIdentificacionComprador: cliente.tipo_identificacion,
                 razonSocialComprador: cliente.razon_social,
                 identificacionComprador: cliente.identificacion,
+                codDoc: tipoComprobante.codigo,
                 codDocModificado,
                 numDocModificado,
                 fechaEmisionDocSustento,
@@ -129,7 +131,7 @@ export async function POST(req: NextRequest) {
                 motivo,
                 detalles: detallesEnriquecidos,
                 ambienteSri: configSrv.ambiente_sri,
-                tipoEmisionSri: params.sriTipoEmision,
+                tipoEmisionSri: tipoEmision || params.sriTipoEmision || '1',
                 codigoIVA,
                 tarifa,
                 valorIVA: totalIva,
@@ -301,7 +303,8 @@ export async function POST(req: NextRequest) {
 
                 // INCREMENTAR SECUENCIAL solo si fue RECIBIDA por el SRI (según regla: incrementar únicamente cuando estado RECIBIDA)
                 if (fueRecibida) {
-                    const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('05');
+                    const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('05');
+                    const tipoComprobanteId = tipoComprobante.id;
                     await client.query(`
                         UPDATE configuracion.puntos_emision_secuenciales
                         SET secuencial_actual = secuencial_actual + 1, updated_at = NOW()

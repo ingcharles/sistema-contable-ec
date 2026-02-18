@@ -62,19 +62,20 @@ export async function POST(req: NextRequest) {
                     const xml = await AtsGenerator.generar(context.empresaId!, periodo);
 
                     // Guardar automáticamente el ATS generado
-                    const newId = crypto.randomUUID();
-                    await db.query({
+                    const result = await db.query({
                         text: `
-                            INSERT INTO impuestos.ats (id, empresa_id, periodo, xml_data, estado, created_at)
-                            VALUES ($1, $2, $3, $4, 'GENERADO', NOW())
+                            INSERT INTO impuestos.ats (empresa_id, periodo, xml_data, estado, created_at)
+                            VALUES ($1, $2, $3, 'GENERADO', NOW())
                             ON CONFLICT (empresa_id, periodo) DO UPDATE SET
                                 xml_data = EXCLUDED.xml_data,
                                 estado = 'REGENERADO',
                                 created_at = NOW()
+                            RETURNING id
                         `,
-                        values: [newId, context.empresaId, periodo, xml]
+                        values: [context.empresaId, periodo, xml]
                     }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
+                    const newId = result.rows[0].id;
                     return NextResponse.json({ success: true, id: newId, xml });
                 } catch (err: any) {
                     console.error('Error generando ATS:', err);
@@ -89,39 +90,39 @@ export async function POST(req: NextRequest) {
         const { type, periodo, tipoFormulario, totalVentas, totalCompras, valorAPagar, xmlData } = body;
 
         if (type === 'ats') {
-            const newId = crypto.randomUUID();
-            await db.query({
+            const result = await db.query({
                 text: `
-                    INSERT INTO impuestos.ats (id, empresa_id, periodo, xml_data)
-                    VALUES ($1, $2, $3, $4)
+                    INSERT INTO impuestos.ats (empresa_id, periodo, xml_data)
+                    VALUES ($1, $2, $3)
                     ON CONFLICT (empresa_id, periodo) DO UPDATE SET
                         xml_data = EXCLUDED.xml_data,
                         estado = 'REGENERADO'
+                    RETURNING id
                 `,
-                values: [newId, context.empresaId, periodo, xmlData]
+                values: [context.empresaId, periodo, xmlData]
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
-            return NextResponse.json({ success: true, id: newId });
+            return NextResponse.json({ success: true, id: result.rows[0].id });
         } else {
-            const newId = crypto.randomUUID();
-            await db.query({
+            const result = await db.query({
                 text: `
                     INSERT INTO impuestos.formularios (
-                        id, empresa_id, tipo, periodo, total_ventas,
+                        empresa_id, tipo, periodo, total_ventas,
                         total_compras, valor_a_pagar, xml_data
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
                     ON CONFLICT (empresa_id, tipo, periodo) DO UPDATE SET
                         total_ventas = EXCLUDED.total_ventas,
                         total_compras = EXCLUDED.total_compras,
                         valor_a_pagar = EXCLUDED.valor_a_pagar,
                         xml_data = EXCLUDED.xml_data,
                         estado = 'REGENERADO'
+                    RETURNING id
                 `,
                 values: [
-                    newId, context.empresaId, tipoFormulario, periodo,
+                    context.empresaId, tipoFormulario, periodo,
                     totalVentas, totalCompras, valorAPagar, xmlData
                 ]
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
-            return NextResponse.json({ success: true, id: newId });
+            return NextResponse.json({ success: true, id: result.rows[0].id });
         }
     } catch (error: any) {
         console.error('Error al guardar impuesto:', error);

@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Calculator, FileSpreadsheet, CheckCircle2, CreditCard, Download, Users } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Empleado, RolPago } from '@/modules/nomina/domain/types';
-import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Empleado, RolPago } from '@/modules/rrhh/domain/types';
+import { RRHHUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { generatePayrollPDF } from '@/shared/utils/pdfGenerator';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
 
-import { RolPagoModal } from '@/modules/nomina/ui/components/RolPagoModal';
-import { PagarRolModal } from '@/modules/nomina/ui/components/PagarRolModal';
+import { RolPagoModal } from '@/modules/rrhh/ui/components/RolPagoModal';
+import { PagarRolModal } from '@/modules/rrhh/ui/components/PagarRolModal';
 
 export default function NominaRolesPage() {
     const { currentEmpresa } = useEmpresa();
@@ -30,8 +30,8 @@ export default function NominaRolesPage() {
         setLoading(true);
         try {
             const [dataEmp, dataRoles] = await Promise.all([
-                NominaUseCases.listarEmpleados(),
-                NominaUseCases.listarRoles(periodo)
+                RRHHUseCases.listarEmpleados(),
+                RRHHUseCases.listarRoles(periodo)
             ]);
             setEmpleados(dataEmp);
             setRoles(dataRoles);
@@ -93,7 +93,7 @@ export default function NominaRolesPage() {
         if (!currentEmpresa) return;
         setLoading(true);
         try {
-            await NominaUseCases.generarRol(periodo);
+            await RRHHUseCases.generarRol(periodo);
             await loadData();
         } catch (error) {
             alert('Error al generar nómina');

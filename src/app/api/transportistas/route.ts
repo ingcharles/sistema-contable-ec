@@ -48,14 +48,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
         }
 
-        const id = crypto.randomUUID();
-
         const result = await db.query(
             {
                 text: `
                     INSERT INTO facturacion.transportistas (
-                        id, empresa_id, usuario_id, identificacion, razon_social, placa, email, telefono, activo
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        empresa_id, usuario_id, identificacion, razon_social, placa, email, telefono, activo
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     ON CONFLICT (empresa_id, identificacion) DO UPDATE SET
                         razon_social = EXCLUDED.razon_social,
                         placa = EXCLUDED.placa,
@@ -66,7 +64,7 @@ export async function POST(req: NextRequest) {
                     RETURNING id, razon_social as "razonSocial", placa
                 `,
                 values: [
-                    id, context.empresaId, context.usuarioId,
+                    context.empresaId, context.usuarioId,
                     identificacion, razonSocial, placa, email, telefono, activo
                 ]
             },

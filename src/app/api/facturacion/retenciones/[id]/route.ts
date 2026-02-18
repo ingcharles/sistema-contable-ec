@@ -19,14 +19,20 @@ export async function GET(
         const { id } = await params;
 
         // 1. Obtener Cabecera usando Repositorio
-        const retencion = await ComprobantesRepository.obtenerCabeceraComprobante(id, context.empresaId!);
+        const retencion = await ComprobantesRepository.obtenerCabeceraComprobante(id, {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
 
         if (!retencion || retencion.tipo_comprobante !== '07') {
             return NextResponse.json({ error: 'Comprobante de retención no encontrado' }, { status: 404 });
         }
 
         // 2. Obtener Detalle de Impuestos usando Repositorio
-        const impuestos = await ComprobantesRepository.obtenerRetencionImpuestos(id);
+        const impuestos = await ComprobantesRepository.obtenerRetencionImpuestos(id, {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
 
         return NextResponse.json({
             ...retencion,

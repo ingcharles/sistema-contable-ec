@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { FileText, UserMinus, AlertTriangle } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Liquidacion, Empleado } from '@/modules/nomina/domain/types';
-import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Liquidacion, Empleado } from '@/modules/rrhh/domain/types';
+import { RRHHUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { format } from 'date-fns';
 import { Button } from '@/shared/ui/Button';
@@ -35,8 +35,8 @@ export default function LiquidacionesPage() {
         setLoading(true);
         try {
             const [dataLiq, dataEmp] = await Promise.all([
-                NominaUseCases.listarLiquidaciones(),
-                NominaUseCases.listarEmpleados()
+                RRHHUseCases.listarLiquidaciones(),
+                RRHHUseCases.listarEmpleados()
             ]);
             setLiquidaciones(dataLiq);
             setEmpleados(dataEmp);
@@ -56,7 +56,7 @@ export default function LiquidacionesPage() {
         }
         setSaving(true);
         try {
-            await NominaUseCases.procesarLiquidacion(formData);
+            await RRHHUseCases.procesarLiquidacion(formData);
             setShowModal(false);
             loadData();
         } catch (error) {

@@ -4,8 +4,9 @@ export class ComprobantesRepository {
     /**
      * Obtiene la cabecera básica de un comprobante electrónico (de facturación o compras)
      */
-    static async obtenerCabeceraComprobante(id: string, empresaId: string, client?: any) {
+    static async obtenerCabeceraComprobante(id: string, context: { empresaId: string, usuarioId: string }, client?: any) {
         const dbClient = client || db;
+        const ctx = { empresaId: context.empresaId, usuarioId: context.usuarioId };
 
         // Intentar en facturacion
         const compFact = await dbClient.query({
@@ -26,8 +27,8 @@ export class ComprobantesRepository {
                 LEFT JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
                 WHERE c.id = $1 AND c.empresa_id = $2
             `,
-            values: [id, empresaId]
-        });
+            values: [id, context.empresaId]
+        }, ctx);
 
         if (compFact.rows.length > 0) return compFact.rows[0];
 
@@ -55,8 +56,8 @@ export class ComprobantesRepository {
                 LEFT JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
                 WHERE c.id = $1 AND c.empresa_id = $2
             `,
-            values: [id, empresaId]
-        });
+            values: [id, context.empresaId]
+        }, ctx);
 
         return compCompra.rows[0] || null;
     }
@@ -64,50 +65,54 @@ export class ComprobantesRepository {
     /**
      * Obtiene los detalles de un comprobante (válido para Facturas, Liquidaciones de Compra, NC, ND)
      */
-    static async obtenerDetalles(id: string, tipoComprobante: string, client?: any) {
+    static async obtenerDetalles(id: string, tipoComprobante: string, context: { empresaId: string, usuarioId: string }, client?: any) {
         const dbClient = client || db;
+        const ctx = { empresaId: context.empresaId, usuarioId: context.usuarioId };
 
         if (tipoComprobante === '03') { // Liquidación de Compra
             return (await dbClient.query({
                 text: `SELECT * FROM compras.compras_detalle WHERE compra_id = $1`,
                 values: [id]
-            })).rows;
+            }, ctx)).rows;
         }
 
         // Resto (01, 04, 05)
         return (await dbClient.query({
             text: `SELECT * FROM facturacion.comprobantes_detalles WHERE comprobante_id = $1`,
             values: [id]
-        })).rows;
+        }, ctx)).rows;
     }
 
     /**
      * Obtiene los impuestos de una retención
      */
-    static async obtenerRetencionImpuestos(id: string, client?: any) {
+    static async obtenerRetencionImpuestos(id: string, context: { empresaId: string, usuarioId: string }, client?: any) {
         const dbClient = client || db;
+        const ctx = { empresaId: context.empresaId, usuarioId: context.usuarioId };
         return (await dbClient.query({
             text: `SELECT * FROM facturacion.retenciones_impuestos WHERE comprobante_id = $1`,
             values: [id]
-        })).rows;
+        }, ctx)).rows;
     }
 
     /**
      * Obtiene los destinatarios y detalles de una guía
      */
-    static async obtenerGuiaEstructura(id: string, client?: any) {
+    static async obtenerGuiaEstructura(id: string, context: { empresaId: string, usuarioId: string }, client?: any) {
         const dbClient = client || db;
+        const ctx = { empresaId: context.empresaId, usuarioId: context.usuarioId };
+
         const destResult = await dbClient.query({
             text: `SELECT * FROM facturacion.guias_destinatarios WHERE comprobante_id = $1`,
             values: [id]
-        });
+        }, ctx);
 
         const destinatarios = [];
         for (const dest of destResult.rows) {
             const detResult = await dbClient.query({
                 text: `SELECT * FROM facturacion.guias_destinatarios_detalles WHERE destinatario_id = $1`,
                 values: [dest.id]
-            });
+            }, ctx);
             destinatarios.push({
                 ...dest,
                 detalles: detResult.rows

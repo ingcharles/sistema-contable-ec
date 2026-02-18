@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { UserPlus, FileText, Trash2 } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Empleado } from '@/modules/nomina/domain/types';
-import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Empleado } from '@/modules/rrhh/domain/types';
+import { RRHHUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
-import { EmpleadoModal } from '@/modules/nomina/ui/components/EmpleadoModal';
+import { EmpleadoModal } from '@/modules/rrhh/ui/components/EmpleadoModal';
 
 export default function EmpleadosPage() {
     const { currentEmpresa } = useEmpresa();
@@ -21,7 +21,7 @@ export default function EmpleadosPage() {
         if (!currentEmpresa) return;
         setLoading(true);
         try {
-            const dataEmp = await NominaUseCases.listarEmpleados();
+            const dataEmp = await RRHHUseCases.listarEmpleados();
             setEmpleados(dataEmp);
         } catch (error) {
             console.error('Error cargando empleados:', error);
@@ -35,7 +35,7 @@ export default function EmpleadosPage() {
     const handleDeleteEmpleado = async (id: string) => {
         if (window.confirm('¿Está seguro de anular este empleado?')) {
             try {
-                await NominaUseCases.eliminarEmpleado(id);
+                await RRHHUseCases.eliminarEmpleado(id);
                 loadData();
             } catch (error) {
                 alert('Error al eliminar empleado');

@@ -12,6 +12,7 @@ import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { getLocalDateIso } from '@/shared/utils/dateUtils';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
+import { useCatalogo } from '@/modules/shared/hooks/useCatalogo';
 
 interface GuiaRemisionModalProps {
     facturaReferencia?: any;
@@ -35,6 +36,10 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
     const [showNuevoTransportista, setShowNuevoTransportista] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
+
+    const { items: motivosGR, cargando: cargandoMotivos } = useCatalogo('MOTIVO_GR');
+    const [motivoPersonalizado, setMotivoPersonalizado] = useState('');
+    const [esOtroMotivo, setEsOtroMotivo] = useState(false);
     const [secuencial, setSecuencial] = useState('');
     const [estab, setEstab] = useState(puntoActivo?.codigoEstablecimiento);
     const [ptoEmi, setPtoEmi] = useState(puntoActivo?.codigoPunto);
@@ -300,16 +305,43 @@ export const GuiaRemisionModal = ({ facturaReferencia, onClose, onSave }: GuiaRe
                         <div className="flex justify-between items-center mb-6">
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Motivo del Traslado</span>
                             <select
-                                value={motivo}
-                                onChange={(e) => setMotivo(e.target.value as MotivoTraslado)}
+                                value={esOtroMotivo ? 'OTROS' : motivo}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    if (val === 'OTROS') {
+                                        setEsOtroMotivo(true);
+                                        setMotivo(motivoPersonalizado);
+                                    } else {
+                                        setEsOtroMotivo(false);
+                                        setMotivo(val);
+                                    }
+                                }}
                                 className="text-sm border border-sri-blue/20 bg-white px-4 py-2 rounded-xl font-bold text-sri-blue outline-none focus:ring-4 focus:ring-sri-blue/10 shadow-sm transition-all"
+                                disabled={cargandoMotivos}
                             >
-                                <option value={MotivoTraslado.VENTA}>Venta de Mercadería</option>
-                                <option value={MotivoTraslado.TRASLADO_BODEGAS}>Traslado entre Bodegas</option>
-                                <option value={MotivoTraslado.DEVOLUCION}>Devolución de Compra</option>
-                                <option value={MotivoTraslado.COMPRA}>Compra de Mercadería</option>
+                                <option value="">Seleccione motivo...</option>
+                                {motivosGR.map(m => (
+                                    <option key={m.id} value={m.valor}>{m.valor}</option>
+                                ))}
+                                <option value="OTROS">OTROS (Especifique...)</option>
                             </select>
                         </div>
+
+                        {esOtroMotivo && (
+                            <div className="mb-4 animate-in fade-in slide-in-from-top-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Especifique el motivo *</label>
+                                <input
+                                    type="text"
+                                    value={motivoPersonalizado}
+                                    onChange={e => {
+                                        setMotivoPersonalizado(e.target.value);
+                                        setMotivo(e.target.value);
+                                    }}
+                                    className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-4 focus:ring-sri-blue/10"
+                                    placeholder="Ej: Traslado por mantenimiento"
+                                />
+                            </div>
+                        )}
                         <table className="w-full text-xs text-left bg-white rounded-xl overflow-hidden shadow-sm">
                             <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-200 bg-slate-50">
                                 <tr>

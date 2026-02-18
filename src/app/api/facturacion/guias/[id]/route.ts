@@ -19,14 +19,20 @@ export async function GET(
         const { id } = await params;
 
         // 1. Obtener Cabecera usando Repositorio
-        const guia = await ComprobantesRepository.obtenerCabeceraComprobante(id, context.empresaId!);
+        const guia = await ComprobantesRepository.obtenerCabeceraComprobante(id, {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
 
         if (!guia || guia.tipo_comprobante !== '06') {
             return NextResponse.json({ error: 'Guía no encontrada' }, { status: 404 });
         }
 
         // 2. Obtener Destinatarios y sus Detalles usando Repositorio
-        const destinatarios = await ComprobantesRepository.obtenerGuiaEstructura(id);
+        const destinatarios = await ComprobantesRepository.obtenerGuiaEstructura(id, {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
 
         return NextResponse.json({
             ...guia,

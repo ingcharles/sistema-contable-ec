@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
         const desde = searchParams.get('desde');
         const hasta = searchParams.get('hasta');
 
-        const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('06');
+        const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('06');
+        const tipoComprobanteId = tipoComprobante.id;
         let whereConditions = ['empresa_id = $1', "tipo_comprobante_id = $2"];
         let values: any[] = [context.empresaId, tipoComprobanteId];
         let paramIndex = 3;
@@ -108,7 +109,8 @@ export async function POST(req: NextRequest) {
         }
 
         // ===== VALIDACIÓN DE CUOTA DE GUÍAS =====
-        const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('06');
+        const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('06');
+        const tipoComprobanteId = tipoComprobante.id;
 
         if (context.usuarioId) {
             const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(
@@ -175,32 +177,33 @@ export async function POST(req: NextRequest) {
         };
         const claveAcceso = XmlGenerator.generateAccessKey(accessKeyData);
 
-        const id = crypto.randomUUID();
-
-        await db.transaction(async (client) => {
+        const resultData = await db.transaction(async (client) => {
             // A. Insertar cabecera
-            await client.query(
+            const insertResult = await client.query(
                 {
                     text: `
                         INSERT INTO facturacion.comprobantes_electronicos (
-                            id, empresa_id, tipo_comprobante_id, secuencial, clave_acceso,
+                            empresa_id, tipo_comprobante_id, secuencial, clave_acceso,
                             fecha_emision, cliente_id, cliente_nombre, cliente_identificacion,
                             direccion_partida, direccion_destino, transportista_nombre,
                             transportista_identificacion, placa_vehiculo, estado,
                             created_at, updated_at, created_by, subtotal, total
                         ) VALUES (
-                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                            'BORRADOR', NOW(), NOW(), $15, 0, 0
+                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                            'BORRADOR', NOW(), NOW(), $14, 0, 0
                         )
+                        RETURNING id
                     `,
                     values: [
-                        id, context.empresaId, tipoComprobanteId, nextSecuencialVal, claveAcceso, fechaEmision,
+                        context.empresaId, tipoComprobanteId, nextSecuencialVal, claveAcceso, fechaEmision,
                         clienteId, clienteNombre, clienteIdentificacion, direccionPartida, direccionDestino,
                         transportistaNombre || '', transportistaIdentificacion || '', placaVehiculo || '',
                         context.usuarioId
                     ]
                 }
             );
+
+            const id = insertResult.rows[0].id;
 
             // B. Guardar detalles
             if (detalles && detalles.length > 0) {
@@ -226,6 +229,8 @@ export async function POST(req: NextRequest) {
                 DO UPDATE SET secuencial_actual = EXCLUDED.secuencial_actual
             `, [context.empresaId, ptoEmi, tipoComprobanteId, nextSecuencialVal]);
 
+            return { id };
+
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
 
@@ -236,7 +241,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            id,
+            id: resultData.id,
             secuencial,
             claveAcceso,
             message: 'Guía de remisión creada exitosamente'

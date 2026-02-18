@@ -33,9 +33,12 @@ export async function POST(req: NextRequest) {
         // --- STEP 1: PREPARE AND PERSIST (PENDING STATE) ---
         const persistentData = await db.transaction(async (client) => {
             const punto = (await client.query('SELECT pe.*, s.codigo as estab FROM configuracion.puntos_emision pe INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id WHERE pe.id = $1', [puntoEmisionId])).rows[0];
-            const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo('03');
-            const secuencialResult = await client.query("SELECT secuencial_actual FROM configuracion.puntos_emision_secuenciales WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2 FOR UPDATE", [puntoEmisionId, tipoComprobanteId]);
-            let nextSeqInt = secuencialResult.rows.length > 0 ? secuencialResult.rows[0].secuencial_actual : 1;
+
+            // 1. Obtener secuencial (bloqueo)
+            const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('06');
+            const tipoComprobanteId = tipoComprobante.id;
+            const seqResult = await client.query("SELECT secuencial_actual FROM configuracion.puntos_emision_secuenciales WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2 FOR UPDATE", [puntoEmisionId, tipoComprobanteId]);
+            let nextSeqInt = seqResult.rows.length > 0 ? seqResult.rows[0].secuencial_actual : 1;
             await client.query("INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante_id, secuencial_actual) VALUES($1, $2, 2) ON CONFLICT (punto_emision_id, tipo_comprobante_id) DO UPDATE SET secuencial_actual = EXCLUDED.secuencial_actual + 1", [puntoEmisionId, tipoComprobanteId]);
             const secuencialFormateado = nextSeqInt.toString().padStart(9, '0');
 
@@ -57,6 +60,7 @@ export async function POST(req: NextRequest) {
                 razonSocial: empresaDoc.razon_social,
                 nombreComercial: empresaDoc.nombre_comercial,
                 ruc: empresaDoc.ruc,
+                codDoc: tipoComprobante.codigo,
                 estab: punto.estab,
                 ptoEmi: punto.codigo,
                 secuencial: secuencialFormateado,
@@ -87,42 +91,44 @@ export async function POST(req: NextRequest) {
             let proveedorId = terceroRes.rows[0]?.id;
 
             if (!proveedorId) {
-                proveedorId = crypto.randomUUID();
-                await client.query(`
-                    INSERT INTO directorio.terceros (id, empresa_id, usuario_id, tipo_identificacion, identificacion, razon_social, tipo_tercero) 
+                const provResult = await client.query(`
+                    INSERT INTO directorio.terceros (empresa_id, usuario_id, tipo_identificacion, identificacion, razon_social, tipo_tercero) 
                     VALUES ($1,$2,$3,$4,$5,$6,'PROVEEDOR')
-                `, [proveedorId, context.empresaId, context.usuarioId, proveedor.tipoIdentificacion, proveedor.identificacion, proveedor.nombre]);
+                    RETURNING id
+                `, [context.empresaId, context.usuarioId, proveedor.tipoIdentificacion, proveedor.identificacion, proveedor.nombre]);
+                proveedorId = provResult.rows[0].id;
             }
 
             // 2. Persistencia INICIAL de cabecera
-            const compraId = crypto.randomUUID();
-            await client.query(`
+            const compResult = await client.query(`
                 INSERT INTO compras.compras 
-                (id, empresa_id, usuario_id, proveedor_id, tipo_comprobante_id, secuencial, 
+                (empresa_id, usuario_id, proveedor_id, tipo_comprobante_id, secuencial, 
                 autorizacion, fecha_emision, fecha_registro, 
                 subtotal_iva, subtotal_0, monto_iva, total, 
                 estado_retencion, clave_acceso, mensajes_sri, fecha_autorizacion, xml_firmado) 
-                VALUES ($1,$2,$3,$4,$5,$6, NULL, $7, CURRENT_DATE, $8, $9, $10, $11, 'PENDIENTE', $12, $13, NULL, $14)
-            `, [compraId, context.empresaId, context.usuarioId, proveedorId, tipoComprobanteId, secuencialFormateado,
+                VALUES ($1,$2,$3,$4,$5, NULL, $6, CURRENT_DATE, $7, $8, $9, $10, 'PENDIENTE', $11, $12, NULL, $13)
+                RETURNING id
+            `, [context.empresaId, context.usuarioId, proveedorId, tipoComprobanteId, secuencialFormateado,
                 fechaEmision,
-                totalIVA > 0 ? totalSinImpuestos : 0,
-                totalIVA === 0 ? totalSinImpuestos : 0,
+            totalIVA > 0 ? totalSinImpuestos : 0,
+            totalIVA === 0 ? totalSinImpuestos : 0,
                 totalIVA, importeTotal,
                 accessKey, { mensajes: [], pagos: pagosFinal }, signedXml
             ]);
+            const compraId = compResult.rows[0].id;
 
             // 3. Persistencia de Detalles
             for (const d of detalles) {
                 await client.query(`
                     INSERT INTO compras.compras_detalle (
-                        id, compra_id, descripcion, cantidad, precio_unitario, total, porcentaje_iva, valor_iva, codigo_iva
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        compra_id, descripcion, cantidad, precio_unitario, total, porcentaje_iva, valor_iva, codigo_iva
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 `, [
-                    crypto.randomUUID(), compraId, d.descripcion, d.cantidad,
+                    compraId, d.descripcion, d.cantidad,
                     d.precioUnitario || d.precio_unitario, d.total,
-                    d.tarifa || d.porcentaje_iva || 0,
-                    d.valorIVA || d.valor_iva || 0,
-                    d.codigoIVA || d.codigo_iva || '0'
+                    d.tarifa || 0,
+                    d.valorIVA || 0,
+                    d.codigoIVA || '0'
                 ]);
             }
 

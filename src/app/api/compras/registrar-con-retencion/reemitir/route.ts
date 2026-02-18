@@ -24,13 +24,19 @@ export async function POST(req: NextRequest) {
         const configSri = await ReemisionService.obtenerConfiguracionSri(context.empresaId!, context.usuarioId!);
         const empresaDoc = await ReemisionService.obtenerEmpresa(context.empresaId!, context.usuarioId!);
 
-        const compHeader = await ComprobantesRepository.obtenerCabeceraComprobante(comprobanteId, context.empresaId!);
+        const compHeader = await ComprobantesRepository.obtenerCabeceraComprobante(comprobanteId, {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
 
         if (!compHeader || compHeader.tipo_comprobante !== '07') {
             return NextResponse.json({ error: 'Comprobante de retención no encontrado' }, { status: 404 });
         }
 
-        const impuestos = await ComprobantesRepository.obtenerRetencionImpuestos(comprobanteId);
+        const impuestos = await ComprobantesRepository.obtenerRetencionImpuestos(comprobanteId, {
+            empresaId: context.empresaId!,
+            usuarioId: context.usuarioId!
+        });
 
         const dataSri = SriStandardizer.standardizeRetencion({
             razonSocial: empresaDoc.razon_social,

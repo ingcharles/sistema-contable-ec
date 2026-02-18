@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
-import { IessExporter } from '@/modules/nomina/domain/services/IessExporter';
+import { IessExporter } from '@/modules/rrhh/domain/services/IessExporter';
 
 /**
  * GET /api/nomina/iess/planilla?periodo=YYYY-MM

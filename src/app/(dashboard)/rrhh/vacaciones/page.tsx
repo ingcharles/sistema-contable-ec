@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Umbrella, Clock } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Vacacion, Empleado } from '@/modules/nomina/domain/types';
-import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Vacacion, Empleado } from '@/modules/rrhh/domain/types';
+import { RRHHUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/shared/ui/Button';
@@ -34,8 +34,8 @@ export default function VacacionesPage() {
         setLoading(true);
         try {
             const [dataVac, dataEmp] = await Promise.all([
-                NominaUseCases.listarVacaciones(),
-                NominaUseCases.listarEmpleados()
+                RRHHUseCases.listarVacaciones(),
+                RRHHUseCases.listarEmpleados()
             ]);
             setVacaciones(dataVac);
             setEmpleados(dataEmp);
@@ -55,7 +55,7 @@ export default function VacacionesPage() {
         }
         setSaving(true);
         try {
-            await NominaUseCases.solicitarVacaciones(formData);
+            await RRHHUseCases.solicitarVacaciones(formData);
             setShowModal(false);
             loadData();
         } catch (error) {

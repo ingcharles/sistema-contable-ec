@@ -37,8 +37,9 @@ export function TransferenciaModal({ onClose, onSave }: TransferenciaModalProps)
                     InventarioUseCases.listarBodegas(),
                     InventarioUseCases.listarProductos()
                 ]);
-                setBodegas(bRes || []);
-                setProductos(pRes || []);
+                setBodegas(Array.isArray(bRes) ? bRes : []);
+                // La API de productos devuelve un objeto paginado { data: [], pagination: ... }
+                setProductos(pRes?.data || (Array.isArray(pRes) ? pRes : []));
             } catch (err) {
                 console.error('Error al cargar datos:', err);
             } finally {

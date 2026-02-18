@@ -633,24 +633,37 @@ export class XmlGenerator {
         else if (data.infoNotaCredito) fechaEmision = data.infoNotaCredito.fechaEmision;
         else if (data.infoNotaDebito) fechaEmision = data.infoNotaDebito.fechaEmision;
         else if (data.infoGuiaRemision) fechaEmision = data.infoGuiaRemision.fechaIniTransporte;
-
         if (!fechaEmision) {
             throw new Error(`No se pudo determinar la fecha de emisión para el documento ${info.codDoc}`);
         }
 
         const date = fechaEmision.replace(/\//g, '').replace(/-/g, '');
-        const ruc = info.ruc;
-        const codDoc = info.codDoc;
-        const ambiente = info.ambiente;
-        const serie = info.estab + info.ptoEmi;
-        const secuencial = info.secuencial;
-        const codigoNumerico = '12345678'; // Sugerido random en producción
-        const tipoEmision = info.tipoEmision;
+        const ruc = info.ruc.toString();
+        const codDoc = info.codDoc.toString();
+        const ambiente = info.ambiente.toString();
+        const serie = (info.estab.toString() + info.ptoEmi.toString());
+        const secuencial = info.secuencial.toString();
+
+        // Generar código numérico aleatorio de 8 dígitos para mayor seguridad
+        const codigoNumerico = Math.floor(10000000 + Math.random() * 90000000).toString();
+        const tipoEmision = (info.tipoEmision || '1').toString();
+
+        console.log(`--- DEBUG ACCESS KEY COMPONENTS ---`);
+        console.log(`date: ${date} (${date.length})`);
+        console.log(`codDoc: ${codDoc} (${codDoc.length})`);
+        console.log(`ruc: ${ruc} (${ruc.length})`);
+        console.log(`ambiente: ${ambiente} (${ambiente.length})`);
+        console.log(`serie: ${serie} (${serie.length})`);
+        console.log(`secuencial: ${secuencial} (${secuencial.length})`);
+        console.log(`codigoNumerico: ${codigoNumerico} (${codigoNumerico.length})`);
+        console.log(`tipoEmision: ${tipoEmision} (${tipoEmision.length})`);
 
         let key = `${date}${codDoc}${ruc}${ambiente}${serie}${secuencial}${codigoNumerico}${tipoEmision}`;
 
         const dv = this.calculateModulo11(key);
-        return `${key}${dv}`;
+        const fullKey = `${key}${dv}`;
+        console.log(`Generated Key: ${fullKey} (Length: ${fullKey.length})`);
+        return fullKey;
     }
 
     private static calculateModulo11(key: string): number {
@@ -681,6 +694,7 @@ export class XmlGenerator {
             }
         });
     }
+
 
     private static generateInfoAdicional(infoAdicional: any[]): string {
         const validItems = infoAdicional.filter(item => item.valor && item.valor !== 'N/A');

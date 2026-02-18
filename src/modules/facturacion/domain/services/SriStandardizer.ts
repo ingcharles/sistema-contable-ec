@@ -175,7 +175,7 @@ export class SriStandardizer {
                 tipoEmision: data.tipoEmisionSri,
                 razonSocial: data.razonSocial,
                 ruc: data.ruc,
-                codDoc: data.codDoc, //|| '04'
+                codDoc: data.codDoc || '04',
                 estab: (data.estab).padStart(3, '0'),
                 ptoEmi: (data.ptoEmi).padStart(3, '0'),
                 secuencial: (data.secuencial).padStart(9, '0'),

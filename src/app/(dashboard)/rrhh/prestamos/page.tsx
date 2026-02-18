@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Landmark, Wallet, Plus, History, AlertCircle, DollarSign, PieChart } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Prestamo, Empleado } from '@/modules/nomina/domain/types';
-import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Prestamo, Empleado } from '@/modules/rrhh/domain/types';
+import { RRHHUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
@@ -34,8 +34,8 @@ export default function PrestamosPage() {
         setLoading(true);
         try {
             const [dataPres, dataEmp] = await Promise.all([
-                NominaUseCases.listarPrestamos(),
-                NominaUseCases.listarEmpleados()
+                RRHHUseCases.listarPrestamos(),
+                RRHHUseCases.listarEmpleados()
             ]);
             setPrestamos(dataPres);
             setEmpleados(dataEmp);
@@ -55,7 +55,7 @@ export default function PrestamosPage() {
         }
         setSaving(true);
         try {
-            await NominaUseCases.registrarPrestamo(formData);
+            await RRHHUseCases.registrarPrestamo(formData);
             setShowModal(false);
             loadData();
         } catch (error) {

@@ -105,6 +105,10 @@ export async function GET(req: NextRequest) {
             cuentaSueldosPorPagar: row.cuenta_sueldos_por_pagar,
             cuentaProvDecimoTercero: row.cuenta_prov_decimo_tercero,
             cuentaProvDecimoCuarto: row.cuenta_prov_decimo_cuarto,
+            aportePersonalIess: Number(row.aporte_personal_iess),
+            aportePatronalIess: Number(row.aporte_patronal_iess),
+            fondoReservaPorcentaje: Number(row.fondo_reserva_porcentaje),
+            divisorVacaciones: Number(row.divisor_vacaciones),
             // Caja Chica
             cuentaCajaChica: row.cuenta_caja_chica,
             cuentaGastosVarios: row.cuenta_gastos_varios,
@@ -145,6 +149,7 @@ export async function POST(req: NextRequest) {
             fechaCierre,
             cuentaSueldos, cuentaAportePatronal, cuentaDecimoTercero, cuentaDecimoCuarto,
             cuentaIessPorPagar, cuentaSueldosPorPagar, cuentaProvDecimoTercero, cuentaProvDecimoCuarto,
+            aportePersonalIess, aportePatronalIess, fondoReservaPorcentaje, divisorVacaciones,
             cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario,
             sriTipoEmision
         } = body;
@@ -164,9 +169,10 @@ export async function POST(req: NextRequest) {
                         cuenta_prov_decimo_tercero, cuenta_prov_decimo_cuarto,
                         cuenta_caja_chica, cuenta_gastos_varios,
                         cuenta_sobrante_inventario, cuenta_faltante_inventario,
+                        aporte_personal_iess, aporte_patronal_iess, fondo_reserva_porcentaje, divisor_vacaciones,
                         sri_tipo_emision,
                         updated_at, updated_by
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, NOW(), $35)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, NOW(), $39)
                     ON CONFLICT (empresa_id) DO UPDATE SET
                         sbu = EXCLUDED.sbu,
                         iva_catalogo_item_id = EXCLUDED.iva_catalogo_item_id,
@@ -201,6 +207,10 @@ export async function POST(req: NextRequest) {
                         cuenta_sobrante_inventario = EXCLUDED.cuenta_sobrante_inventario,
                         cuenta_faltante_inventario = EXCLUDED.cuenta_faltante_inventario,
                         sri_tipo_emision = EXCLUDED.sri_tipo_emision,
+                        aporte_personal_iess = EXCLUDED.aporte_personal_iess,
+                        aporte_patronal_iess = EXCLUDED.aporte_patronal_iess,
+                        fondo_reserva_porcentaje = EXCLUDED.fondo_reserva_porcentaje,
+                        divisor_vacaciones = EXCLUDED.divisor_vacaciones,
                         updated_at = NOW(),
                         updated_by = EXCLUDED.updated_by
                 `,
@@ -214,6 +224,7 @@ export async function POST(req: NextRequest) {
                     cuentaSueldos, cuentaAportePatronal, cuentaDecimoTercero, cuentaDecimoCuarto,
                     cuentaIessPorPagar, cuentaSueldosPorPagar, cuentaProvDecimoTercero, cuentaProvDecimoCuarto,
                     cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario,
+                    aportePersonalIess, aportePatronalIess, fondoReservaPorcentaje, divisorVacaciones,
                     sriTipoEmision,
                     context.usuarioId
                 ]

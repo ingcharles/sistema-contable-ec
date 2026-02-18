@@ -56,19 +56,20 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Campos requeridos: codigo, concepto, porcentaje, tipo' }, { status: 400 });
         }
 
-        const id = crypto.randomUUID();
-
-        await db.query(
+        const result = await db.query(
             {
                 text: `
                     INSERT INTO configuracion.codigos_retencion (
-                        id, empresa_id, codigo, concepto, porcentaje, tipo, activo, created_by
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        empresa_id, codigo, concepto, porcentaje, tipo, activo, created_by
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING id
                 `,
-                values: [id, context.empresaId, codigo, concepto, porcentaje, tipo, activo, context.usuarioId]
+                values: [context.empresaId, codigo, concepto, porcentaje, tipo, activo, context.usuarioId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
+
+        const id = result.rows[0].id;
 
         return NextResponse.json({ success: true, id, message: 'Código de retención creado exitosamente' }, { status: 201 });
     } catch (error: any) {

@@ -78,7 +78,7 @@ class PostgreSQLClient {
      */
     public async transaction<T>(
         callback: (client: any) => Promise<T>,
-        context: { empresaId: string; usuarioId: string }
+        context: { empresaId: string | null; usuarioId: string | null }
     ): Promise<T> {
         const client = await this.pool.connect();
         try {

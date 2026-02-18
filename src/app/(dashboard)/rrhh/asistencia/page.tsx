@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, Plus } from 'lucide-react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { Asistencia, Empleado } from '@/modules/nomina/domain/types';
-import { NominaUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { Asistencia, Empleado } from '@/modules/rrhh/domain/types';
+import { RRHHUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/shared/ui/Button';
@@ -36,8 +36,8 @@ export default function AsistenciaPage() {
         setLoading(true);
         try {
             const [dataAsis, dataEmp] = await Promise.all([
-                NominaUseCases.listarAsistencia(fechaDesde, fechaHasta),
-                NominaUseCases.listarEmpleados()
+                RRHHUseCases.listarAsistencia(fechaDesde, fechaHasta),
+                RRHHUseCases.listarEmpleados()
             ]);
             setAsistencias(dataAsis);
             setEmpleados(dataEmp);
@@ -57,7 +57,7 @@ export default function AsistenciaPage() {
         }
         setSaving(true);
         try {
-            await NominaUseCases.guardarAsistencia(formData);
+            await RRHHUseCases.guardarAsistencia(formData);
             setShowModal(false);
             loadData();
         } catch (error) {

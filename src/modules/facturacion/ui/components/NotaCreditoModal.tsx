@@ -9,6 +9,7 @@ import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Modal } from '@/shared/ui/Modal';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { getLocalDateIso } from '@/shared/utils/dateUtils';
+import { useCatalogo } from '@/modules/shared/hooks/useCatalogo';
 
 
 interface ItemNotaCredito {
@@ -42,6 +43,10 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
     const [ptoEmi, setPtoEmi] = useState(puntoActivo?.codigoPunto);
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
+
+    const { items: motivosNC, cargando: cargandoMotivos } = useCatalogo('MOTIVO_NC');
+    const [motivoPersonalizado, setMotivoPersonalizado] = useState('');
+    const [esOtroMotivo, setEsOtroMotivo] = useState(false);
 
     // Cargar secuencial automático
     useEffect(() => {
@@ -87,7 +92,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
         if (errorValidacion) setErrorValidacion(null);
     };
 
-    const ivaRateValue = (parametros?.ivaValor) / 100;
+    const ivaRateValue = (parametros?.ivaValor || 15) / 100;
 
     const subtotalDevolucion = items.reduce((acc, item) => acc + (item.cantidadDevolver * item.precio), 0);
     const ivaDevolucion = items.reduce((acc, item) => {
@@ -113,7 +118,7 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
 
             const fullNumDocModificado = factura.secuencial.includes('-')
                 ? factura.secuencial
-                : `${factura.estab}-${factura.ptoEmi}-${factura.secuencial}`;
+                : `${factura.estab || '001'}-${factura.ptoEmi || '001'}-${factura.secuencial}`;
 
             const payload = {
                 puntoEmisionId,
@@ -235,13 +240,40 @@ export function NotaCreditoModal({ factura, onClose, onSave }: NotaCreditoModalP
                     <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Motivo de Modificación *</label>
-                            <input
-                                type="text"
-                                value={motivo}
-                                onChange={e => setMotivo(e.target.value)}
+                            <select
+                                value={esOtroMotivo ? 'OTRO' : motivo}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    if (val === 'OTRO') {
+                                        setEsOtroMotivo(true);
+                                        setMotivo(motivoPersonalizado);
+                                    } else {
+                                        setEsOtroMotivo(false);
+                                        setMotivo(val);
+                                    }
+                                }}
                                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-medium text-slate-700"
-                                placeholder="Ej: Devolución mercadería"
-                            />
+                                disabled={cargandoMotivos}
+                            >
+                                <option value="">Seleccione un motivo...</option>
+                                {motivosNC.map(m => (
+                                    <option key={m.id} value={m.valor}>{m.valor}</option>
+                                ))}
+                                <option value="OTRO">OTRO (Especificar...)</option>
+                            </select>
+
+                            {esOtroMotivo && (
+                                <input
+                                    type="text"
+                                    value={motivoPersonalizado}
+                                    onChange={e => {
+                                        setMotivoPersonalizado(e.target.value);
+                                        setMotivo(e.target.value);
+                                    }}
+                                    className="w-full mt-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-medium text-slate-700 animate-in fade-in slide-in-from-top-1"
+                                    placeholder="Escriba el motivo personalizado..."
+                                />
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2 p-4 bg-emerald-50 rounded-xl border border-emerald-100">

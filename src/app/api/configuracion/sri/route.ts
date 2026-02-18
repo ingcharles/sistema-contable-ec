@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { CertificateParser } from '@/modules/facturacion/domain/services/CertificateParser';
+import { encrypt } from '@/shared/utils/cryptoService';
 
 /**
  * GET /api/configuracion/sri
@@ -14,7 +15,6 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const url = new URL(req.url);
 
         const result = await db.query(
             {
@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
                         sc.cert_p12_certificado, sc.cert_clave_certificado,
                         sc.cert_fecha_emision, sc.cert_fecha_expiracion,
                         sc.cert_sujeto, sc.cert_emisor, sc.cert_numero_serie,
+                        sc.usuario_sri, sc.clave_sri,
                         sc.activo, sc.created_at, sc.updated_at
                     FROM configuracion.sri_certificados sc
                     INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
@@ -51,6 +52,11 @@ export async function GET(req: NextRequest) {
             config.p12_base64 = config.cert_p12_certificado.toString('base64');
             delete config.cert_p12_certificado; // Don't send raw BYTEA
         }
+
+        // Flag de credenciales SRI portal (no enviar clave en texto plano)
+        config.has_credenciales_sri = !!(config.usuario_sri && config.clave_sri);
+        config.usuario_sri_display = config.usuario_sri || null;
+        delete config.clave_sri; // nunca enviar la clave
 
         return NextResponse.json(config);
     } catch (error: any) {
@@ -214,6 +220,70 @@ export async function POST(req: NextRequest) {
         console.error('Error al guardar configuración SRI:', error);
         return NextResponse.json(
             { error: 'Error al guardar configuración SRI', details: error.message },
+            { status: 500 }
+        );
+    }
+}
+
+/**
+ * PUT /api/configuracion/sri
+ * Guarda o actualiza las credenciales del portal SRI en línea
+ */
+export async function PUT(req: NextRequest) {
+    const context = validateContext(req);
+    if (!context.isValid) {
+        return NextResponse.json({ error: context.error }, { status: 401 });
+    }
+
+    try {
+        const body = await req.json();
+        const { usuarioSri, claveSri } = body;
+
+        if (!usuarioSri || !claveSri) {
+            return NextResponse.json(
+                { error: 'Usuario y clave del portal SRI son requeridos' },
+                { status: 400 }
+            );
+        }
+
+        // Encriptar la clave antes de guardar
+        const claveEncriptada = encrypt(claveSri);
+
+        // Buscar certificado activo
+        const certResult = await db.query(
+            {
+                text: `SELECT id FROM configuracion.sri_certificados WHERE empresa_id = $1 AND activo = TRUE LIMIT 1`,
+                values: [context.empresaId]
+            },
+            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+        );
+
+        if (certResult.rows.length === 0) {
+            return NextResponse.json(
+                { error: 'No hay certificado activo. Configure primero su firma electrónica.' },
+                { status: 400 }
+            );
+        }
+
+        // Actualizar credenciales en el certificado activo
+        await db.query(
+            {
+                text: `UPDATE configuracion.sri_certificados 
+                       SET usuario_sri = $1, clave_sri = $2, updated_at = NOW()
+                       WHERE id = $3`,
+                values: [usuarioSri, claveEncriptada, certResult.rows[0].id]
+            },
+            { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
+        );
+
+        return NextResponse.json({
+            success: true,
+            mensaje: 'Credenciales del portal SRI guardadas exitosamente'
+        });
+    } catch (error: any) {
+        console.error('Error al guardar credenciales SRI:', error);
+        return NextResponse.json(
+            { error: 'Error al guardar credenciales SRI', details: error.message },
             { status: 500 }
         );
     }

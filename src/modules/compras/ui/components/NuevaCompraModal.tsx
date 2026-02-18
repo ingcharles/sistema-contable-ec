@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Calculator, Search, Receipt, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Save, Calculator, Search, Receipt, AlertCircle, FileCode2, FileText, Bot } from 'lucide-react';
+import { ComprobanteParseado } from '../../domain/descargaRobotTypes';
+import { CargarXmlModal } from './CargarXmlModal';
+import { CargarTxtModal } from './CargarTxtModal';
+import { BandejaComprobantesModal } from './BandejaComprobantesModal';
 import { useToast } from '@/shared/context/ToastContext';
 import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
 import { ComprobanteRecibido } from '@/modules/buzon/domain/types';
@@ -57,6 +61,10 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
 
     const [productos, setProductos] = useState<Producto[]>([]);
     const [periodoFiscal, setPeriodoFiscal] = useState(fechaEmision.substring(5, 7) + '/' + fechaEmision.substring(0, 4));
+
+    const [showCargarXml, setShowCargarXml] = useState(false);
+    const [showCargarTxt, setShowCargarTxt] = useState(false);
+    const [showBandeja, setShowBandeja] = useState(false);
 
     const [detalles, setDetalles] = useState<any[]>([]);
 
@@ -127,6 +135,50 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
     useEffect(() => {
         setPeriodoFiscal(fechaEmision.substring(5, 7) + '/' + fechaEmision.substring(0, 4));
     }, [fechaEmision]);
+
+    // Handler para aplicar datos parseados desde XML/TXT/IA
+    const aplicarParseado = useCallback((data: ComprobanteParseado) => {
+        setProveedorRuc(data.rucEmisor || '');
+        setProveedorNombre(data.razonSocialEmisor || '');
+        setSecuencial(data.secuencial || '');
+        setFechaEmision(data.fechaEmision || getLocalDateIso());
+        setAutorizacion(data.claveAcceso || '');
+
+        if (data.detalles && data.detalles.length > 0) {
+            setDetalles(data.detalles.map(d => ({
+                productoId: '',
+                descripcion: d.descripcion,
+                cantidad: d.cantidad,
+                precioUnitario: d.precioUnitario,
+                subtotal: d.subtotal,
+                porcentajeIva: d.porcentajeIva,
+                valorIva: d.valorIva,
+                total: d.total
+            })));
+        } else {
+            setDetalles([{
+                productoId: '',
+                descripcion: `COMPRA SEGÚN ARCHIVO ${data.secuencial}`,
+                cantidad: 1,
+                precioUnitario: data.subtotalIva || data.total,
+                subtotal: data.subtotalIva || data.total,
+                porcentajeIva: parametros?.ivaValor || 15,
+                valorIva: data.montoIva || 0,
+                total: data.total
+            }]);
+        }
+
+        // Buscar proveedor automáticamente
+        if (data.rucEmisor) {
+            setProveedorRuc(data.rucEmisor);
+            setTimeout(() => buscarProveedor(), 100);
+        }
+
+        setShowCargarXml(false);
+        setShowCargarTxt(false);
+        setShowBandeja(false);
+        showToast('Datos cargados desde archivo exitosamente', 'success');
+    }, [parametros?.ivaValor, showToast]);
 
     useEffect(() => {
         ConfiguracionUseCases.listarRetenciones().then(data => {
@@ -425,6 +477,56 @@ export const NuevaCompraModal: React.FC<Props> = ({ onClose, onSave, ordenPrevia
                         <p className="text-sm font-medium">{errorValidacion}</p>
                     </div>
                 )}
+
+                {/* Botones Cargar Archivo: XML / TXT / IA */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-slate-500 mr-1">Cargar desde:</span>
+                    <button
+                        type="button"
+                        onClick={() => setShowCargarXml(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-all"
+                    >
+                        <FileCode2 size={14} />
+                        XML
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowCargarTxt(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all"
+                    >
+                        <FileText size={14} />
+                        TXT
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowBandeja(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-all"
+                    >
+                        <Bot size={14} />
+                        IA
+                    </button>
+                </div>
+
+                {/* Sub-modales de carga */}
+                {showCargarXml && (
+                    <CargarXmlModal
+                        onConfirm={aplicarParseado}
+                        onClose={() => setShowCargarXml(false)}
+                    />
+                )}
+                {showCargarTxt && (
+                    <CargarTxtModal
+                        onConfirm={aplicarParseado}
+                        onClose={() => setShowCargarTxt(false)}
+                    />
+                )}
+                {showBandeja && (
+                    <BandejaComprobantesModal
+                        onConfirm={aplicarParseado}
+                        onClose={() => setShowBandeja(false)}
+                    />
+                )}
+
                 <section>
                     <h3 className="text-sm font-bold text-sri-blue uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">1. Datos del Proveedor y Comprobante</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
