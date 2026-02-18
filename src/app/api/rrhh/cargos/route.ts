@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { Cargo } from '@/modules/rrhh/domain/types';
-import { toCamelCase, toSnakeCase } from '@/shared/utils/caseConverter';
+import { toSnakeCase } from '@/shared/utils/caseConverter';
 
 /**
  * GET /api/rrhh/cargos?areaId=xxx (opcional)
@@ -23,20 +23,20 @@ export async function GET(req: NextRequest) {
             SELECT 
                 c.id,
                 c.empresa_id,
-                c.area_id,
+                c.area_id AS "areaId",
                 c.codigo,
                 c.nombre,
                 c.descripcion,
-                c.nivel_jerarquico,
-                c.sueldo_minimo,
-                c.sueldo_maximo,
+                c.nivel_jerarquico AS "nivelJerarquico",
+                c.sueldo_minimo AS "sueldoMinimo",
+                c.sueldo_maximo AS "sueldoMaximo",
                 c.activo,
-                c.created_at,
-                c.updated_at,
-                c.created_by,
-                c.updated_by,
+                c.created_at AS "createdAt",
+                c.updated_at AS "updatedAt",
+                c.created_by AS "createdBy",
+                c.updated_by AS "updatedBy",
                 -- Área
-                a.nombre as area_nombre
+                a.nombre as "areaNombre"
             FROM nomina.cargos c
             LEFT JOIN nomina.areas a ON c.area_id = a.id
             WHERE c.empresa_id = $1
@@ -57,10 +57,10 @@ export async function GET(req: NextRequest) {
         );
 
         const cargos: Cargo[] = result.rows.map((row: any) => ({
-            ...toCamelCase(row),
-            area: row.area_nombre ? {
-                id: row.area_id,
-                nombre: row.area_nombre
+            ...row,
+            area: row.areaNombre ? {
+                id: row.areaId,
+                nombre: row.areaNombre
             } : undefined
         }));
 
@@ -123,7 +123,11 @@ export async function POST(req: NextRequest) {
                         activo, created_by, updated_by
                     )
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                    RETURNING *
+                    RETURNING 
+                        id, empresa_id AS "empresaId", area_id AS "areaId", codigo, nombre, descripcion,
+                        nivel_jerarquico AS "nivelJerarquico", sueldo_minimo AS "sueldoMinimo", 
+                        sueldo_maximo AS "sueldoMaximo", activo, created_at AS "createdAt", 
+                        updated_at AS "updatedAt", created_by AS "createdBy", updated_by AS "updatedBy"
                 `,
                 values: [
                     empresaId,
@@ -142,7 +146,7 @@ export async function POST(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        const nuevoCargo = toCamelCase(result.rows[0]);
+        const nuevoCargo = result.rows[0];
         return NextResponse.json(nuevoCargo, { status: 201 });
     } catch (error) {
         console.error('Error al crear cargo:', error);
@@ -208,7 +212,11 @@ export async function PUT(req: NextRequest) {
                         updated_by = $10,
                         updated_at = NOW()
                     WHERE id = $1 AND empresa_id = $11
-                    RETURNING *
+                    RETURNING 
+                        id, empresa_id AS "empresaId", area_id AS "areaId", codigo, nombre, descripcion,
+                        nivel_jerarquico AS "nivelJerarquico", sueldo_minimo AS "sueldoMinimo", 
+                        sueldo_maximo AS "sueldoMaximo", activo, created_at AS "createdAt", 
+                        updated_at AS "updatedAt", created_by AS "createdBy", updated_by AS "updatedBy"
                 `,
                 values: [
                     cargoData.id,
@@ -227,7 +235,7 @@ export async function PUT(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        const cargoActualizado = toCamelCase(result.rows[0]);
+        const cargoActualizado = result.rows[0];
         return NextResponse.json(cargoActualizado);
     } catch (error) {
         console.error('Error al actualizar cargo:', error);

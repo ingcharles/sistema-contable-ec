@@ -625,15 +625,31 @@ export class XmlGenerator {
     static generateAccessKey(data: any): string {
         const info = data.infoTributaria as SriInfoTributaria;
 
-        // Extraer fecha de emisión según el tipo de documento
+        // Extraer fecha de emisión según el tipo de documento (basado en codDoc)
         let fechaEmision = '';
-        if (data.infoFactura) fechaEmision = data.infoFactura.fechaEmision;
-        else if (data.infoLiquidacionCompra) fechaEmision = data.infoLiquidacionCompra.fechaEmision;
-        else if (data.infoCompRetencion) fechaEmision = data.infoCompRetencion.fechaEmision;
-        else if (data.infoNotaCredito) fechaEmision = data.infoNotaCredito.fechaEmision;
-        else if (data.infoNotaDebito) fechaEmision = data.infoNotaDebito.fechaEmision;
-        else if (data.infoGuiaRemision) fechaEmision = data.infoGuiaRemision.fechaIniTransporte;
+        switch (info.codDoc) {
+            case '01':
+                fechaEmision = data.infoFactura?.fechaEmision;
+                break;
+            case '03':
+                fechaEmision = data.infoLiquidacionCompra?.fechaEmision;
+                break;
+            case '04':
+                fechaEmision = data.infoNotaCredito?.fechaEmision;
+                break;
+            case '05':
+                fechaEmision = data.infoNotaDebito?.fechaEmision;
+                break;
+            case '06':
+                fechaEmision = data.infoGuiaRemision?.fechaIniTransporte;
+                break;
+            case '07':
+                fechaEmision = data.infoCompRetencion?.fechaEmision;
+                break;
+        }
+
         if (!fechaEmision) {
+            console.error(`ERROR: No se encontró fecha de emisión para codDoc ${info.codDoc}`, data);
             throw new Error(`No se pudo determinar la fecha de emisión para el documento ${info.codDoc}`);
         }
 

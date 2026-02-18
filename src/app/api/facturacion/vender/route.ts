@@ -57,9 +57,12 @@ export async function POST(req: NextRequest) {
             {
                 text: `
                     SELECT 
-                        sc.cert_p12_certificado, sc.cert_clave_certificado,
-                        sa.url_recepcion, sa.url_autorizacion, sa.codigo as ambiente_codigo,
-                        sa.valor as ambiente_sri
+                        sc.cert_p12_certificado AS "certP12Certificado", 
+                        sc.cert_clave_certificado AS "certClaveCertificado",
+                        sa.url_recepcion AS "urlRecepcion", 
+                        sa.url_autorizacion AS "urlAutorizacion", 
+                        sa.codigo AS "ambienteCodigo",
+                        sa.valor AS "ambienteSri"
                     FROM configuracion.sri_certificados sc
                     INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
                     WHERE sc.empresa_id = $1 AND sc.activo = TRUE
@@ -80,7 +83,14 @@ export async function POST(req: NextRequest) {
         // 1.3 Obtener datos del Cliente y Parámetros
         const clienteResult = await db.query(
             {
-                text: 'SELECT * FROM directorio.terceros WHERE id = $1 AND empresa_id = $2',
+                text: `
+                    SELECT 
+                        id, razon_social AS "razonSocial", identificacion, 
+                        tipo_identificacion AS "tipoIdentificacion", dias_credito AS "diasCredito",
+                        direccion, email
+                    FROM directorio.terceros 
+                    WHERE id = $1 AND empresa_id = $2
+                `,
                 values: [clienteId, context.empresaId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -91,7 +101,6 @@ export async function POST(req: NextRequest) {
         const cliente = clienteResult.rows[0];
 
         const params = await ParametrosRepository.obtenerParametros(context.empresaId!, context.usuarioId!);
-        const paramsRow = params; // Compatibility alias
 
         // 1.4 Validar Parámetros Contables y Cierre de Periodo
         const validacionParams = ParametrosContablesValidator.validarVentas(params);
@@ -107,30 +116,48 @@ export async function POST(req: NextRequest) {
         // 2. Proceso de Emisión SRI (Preparación XML)
         // Pero espera, necesitamos la razón social de la empresa. Vamos a obtenerla.
         const empresaResult = await db.query(
-            { text: 'SELECT razon_social, ruc, direccion, es_obligado_contabilidad, nombre_comercial FROM seguridad.empresas WHERE id = $1', values: [context.empresaId] },
+            {
+                text: `
+                    SELECT 
+                        razon_social AS "razonSocial", ruc, direccion, 
+                        es_obligado_contabilidad AS "esObligadoContabilidad", 
+                        nombre_comercial AS "nombreComercial" 
+                    FROM seguridad.empresas 
+                    WHERE id = $1
+                `,
+                values: [context.empresaId]
+            },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
         const empresaDoc = empresaResult.rows[0];
 
         // --- 1.4 Obtener tasas de IVA y default del catálogo ---
         const ivaCatalogResult = await db.query(
-            { text: "SELECT id, codigo, valor_numerico FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_IMPUESTO_IVA'", values: [] },
+            {
+                text: `
+                    SELECT id, codigo, valor_numerico AS "valorNumerico" 
+                    FROM configuracion.catalogos_items 
+                    WHERE catalogo_codigo = 'SRI_TIPO_IMPUESTO_IVA'
+                `,
+                values: []
+            },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
+        const ivaCatalogRows = ivaCatalogResult.rows;
         const ivaRatesMap: Record<string, number> = {};
         const idToCodeMap: Record<string, string> = {};
         const codeToIdMap: Record<string, string> = {};
 
-        ivaCatalogResult.rows.forEach(row => {
-            ivaRatesMap[row.codigo] = Number(row.valor_numerico);
+        ivaCatalogRows.forEach((row: any) => {
+            ivaRatesMap[row.codigo] = Number(row.valorNumerico);
             idToCodeMap[row.id] = row.codigo;
             codeToIdMap[row.codigo] = row.id;
         });
 
-        const defaultIvaCode = idToCodeMap[paramsRow.iva_catalogo_item_id] || '4'; // Fallback to '4' (15%)
+        const defaultIvaCode = idToCodeMap[params.ivaCatalogoItemId] || '4'; // Fallback to '4' (15%)
 
         // Re-estandarizar con datos reales de la empresa
-        const detallesEnriquecidos = detalles.map((d: any) => ({
+        const detallesEnriquecidos = (detalles || []).map((d: any) => ({
             ...d,
             codigoIVA: d.codigoIVA || defaultIvaCode,
             tarifa: d.tarifa ?? ivaRatesMap[d.codigoIVA || defaultIvaCode] ?? 15
@@ -139,14 +166,17 @@ export async function POST(req: NextRequest) {
         const dataSri = SriStandardizer.standardizeFactura({
             ...body,
             detalles: detallesEnriquecidos,
-            razonSocial: empresaDoc.razon_social,
-            nombreComercial: empresaDoc.nombre_comercial,
+            razonSocial: empresaDoc.razonSocial,
+            nombreComercial: empresaDoc.nombreComercial,
             ruc: empresaDoc.ruc,
             codDoc: tipoComprobante.codigo,
             dirMatriz: empresaDoc.direccion,
-            obligadoContabilidad: empresaDoc.es_obligado_contabilidad ? 'SI' : 'NO',
-            ambienteSri: configSrv.ambiente_sri,
-            tipoEmisionSri: params.sriTipoEmision
+            obligadoContabilidad: empresaDoc.esObligadoContabilidad ? 'SI' : 'NO',
+            ambienteSri: configSrv.ambienteSri,
+            tipoEmisionSri: params.sriTipoEmision,
+            tipoIdentificacionComprador: cliente.tipoIdentificacion,
+            razonSocialComprador: clienteNombre,
+            identificacionComprador: clienteIdentificacion
         });
 
         // --- STEP 1: PREPARE AND PERSIST (PENDING STATE) ---
@@ -159,10 +189,10 @@ export async function POST(req: NextRequest) {
             if (puntoEmisionId) {
                 const pResult = await client.query(`
                     SELECT 
-                        pe.id as punto_emision_id,
-                        s.codigo as codigo_establecimiento,
-                        pe.codigo as codigo_punto,
-                        pe.nombre as nombre_punto
+                        pe.id AS "puntoEmisionId",
+                        s.codigo AS "codigoEstablecimiento",
+                        pe.codigo AS "codigoPunto",
+                        pe.nombre AS "nombrePunto"
                     FROM configuracion.puntos_emision pe
                     INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
                     INNER JOIN configuracion.usuarios_puntos_emision upe ON upe.punto_emision_id = pe.id
@@ -175,7 +205,11 @@ export async function POST(req: NextRequest) {
                 puntoActivo = pResult.rows[0];
             } else {
                 const puntoActivoResult = await client.query(`
-                    SELECT * FROM configuracion.fn_obtener_punto_activo_usuario($1, $2)
+                    SELECT 
+                        id, punto_emision_id AS "puntoEmisionId",
+                        sucursal_codigo AS "codigoEstablecimiento",
+                        punto_emi AS "codigoPunto"
+                    FROM configuracion.fn_obtener_punto_activo_usuario($1, $2)
                 `, [context.usuarioId, context.empresaId]);
 
                 if (puntoActivoResult.rows.length === 0) {
@@ -190,7 +224,7 @@ export async function POST(req: NextRequest) {
                 SELECT secuencial_actual FROM configuracion.puntos_emision_secuenciales
                 WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
                 FOR UPDATE
-            `, [puntoActivo.punto_emision_id, tipoComprobanteId]);
+            `, [puntoActivo.puntoEmisionId || puntoActivo.id, tipoComprobanteId]);
 
             let nextSeqInt = 1;
             if (seqResult.rows.length > 0) {
@@ -205,8 +239,8 @@ export async function POST(req: NextRequest) {
 
             const secuencialFormateado = nextSeqInt.toString().padStart(9, '0');
             dataSri.infoTributaria.secuencial = secuencialFormateado;
-            dataSri.infoTributaria.estab = puntoActivo.codigo_establecimiento;
-            dataSri.infoTributaria.ptoEmi = puntoActivo.codigo_punto;
+            dataSri.infoTributaria.estab = puntoActivo.codigoEstablecimiento || puntoActivo.sucursalCodigo;
+            dataSri.infoTributaria.ptoEmi = puntoActivo.codigoPunto || puntoActivo.puntoEmi;
 
             // 3.2 Validar Stock y Calcular Totales
             const detallesConDatos = [];
@@ -216,7 +250,13 @@ export async function POST(req: NextRequest) {
 
             for (const d of detallesEnriquecidos) {
                 const prodResult = await client.query(`
-                    SELECT p.*, c.cuenta_inventario, c.cuenta_costo_venta, c.cuenta_venta
+                    SELECT 
+                        p.id, p.codigo_principal AS "codigoPrincipal", 
+                        p.nombre, p.stock_actual AS "stockActual", 
+                        p.costo_promedio AS "costoPromedio",
+                        c.cuenta_inventario AS "cuentaInventario", 
+                        c.cuenta_costo_venta AS "cuentaCostoVenta", 
+                        c.cuenta_venta AS "cuentaVenta"
                     FROM inventario.productos p
                     LEFT JOIN inventario.categorias_producto c ON p.categoria_id = c.id
                     WHERE p.empresa_id = $1 AND p.codigo_principal = $2
@@ -224,12 +264,12 @@ export async function POST(req: NextRequest) {
 
                 if (prodResult.rows.length > 0) {
                     const prod = prodResult.rows[0];
-                    if (prod.stock_actual < d.cantidad) {
+                    if (prod.stockActual < d.cantidad) {
                         throw new Error(`Stock insuficiente para ${d.descripcion}.`);
                     }
                     detallesConDatos.push({ ...prod, ...d });
                 } else {
-                    detallesConDatos.push({ ...d, graba_iva: d.codigoIVA !== '0' });
+                    detallesConDatos.push({ ...d, grabaIva: d.codigoIVA !== '0' });
                 }
 
                 subtotal += Number(d.baseImponible);
@@ -244,8 +284,8 @@ export async function POST(req: NextRequest) {
             const rawXml = XmlGenerator.generateFacturaXml(dataSri);
             await XsdValidator.validate(rawXml, tipoComprobante.codigo);
             const signedXml = await SignatureService.signXml(rawXml, {
-                p12Base64: configSrv.cert_p12_certificado.toString('base64'),
-                passwordP12: configSrv.cert_clave_certificado
+                p12Base64: configSrv.certP12Certificado.toString('base64'),
+                passwordP12: configSrv.certClaveCertificado
             });
 
             // 3.4 Persistencia INICIAL (Pendiente)
@@ -257,9 +297,9 @@ export async function POST(req: NextRequest) {
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'PENDIENTE', $14, $15, $16, $17)
                 RETURNING id
             `, [
-                context.empresaId, context.usuarioId, tipoComprobanteId, puntoActivo.punto_emision_id, secuencialFormateado, fechaEmision,
+                context.empresaId, context.usuarioId, tipoComprobanteId, puntoActivo.puntoEmisionId || puntoActivo.id, secuencialFormateado, fechaEmision,
                 clienteId, clienteNombre, clienteIdentificacion, subtotal, totalDescuento, totalIva, importeTotal,
-                accessKey, parseInt(configSrv.ambiente_sri), signedXml, { mensajes: [], pagos }
+                accessKey, parseInt(configSrv.ambienteSri), signedXml, { mensajes: [], pagos }
             ]);
             const comprobanteId = compResult.rows[0].id;
 
@@ -292,7 +332,7 @@ export async function POST(req: NextRequest) {
         let fueRecibida = false; // Flag para incrementar secuencial según regla SRI
 
         try {
-            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.url_recepcion);
+            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.urlRecepcion);
 
             // 🔄 RECOVERY FLOW: Detectar "CLAVE ACCESO REGISTRADA"
             // Esto ocurre cuando hubo un timeout previo - el SRI ya tiene el comprobante pero nosotros no recibimos la respuesta
@@ -306,7 +346,7 @@ export async function POST(req: NextRequest) {
                     // Agregar espera de 3 segundos antes de consultar autorización
                     await new Promise(resolve => setTimeout(resolve, 3000));
 
-                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.urlAutorizacion);
                     estadoSri = autorizacionResult.estado;
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
                     fechaAutorizacion = autorizacionResult.fechaAutorizacion;
@@ -325,7 +365,7 @@ export async function POST(req: NextRequest) {
                 fueRecibida = true; // El SRI ya la tiene, considerar como recibida para efectos de secuencial
 
                 try {
-                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.urlAutorizacion);
                     estadoSri = autorizacionResult.estado;
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
                     fechaAutorizacion = autorizacionResult.fechaAutorizacion;
@@ -381,7 +421,7 @@ export async function POST(req: NextRequest) {
                         UPDATE configuracion.puntos_emision_secuenciales
                         SET secuencial_actual = secuencial_actual + 1, updated_at = NOW()
                         WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
-                    `, [persistentData.puntoActivo.punto_emision_id, tipoComprobanteId]);
+                    `, [persistentData.puntoActivo.puntoEmisionId || persistentData.puntoActivo.id, tipoComprobanteId]);
                 }
 
                 // Si fue AUTORIZADO, ejecutar efectos secundarios (Kardex, Cartera, Asiento)
@@ -400,7 +440,7 @@ export async function POST(req: NextRequest) {
                                 (SELECT stock_actual FROM inventario.productos WHERE id = $3) - $4, $6, $7)
                             `, [
                                 context.empresaId, context.usuarioId, d.id, cantidadSalida,
-                                d.costo_promedio, persistentData.secuencial, fechaEmision
+                                d.costoPromedio, persistentData.secuencial, fechaEmision
                             ]);
 
                             await client.query(`
@@ -414,7 +454,7 @@ export async function POST(req: NextRequest) {
 
                     // Cartera
                     const fechaVencimiento = new Date(fechaEmision);
-                    fechaVencimiento.setDate(fechaVencimiento.getDate() + (cliente.dias_credito || 0));
+                    fechaVencimiento.setDate(fechaVencimiento.getDate() + (cliente.diasCredito || 0));
                     await client.query(`
                         INSERT INTO cartera.cartera_documentos
                         (empresa_id, usuario_id, tipo_cartera, tipo_documento, nro_comprobante,
@@ -423,7 +463,7 @@ export async function POST(req: NextRequest) {
                     `, [context.empresaId, context.usuarioId, persistentData.secuencial, clienteId, clienteNombre, fechaEmision, fechaVencimiento, persistentData.importeTotal, persistentData.importeTotal]);
 
                     // Asiento Contable
-                    const asientoNo = `FAC-${persistentData.puntoActivo.codigo_establecimiento}-${persistentData.puntoActivo.codigo_punto}-${persistentData.secuencial}`;
+                    const asientoNo = `FAC-${persistentData.puntoActivo.codigoEstablecimiento || persistentData.puntoActivo.sucursalCodigo}-${persistentData.puntoActivo.codigoPunto || persistentData.puntoActivo.puntoEmi}-${persistentData.secuencial}`;
                     const glosaFactura = `VENTA SEGÚN FACTURA ${persistentData.secuencial} - ${clienteNombre}`;
                     const asientoResult = await client.query(`
                         INSERT INTO contabilidad.asientos(empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
@@ -436,34 +476,34 @@ export async function POST(req: NextRequest) {
                     await client.query(`
                         INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                         VALUES($1, $2, $3, 0, 'CUENTAS POR COBRAR CLIENTES', $4)
-                    `, [asientoId, paramsRow.cuenta_cxc_clientes, persistentData.importeTotal, glosaFactura]);
+                    `, [asientoId, params.cuentaCxcClientes, persistentData.importeTotal, glosaFactura]);
 
                     for (const d of persistentData.detallesConDatos) {
                         const valorSinIva = d.total - d.valorIVA;
                         await client.query(`
                             INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                             VALUES($1, $2, 0, $3, 'VENTA DE ' || $4, $5)
-                        `, [asientoId, d.cuenta_venta || paramsRow.cuenta_ventas, valorSinIva, d.descripcion, glosaFactura]);
+                        `, [asientoId, d.cuentaVenta || params.cuentaVentas, valorSinIva, d.descripcion, glosaFactura]);
 
-                        if (d.graba_iva) {
+                        if (d.grabaIva) {
                             await client.query(`
                                 INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                                 VALUES($1, $2, 0, $3, 'IVA EN VENTAS', $4)
-                            `, [asientoId, paramsRow.cuenta_iva_por_pagar, d.valorIVA, glosaFactura]);
+                            `, [asientoId, params.cuentaIvaPorPagar, d.valorIVA, glosaFactura]);
                         }
 
-                        if (d.id && d.cuenta_inventario && d.cuenta_costo_venta) {
-                            const costoTotal = d.cantidad * d.costo_promedio;
+                        if (d.id && d.cuentaInventario && d.cuentaCostoVenta) {
+                            const costoTotal = d.cantidad * d.costoPromedio;
                             const glosaCosto = `COSTO VENTA FACTURA ${persistentData.secuencial} - ${d.descripcion}`;
                             await client.query(`
                                 INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                                 VALUES($1, $2, $3, 0, 'COSTO DE VENTA - ' || $4, $5)
-                            `, [asientoId, d.cuenta_costo_venta, costoTotal, d.descripcion, glosaCosto]);
+                            `, [asientoId, d.cuentaCostoVenta, costoTotal, d.descripcion, glosaCosto]);
 
                             await client.query(`
                                 INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                                 VALUES($1, $2, 0, $3, 'SALIDA DE INVENTARIO - ' || $4, $5)
-                            `, [asientoId, d.cuenta_inventario, costoTotal, d.descripcion, glosaCosto]);
+                            `, [asientoId, d.cuentaInventario, costoTotal, d.descripcion, glosaCosto]);
                         }
                     }
                 }

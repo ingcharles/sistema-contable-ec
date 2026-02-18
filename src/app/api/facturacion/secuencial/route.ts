@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
         const result = await db.query(
             {
                 text: `
-                    SELECT pes.id, pes.secuencial_actual 
+                    SELECT 
+                        pes.id, 
+                        pes.secuencial_actual AS "secuencialActual" 
                     FROM configuracion.puntos_emision_secuenciales pes
                     ${tipoComprobante ? `INNER JOIN configuracion.catalogos_items ci ON pes.tipo_comprobante_id = ci.id` : ''}
                     WHERE pes.punto_emision_id = $1 
@@ -51,12 +53,12 @@ export async function GET(request: NextRequest) {
         }
 
         const secuencial = result.rows[0];
-        const secuencialFormateado = secuencial.secuencial_actual.toString().padStart(9, '0');
+        const secuencialFormateado = secuencial.secuencialActual.toString().padStart(9, '0');
 
         return NextResponse.json({
             success: true,
             secuencial: secuencialFormateado,
-            secuencialNumero: secuencial.secuencial_actual,
+            secuencialNumero: secuencial.secuencialActual,
             tipoComprobante: tipoComprobante
         });
 

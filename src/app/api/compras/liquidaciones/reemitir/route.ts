@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
             usuarioId: context.usuarioId!
         });
 
-        if (!compHeader || compHeader.tipo_comprobante !== '03') {
+        if (!compHeader || compHeader.tipoComprobante !== '03') {
             return NextResponse.json({ error: 'Liquidación de compra no encontrada' }, { status: 404 });
         }
 
@@ -38,40 +38,40 @@ export async function POST(req: NextRequest) {
             usuarioId: context.usuarioId!
         });
 
-        const metadata = compHeader.mensajes_sri || {};
+        const metadata = compHeader.mensajesSri || {};
         const pagos = metadata.pagos || [];
 
         const dataSri = SriStandardizer.standardizeLiquidacion({
-            razonSocial: empresaDoc.razon_social,
-            nombreComercial: empresaDoc.nombre_comercial,
+            razonSocial: empresaDoc.razonSocial,
+            nombreComercial: empresaDoc.nombreComercial,
             ruc: empresaDoc.ruc,
             estab: compHeader.estab,
-            ptoEmi: compHeader.pto_emi,
+            ptoEmi: compHeader.ptoEmi,
             secuencial: compHeader.secuencial,
             dirMatriz: empresaDoc.direccion,
-            fechaEmision: compHeader.fecha_emision,
-            tipoIdentificacionProveedor: compHeader.cliente_identificacion?.length === 13 ? '04' : '05',
-            razonSocialProveedor: compHeader.cliente_nombre,
-            identificacionProveedor: compHeader.cliente_identificacion,
+            fechaEmision: compHeader.fechaEmision,
+            tipoIdentificacionProveedor: compHeader.clienteIdentificacion?.length === 13 ? '04' : '05',
+            razonSocialProveedor: compHeader.clienteNombre,
+            identificacionProveedor: compHeader.clienteIdentificacion,
             direccionProveedor: '',
-            obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
+            obligadoContabilidad: empresaDoc.esObligadoContabilidad,
             totalSinImpuestos: compHeader.subtotal,
             importeTotal: compHeader.total,
             detalles: detalles.map((d: any) => ({
-                codigoPrincipal: d.codigo_principal || d.codigo_interno,
+                codigoPrincipal: d.codigoPrincipal || d.codigoInterno,
                 descripcion: d.descripcion,
                 cantidad: d.cantidad,
-                precioUnitario: d.precio_unitario,
+                precioUnitario: d.precioUnitario,
                 descuento: d.descuento || 0,
                 totalSinImpuestos: d.total,
-                codigoIVA: d.codigo_iva || '2',
-                valorIVA: d.valor_iva || 0,
+                codigoIVA: d.codigoIva || '2',
+                valorIVA: d.valorIva || 0,
                 baseImponible: d.total,
-                tarifa: d.porcentaje_iva || d.tarifa || 12
+                tarifa: d.porcentajeIva || d.tarifa || 12
             })),
             pagos,
-            ambienteSri: configSri.ambiente_sri,
-            tipoEmisionSri: compHeader.tipo_emision_sri || '1'
+            ambienteSri: configSri.ambienteSri,
+            tipoEmisionSri: compHeader.tipoEmisionSri || '1'
         });
 
         const resultado = await ReemisionService.procesarReemision(

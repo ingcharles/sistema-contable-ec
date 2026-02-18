@@ -1,4 +1,4 @@
-import { SriFactura, SriNotaCredito, SriNotaDebito, SriCompRetencion, SriLiquidacion, SriGuia, SriDetalleFactura } from '../SriTypes';
+import { SriFactura, SriNotaCredito, SriNotaDebito, SriCompRetencion, SriLiquidacion, SriGuia } from '../SriTypes';
 import { isoToSriDate } from '@/shared/utils/dateUtils';
 
 export class SriStandardizer {
@@ -6,23 +6,9 @@ export class SriStandardizer {
      * Estandariza los datos de una factura
      */
     static standardizeFactura(data: any): SriFactura {
-        // Mapeo robusto de campos (soporta ViewModel y Entidad de DB)
         const identificacion = data.identificacionComprador;
         const razonSocial = data.razonSocialComprador;
-
-        let tipoIdentificacion = data.tipoIdentificacionComprador;
-        // Inferencia de tipo de identificación si falta
-        // if (!tipoIdentificacion && identificacion) {
-        //     if (identificacion === '9999999999999') {
-        //         tipoIdentificacion = '07'; // Consumidor Final
-        //     } else if (identificacion.length === 13) {
-        //         tipoIdentificacion = '04'; // RUC
-        //     } else if (identificacion.length === 10) {
-        //         tipoIdentificacion = '05'; // CEDULA
-        //     } else {
-        //         tipoIdentificacion = '06'; // PASAPORTE / OTRO
-        //     }
-        // }
+        const tipoIdentificacion = data.tipoIdentificacionComprador;
 
         return {
             infoTributaria: {
@@ -33,9 +19,9 @@ export class SriStandardizer {
                 ruc: data.ruc,
                 claveAcceso: data.claveAcceso || '',
                 codDoc: data.codDoc || '01',
-                estab: (data.estab).padStart(3, '0'),
-                ptoEmi: (data.ptoEmi).padStart(3, '0'),
-                secuencial: (data.secuencial).padStart(9, '0'),
+                estab: (data.estab || '').toString().padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '').toString().padStart(3, '0'),
+                secuencial: (data.secuencial || '').toString().padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 agenteRetencion: data.agenteRetencion,
                 regimenMicroempresas: data.regimenMicroempresas,
@@ -74,10 +60,10 @@ export class SriStandardizer {
                 impuestos: [
                     {
                         codigo: '2',
-                        codigoPorcentaje: d.codigoIVA || '2',
+                        codigoPorcentaje: d.codigoIva || '2',
                         tarifa: d.tarifa ?? 0,
                         baseImponible: Number(Number(d.baseImponible || (d.cantidad * d.precioUnitario) || 0).toFixed(2)),
-                        valor: Number(Number(d.valorIVA || ((d.baseImponible || (d.cantidad * d.precioUnitario) || 0) * ((d.tarifa ?? 0) / 100)) || 0).toFixed(2))
+                        valor: Number(Number(d.valorIva || 0).toFixed(2))
                     }
                 ]
             })),
@@ -100,9 +86,9 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 codDoc: data.codDoc || '03',
-                estab: (data.estab).padStart(3, '0'),
-                ptoEmi: (data.ptoEmi).padStart(3, '0'),
-                secuencial: (data.secuencial).padStart(9, '0'),
+                estab: (data.estab || '').toString().padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '').toString().padStart(3, '0'),
+                secuencial: (data.secuencial || '').toString().padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -139,10 +125,10 @@ export class SriStandardizer {
                 impuestos: [
                     {
                         codigo: '2',
-                        codigoPorcentaje: d.codigoIVA,
+                        codigoPorcentaje: d.codigoIva,
                         tarifa: d.tarifa ?? 0,
                         baseImponible: Number(Number(d.baseImponible || 0).toFixed(2)),
-                        valor: Number(Number(d.valorIVA || 0).toFixed(2))
+                        valor: Number(Number(d.valorIva || 0).toFixed(2))
                     }
                 ]
             })),
@@ -159,15 +145,7 @@ export class SriStandardizer {
     static standardizeNotaCredito(data: any): SriNotaCredito {
         const identificacion = data.identificacionComprador || data.terceroRuc || data.terceroId;
         const razonSocial = data.razonSocialComprador || data.terceroNombre || data.razonSocial;
-
-        let tipoIdentificacion = data.tipoIdentificacionComprador;
-
-        // if (!tipoIdentificacion && identificacion) {
-        //     if (identificacion === '9999999999999') tipoIdentificacion = '07';
-        //     else if (identificacion.length === 13) tipoIdentificacion = '04';
-        //     else if (identificacion.length === 10) tipoIdentificacion = '05';
-        //     else tipoIdentificacion = '06';
-        // }
+        const tipoIdentificacion = data.tipoIdentificacionComprador;
 
         return {
             infoTributaria: {
@@ -176,9 +154,9 @@ export class SriStandardizer {
                 razonSocial: data.razonSocial,
                 ruc: data.ruc,
                 codDoc: data.codDoc || '04',
-                estab: (data.estab).padStart(3, '0'),
-                ptoEmi: (data.ptoEmi).padStart(3, '0'),
-                secuencial: (data.secuencial).padStart(9, '0'),
+                estab: (data.estab || '').toString().padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '').toString().padStart(3, '0'),
+                secuencial: (data.secuencial || '').toString().padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -192,7 +170,7 @@ export class SriStandardizer {
                 razonSocialComprador: razonSocial,
                 identificacionComprador: identificacion,
                 obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
-                codDocModificado: data.codDocModificado, // Generalmente facturas
+                codDocModificado: data.codDocModificado,
                 numDocModificado: this.formatNumDoc(data.numDocModificado || data.documentoModificadoSecuencial, data.estabModificado, data.ptoEmiModificado),
                 fechaEmisionDocSustento: this.formatDate(data.fechaEmisionDocSustento),
                 totalSinImpuestos: Number(Number(data.totalSinImpuestos || 0).toFixed(2)),
@@ -211,10 +189,10 @@ export class SriStandardizer {
                 impuestos: [
                     {
                         codigo: '2',
-                        codigoPorcentaje: d.codigoIVA,
+                        codigoPorcentaje: d.codigoIva,
                         tarifa: d.tarifa,
                         baseImponible: Number(Number(d.baseImponible || (d.cantidad * d.precioUnitario) || 0).toFixed(2)),
-                        valor: Number(Number(d.valorIVA || ((d.baseImponible || (d.cantidad * d.precioUnitario) || 0) * ((d.tarifa ?? 0) / 100)) || 0).toFixed(2))
+                        valor: Number(Number(d.valorIva || 0).toFixed(2))
                     }
                 ]
             })),
@@ -231,15 +209,7 @@ export class SriStandardizer {
     static standardizeNotaDebito(data: any): SriNotaDebito {
         const identificacion = data.identificacionComprador || data.terceroRuc || data.terceroId;
         const razonSocial = data.razonSocialComprador || data.terceroNombre || data.razonSocial;
-
-        let tipoIdentificacion = data.tipoIdentificacionComprador || data.tipoIdentificacion;
-
-        if (!tipoIdentificacion && identificacion) {
-            if (identificacion === '9999999999999') tipoIdentificacion = '07';
-            else if (identificacion.length === 13) tipoIdentificacion = '04';
-            else if (identificacion.length === 10) tipoIdentificacion = '05';
-            else tipoIdentificacion = '06';
-        }
+        const tipoIdentificacion = data.tipoIdentificacionComprador || data.tipoIdentificacion;
 
         return {
             infoTributaria: {
@@ -249,9 +219,9 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 codDoc: data.codDoc || '05',
-                estab: (data.estab).padStart(3, '0'),
-                ptoEmi: (data.ptoEmi).padStart(3, '0'),
-                secuencial: (data.secuencial).padStart(9, '0'),
+                estab: (data.estab || '').toString().padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '').toString().padStart(3, '0'),
+                secuencial: (data.secuencial || '').toString().padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -272,10 +242,10 @@ export class SriStandardizer {
                 impuestos: [
                     {
                         codigo: '2',
-                        codigoPorcentaje: data.codigoIVA,
+                        codigoPorcentaje: data.codigoIva,
                         tarifa: data.tarifa,
                         baseImponible: Number(Number(data.totalSinImpuestos || 0).toFixed(2)),
-                        valor: Number(Number(data.valorIVA || (data.totalSinImpuestos * ((data.tarifa ?? 0) / 100)) || 0).toFixed(2))
+                        valor: Number(Number(data.valorIva || (data.totalSinImpuestos * ((data.tarifa ?? 0) / 100)) || 0).toFixed(2))
                     }
                 ],
                 valorTotal: Number(Number(data.valorTotal || 0).toFixed(2)),
@@ -308,9 +278,9 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial,
                 ruc: data.ruc,
                 codDoc: data.codDoc || '07',
-                estab: (data.estab).padStart(3, '0'),
-                ptoEmi: (data.ptoEmi).padStart(3, '0'),
-                secuencial: (data.secuencial).padStart(9, '0'),
+                estab: (data.estab || '').toString().padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '').toString().padStart(3, '0'),
+                secuencial: (data.secuencial || '').toString().padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -322,8 +292,8 @@ export class SriStandardizer {
                 dirEstablecimiento: data.dirEstablecimiento || data.dirMatriz,
                 obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
                 tipoIdentificacionSujetoRetenido: data.tipoIdentificacionSujetoRetenido,
-                tipoSujetoRetenido: data.tipoSujetoRetenido, // Opcional para v2.0.0
-                parteRel: data.parteRel || 'NO', // Obligatorio en v2.0.0
+                tipoSujetoRetenido: data.tipoSujetoRetenido,
+                parteRel: data.parteRel || 'NO',
                 razonSocialSujetoRetenido: data.razonSocialSujetoRetenido,
                 identificacionSujetoRetenido: data.identificacionSujetoRetenido,
                 periodoFiscal: data.periodoFiscal
@@ -335,17 +305,16 @@ export class SriStandardizer {
                 porcentajeRetener: Number(Number(imp.porcentajeRetener || 0).toFixed(2)),
                 valorRetenido: Number(Number(imp.valorRetenido || 0).toFixed(2)),
                 codDocSustento: imp.codDocSustento,
-                codSustento: imp.codSustento || '01', // Código sustento tributario
+                codSustento: imp.codSustento || '01',
                 numDocSustento: imp.numDocSustento,
                 fechaEmisionDocSustento: this.formatDate(imp.fechaEmisionDocSustento),
                 numAutDocSustento: imp.numAutDocSustento,
-                // Campos adicionales para v2.0.0
                 totalSinImpuestosDocSustento: Number(Number(imp.totalSinImpuestosDocSustento || 0).toFixed(2)),
                 baseImponibleIvaDocSustento: Number(Number(imp.baseImponibleIvaDocSustento || 0).toFixed(2)),
                 importeTotalDocSustento: Number(Number(imp.importeTotalDocSustento || 0).toFixed(2)),
-                pagoLocExt: imp.pagoLocExt || '01', // 01=Local
-                formaPago: imp.formaPago || '20', // 20=Otros con utilización del sistema financiero
-                codigoPorcentajeIva: imp.codigoPorcentajeIva || '0', // 0=0%, 2=12%, etc.
+                pagoLocExt: imp.pagoLocExt || '01',
+                formaPago: imp.formaPago || '20',
+                codigoPorcentajeIva: imp.codigoPorcentajeIva || '0',
                 tarifaIva: imp.tarifaIva || '0',
                 ivaDocSustento: Number(Number(imp.ivaDocSustento || 0).toFixed(2))
             })),
@@ -368,9 +337,9 @@ export class SriStandardizer {
                 nombreComercial: data.nombreComercial || '',
                 ruc: data.ruc,
                 codDoc: data.codDoc || '06',
-                estab: (data.estab).padStart(3, '0'),
-                ptoEmi: (data.ptoEmi).padStart(3, '0'),
-                secuencial: (data.secuencial).padStart(9, '0'),
+                estab: (data.estab || '').toString().padStart(3, '0'),
+                ptoEmi: (data.ptoEmi || '').toString().padStart(3, '0'),
+                secuencial: (data.secuencial || '').toString().padStart(9, '0'),
                 dirMatriz: data.dirMatriz,
                 claveAcceso: data.claveAcceso || '',
                 agenteRetencion: data.agenteRetencion,
@@ -385,8 +354,8 @@ export class SriStandardizer {
                 rucTransportista: data.rucTransportista,
                 obligadoContabilidad: this.formatObligado(data.obligadoContabilidad),
                 contribuyenteEspecial: data.contribuyenteEspecial,
-                fechaIniTransporte: this.formatDate(data.fechaIniTransporte || data.fechaIniTraslado || data.fechaEmision),
-                fechaFinTransporte: this.formatDate(data.fechaFinTransporte || data.fechaFinTraslado || data.fechaEmision),
+                fechaIniTransporte: this.formatDate(data.fechaIniTransporte),
+                fechaFinTransporte: this.formatDate(data.fechaFinTransporte),
                 placa: data.placa
             },
             destinatarios: (data.destinatarios || []).map((dest: any) => ({
@@ -417,21 +386,14 @@ export class SriStandardizer {
 
     private static formatNumDoc(numDoc: string = '', defaultEstab: string = '001', defaultPtoEmi: string = '001'): string {
         if (!numDoc) return `${defaultEstab.padStart(3, '0')}-${defaultPtoEmi.padStart(3, '0')}-000000001`;
-
-        // Si ya tiene el formato correcto, devolverlo
         if (/^\d{3}-\d{3}-\d{9}$/.test(numDoc)) return numDoc;
-
-        // Si tiene guiones pero no es el formato correcto, intentar limpiar
         const parts = numDoc.split('-');
         if (parts.length === 3) {
             return `${parts[0].padStart(3, '0')}-${parts[1].padStart(3, '0')}-${parts[2].padStart(9, '0')}`;
         }
-
-        // Si es solo el secuencial, concatenar establecimiento y punto de emisión
         const secuencial = numDoc.padStart(9, '0');
         const estab = defaultEstab.padStart(3, '0');
         const ptoEmi = defaultPtoEmi.padStart(3, '0');
-
         return `${estab}-${ptoEmi}-${secuencial}`;
     }
 
@@ -442,31 +404,30 @@ export class SriStandardizer {
 
     private static formatDate(dateStr: string): string {
         if (!dateStr) return '';
-        // Usar utilidad que maneja correctamente la zona horaria
         return isoToSriDate(dateStr);
     }
 
-
-
-    private static summarizeTaxes(detalles: SriDetalleFactura[]) {
-        if (!detalles) return [];
-        const resumen: any[] = [];
-        const grupos = detalles.reduce((acc: any, d: any) => {
-            const key = d.codigoIVA;
-            if (!acc[key]) acc[key] = { base: 0, valor: 0, codigo: d.codigoImpuesto };
-            acc[key].base += Number(d.baseImponible || 0);
-            acc[key].valor += Number(d.valorIVA || 0);
-            return acc;
-        }, {});
-
-        for (const codigoPorcentaje in grupos) {
-            resumen.push({
-                codigo: grupos[codigoPorcentaje].codigo || '2',
-                codigoPorcentaje: codigoPorcentaje,
-                baseImponible: Number(Number(grupos[codigoPorcentaje].base).toFixed(2)),
-                valor: Number(Number(grupos[codigoPorcentaje].valor).toFixed(2))
-            });
-        }
-        return resumen;
+    private static summarizeTaxes(detalles: any[]) {
+        if (!detalles || !Array.isArray(detalles)) return [];
+        const acc: any = {};
+        detalles.forEach(d => {
+            const key = d.codigoIva || (d.tarifa?.toString()) || '0';
+            if (!acc[key]) {
+                acc[key] = {
+                    codigo: '2',
+                    codigoPorcentaje: key,
+                    baseImponible: 0,
+                    valor: 0,
+                    tarifa: d.tarifa ?? 0
+                };
+            }
+            acc[key].baseImponible += Number(d.baseImponible || d.total || (d.cantidad * d.precioUnitario) || 0);
+            acc[key].valor += Number(d.valorIva || 0);
+        });
+        return Object.values(acc).map((v: any) => ({
+            ...v,
+            baseImponible: Number(v.baseImponible.toFixed(2)),
+            valor: Number(v.valor.toFixed(2))
+        }));
     }
 }

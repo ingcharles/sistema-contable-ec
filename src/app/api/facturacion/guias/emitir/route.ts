@@ -22,37 +22,102 @@ export async function POST(req: NextRequest) {
         const { puntoEmisionId, fechaEmision, transportistaId, destinatarios = [], clienteId } = body;
 
         const configResult = await db.query({
-            text: 'SELECT sc.*, sa.url_recepcion, sa.url_autorizacion, sa.valor as ambiente_sri FROM configuracion.sri_certificados sc INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id WHERE sc.empresa_id = $1 AND sc.activo = TRUE LIMIT 1',
+            text: `
+                SELECT 
+                    sc.cert_p12_certificado AS "certP12Certificado", 
+                    sc.cert_clave_certificado AS "certClaveCertificado",
+                    sa.url_recepcion AS "urlRecepcion", 
+                    sa.url_autorizacion AS "urlAutorizacion", 
+                    sa.codigo AS "ambienteCodigo",
+                    sa.valor AS "ambienteSri"
+                FROM configuracion.sri_certificados sc 
+                INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id 
+                WHERE sc.empresa_id = $1 AND sc.activo = TRUE 
+                LIMIT 1
+            `,
             values: [context.empresaId]
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
         const configSrv = configResult.rows[0];
 
-        const empresaDoc = (await db.query({ text: 'SELECT * FROM seguridad.empresas WHERE id = $1', values: [context.empresaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
-        const transportista = (await db.query({ text: 'SELECT * FROM facturacion.transportistas WHERE id = $1', values: [transportistaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
+        const empresaDoc = (await db.query({
+            text: `
+                SELECT 
+                    razon_social AS "razonSocial", ruc, direccion, 
+                    es_obligado_contabilidad AS "esObligadoContabilidad", 
+                    nombre_comercial AS "nombreComercial" 
+                FROM seguridad.empresas 
+                WHERE id = $1
+            `,
+            values: [context.empresaId]
+        }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
+
+        const transportista = (await db.query({
+            text: `
+                SELECT 
+                    id, razon_social AS "razonSocial", nombre, identificacion, placa
+                FROM facturacion.transportistas 
+                WHERE id = $1
+            `,
+            values: [transportistaId]
+        }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
         const params = await ParametrosRepository.obtenerParametros(context.empresaId!, context.usuarioId!);
 
         // Buscar Cliente (Prioridad: ID enviado -> Destinatario 1 -> Consumidor Final)
         let cliente: any = null;
         if (clienteId) {
-            const cRes = await db.query({ text: "SELECT * FROM directorio.terceros WHERE id = $1", values: [clienteId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+            const cRes = await db.query({
+                text: `
+                    SELECT 
+                        id, razon_social AS "razonSocial", identificacion, 
+                        tipo_identificacion AS "tipoIdentificacion", direccion
+                    FROM directorio.terceros 
+                    WHERE id = $1
+                `,
+                values: [clienteId]
+            }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
             cliente = cRes.rows[0];
         } else if (destinatarios.length > 0) {
             // Intentar buscar por identificación del primer destinatario
             const ident = destinatarios[0].identificacion;
-            const cRes = await db.query({ text: "SELECT * FROM directorio.terceros WHERE identificacion = $1 AND empresa_id = $2", values: [ident, context.empresaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+            const cRes = await db.query({
+                text: `
+                    SELECT 
+                        id, razon_social AS "razonSocial", identificacion, 
+                        tipo_identificacion AS "tipoIdentificacion", direccion
+                    FROM directorio.terceros 
+                    WHERE identificacion = $1 AND empresa_id = $2
+                `,
+                values: [ident, context.empresaId]
+            }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
             cliente = cRes.rows[0];
         }
 
         if (!cliente) {
             // Fallback a Consumidor Final
-            const cRes = await db.query({ text: "SELECT * FROM directorio.terceros WHERE identificacion = '9999999999999' AND empresa_id = $1", values: [context.empresaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+            const cRes = await db.query({
+                text: `
+                    SELECT 
+                        id, razon_social AS "razonSocial", identificacion, 
+                        tipo_identificacion AS "tipoIdentificacion", direccion
+                    FROM directorio.terceros 
+                    WHERE identificacion = '9999999999999' AND empresa_id = $1
+                `,
+                values: [context.empresaId]
+            }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
             cliente = cRes.rows[0];
         }
 
         if (!cliente) return NextResponse.json({ error: 'No se pudo identificar el cliente para la guía' }, { status: 400 });
 
         const result = await db.transaction(async (clientDb) => {
-            const punto = (await clientDb.query('SELECT pe.*, s.codigo as estab FROM configuracion.puntos_emision pe INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id WHERE pe.id = $1', [puntoEmisionId])).rows[0];
+            const punto = (await clientDb.query(`
+                SELECT 
+                    pe.id, pe.codigo, pe.nombre,
+                    s.codigo AS "estab"
+                FROM configuracion.puntos_emision pe 
+                INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id 
+                WHERE pe.id = $1
+            `, [puntoEmisionId])).rows[0];
 
             // 1. Obtener secuencial (bloqueo)
             const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('06');
@@ -67,8 +132,8 @@ export async function POST(req: NextRequest) {
             const secuencialFormateado = nextSeqInt.toString().padStart(9, '0');
 
             const dataSri = SriStandardizer.standardizeGuia({
-                razonSocial: empresaDoc.razon_social,
-                nombreComercial: empresaDoc.nombre_comercial,
+                razonSocial: empresaDoc.razonSocial,
+                nombreComercial: empresaDoc.nombreComercial,
                 ruc: empresaDoc.ruc,
                 estab: punto.estab,
                 ptoEmi: punto.codigo,
@@ -76,10 +141,10 @@ export async function POST(req: NextRequest) {
                 dirMatriz: empresaDoc.direccion,
                 dirEstablecimiento: empresaDoc.direccion,
                 dirPartida: body.dirPartida || empresaDoc.direccion,
-                razonSocialTransportista: transportista.razon_social || transportista.nombre,
+                razonSocialTransportista: transportista.razonSocial || transportista.nombre,
                 tipoIdentificacionTransportista: transportista.identificacion.length === 13 ? '04' : '05', // RUC=04, CEDULA=05 (Simplificado)
                 rucTransportista: transportista.identificacion,
-                obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
+                obligadoContabilidad: empresaDoc.esObligadoContabilidad,
                 fechaEmision: fechaEmision,
                 fechaIniTransporte: body.fechaInicio || fechaEmision,
                 fechaFinTransporte: body.fechaFin || fechaEmision,
@@ -98,7 +163,7 @@ export async function POST(req: NextRequest) {
                         cantidad: det.cantidad
                     }))
                 })),
-                ambienteSri: configSrv.ambiente_sri,
+                ambienteSri: configSrv.ambienteSri,
                 tipoEmisionSri: params?.sriTipoEmision || '1'
             });
 
@@ -107,8 +172,8 @@ export async function POST(req: NextRequest) {
 
             const rawXml = XmlGenerator.generateGuiaXml(dataSri);
             const signedXml = await SignatureService.signXml(rawXml, {
-                p12Base64: configSrv.cert_p12_certificado.toString('base64'),
-                passwordP12: configSrv.cert_clave_certificado
+                p12Base64: configSrv.certP12Certificado.toString('base64'),
+                passwordP12: configSrv.certClaveCertificado
             });
 
             // 2. Insertar en BD (Estado PENDIENTE)
@@ -123,9 +188,9 @@ export async function POST(req: NextRequest) {
                 RETURNING id
             `, [
                 context.empresaId, context.usuarioId, tipoComprobanteId, puntoEmisionId, secuencialFormateado, fechaEmision,
-                cliente.id, cliente.razon_social, cliente.identificacion,
-                accessKey, parseInt(configSrv.ambiente_sri), signedXml, { mensajes: [] },
-                body.dirPartida || empresaDoc.direccion, destinatarios[0]?.direccion || '', transportista.razon_social, transportista.placa
+                cliente.id, cliente.razonSocial, cliente.identificacion,
+                accessKey, parseInt(configSrv.ambienteSri), signedXml, { mensajes: [] },
+                body.dirPartida || empresaDoc.direccion, destinatarios[0]?.direccion || '', transportista.razonSocial, transportista.placa
             ]);
             const comprobanteId = insertRes.rows[0].id;
 
@@ -158,7 +223,7 @@ export async function POST(req: NextRequest) {
             let mensajes: any[] = [];
 
             try {
-                const recepcion = await SriWebService.enviarComprobante(signedXml, configSrv.url_recepcion);
+                const recepcion = await SriWebService.enviarComprobante(signedXml, configSrv.urlRecepcion);
                 estado = recepcion.estado;
                 mensajes = recepcion.mensajes || [];
 
@@ -171,7 +236,7 @@ export async function POST(req: NextRequest) {
                         // Agregar espera de 3 segundos antes de consultar autorización
                         await new Promise(resolve => setTimeout(resolve, 3000));
 
-                        const auth = await SriWebService.autorizarComprobante(accessKey, configSrv.url_autorizacion);
+                        const auth = await SriWebService.autorizarComprobante(accessKey, configSrv.urlAutorizacion);
                         estado = auth.estado;
 
                         if (estado === 'EN PROCESAMIENTO' || estado === 'EN PROCESO') {

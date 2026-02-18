@@ -24,7 +24,7 @@ export async function GET(
             usuarioId: context.usuarioId!
         });
 
-        if (!retencion || retencion.tipo_comprobante !== '07') {
+        if (!retencion || retencion.tipoComprobante !== '07') {
             return NextResponse.json({ error: 'Comprobante de retención no encontrado' }, { status: 404 });
         }
 
@@ -38,21 +38,21 @@ export async function GET(
             ...retencion,
             impuestos: impuestos.map((imp: any) => ({
                 codigo: imp.codigo,
-                codigoRetencion: imp.codigo_retencion,
-                baseImponible: imp.base_imponible,
-                porcentajeRetener: imp.porcentaje_retener,
-                valorRetenido: imp.valor_retenido,
-                codDocSustento: imp.cod_doc_sustento,
-                numDocSustento: imp.num_doc_sustento,
-                fechaEmisionDocSustento: imp.fecha_emision_doc_sustento,
-                codSustento: imp.cod_sustento,
-                numAutDocSustento: imp.num_aut_doc_sustento,
-                totalSinImpuestosDocSustento: imp.total_sin_impuestos_doc_sustento,
-                baseImponibleIvaDocSustento: imp.base_imponible_iva_doc_sustento,
-                importeTotalDocSustento: imp.importe_total_doc_sustento,
-                pagoLocExt: imp.pago_loc_ext,
-                formaPago: imp.forma_pago,
-                ivaDocSustento: imp.iva_doc_sustento
+                codigoRetencion: imp.codigoRetencion,
+                baseImponible: imp.baseImponible,
+                porcentajeRetener: imp.porcentajeRetener,
+                valorRetenido: imp.valorRetenido,
+                codDocSustento: imp.codDocSustento,
+                numDocSustento: imp.numDocSustento,
+                fechaEmisionDocSustento: imp.fechaEmisionDocSustento,
+                codSustento: imp.codSustento,
+                numAutDocSustento: imp.numAutDocSustento,
+                totalSinImpuestosDocSustento: imp.totalSinImpuestosDocSustento,
+                baseImponibleIvaDocSustento: imp.baseImponibleIvaDocSustento,
+                importeTotalDocSustento: imp.importeTotalDocSustento,
+                pagoLocExt: imp.pagoLocExt,
+                formaPago: imp.formaPago,
+                ivaDocSustento: imp.ivaDocSustento
             }))
         });
 

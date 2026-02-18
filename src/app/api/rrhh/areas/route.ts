@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { Area } from '@/modules/rrhh/domain/types';
-import { toCamelCase, toSnakeCase } from '@/shared/utils/caseConverter';
+import { toSnakeCase } from '@/shared/utils/caseConverter';
 
 /**
  * GET /api/rrhh/areas
@@ -26,17 +26,17 @@ export async function GET(req: NextRequest) {
                         a.codigo,
                         a.nombre,
                         a.descripcion,
-                        a.area_padre_id,
-                        a.responsable_id,
+                        a.area_padre_id AS "areaPadreId",
+                        a.responsable_id AS "responsableId",
                         a.activa,
-                        a.created_at,
-                        a.updated_at,
-                        a.created_by,
-                        a.updated_by,
+                        a.created_at AS "createdAt",
+                        a.updated_at AS "updatedAt",
+                        a.created_by AS "createdBy",
+                        a.updated_by AS "updatedBy",
                         -- Área padre
-                        ap.nombre as area_padre_nombre,
+                        ap.nombre as "areaPadreNombre",
                         -- Responsable
-                        e.nombres || ' ' || e.apellidos as responsable_nombre
+                        e.nombres || ' ' || e.apellidos as "responsableNombre"
                     FROM nomina.areas a
                     LEFT JOIN nomina.areas ap ON a.area_padre_id = ap.id
                     LEFT JOIN nomina.empleados e ON a.responsable_id = e.id
@@ -49,14 +49,14 @@ export async function GET(req: NextRequest) {
         );
 
         const areas: Area[] = result.rows.map((row: any) => ({
-            ...toCamelCase(row),
-            areaPadre: row.area_padre_nombre ? {
-                id: row.area_padre_id,
-                nombre: row.area_padre_nombre
+            ...row,
+            areaPadre: row.areaPadreNombre ? {
+                id: row.areaPadreId,
+                nombre: row.areaPadreNombre
             } : undefined,
-            responsable: row.responsable_nombre ? {
-                id: row.responsable_id,
-                nombres: row.responsable_nombre
+            responsable: row.responsableNombre ? {
+                id: row.responsableId,
+                nombres: row.responsableNombre
             } : undefined
         }));
 
@@ -118,7 +118,11 @@ export async function POST(req: NextRequest) {
                         area_padre_id, responsable_id, activa, created_by, updated_by
                     )
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                    RETURNING *
+                    RETURNING 
+                        id, empresa_id AS "empresaId", codigo, nombre, descripcion,
+                        area_padre_id AS "areaPadreId", responsable_id AS "responsableId", 
+                        activa, created_at AS "createdAt", updated_at AS "updatedAt",
+                        created_by AS "createdBy", updated_by AS "updatedBy"
                 `,
                 values: [
                     empresaId,
@@ -135,7 +139,7 @@ export async function POST(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        const nuevaArea = toCamelCase(result.rows[0]);
+        const nuevaArea = result.rows[0];
         return NextResponse.json(nuevaArea, { status: 201 });
     } catch (error) {
         console.error('Error al crear área:', error);
@@ -199,7 +203,11 @@ export async function PUT(req: NextRequest) {
                         updated_by = $8,
                         updated_at = NOW()
                     WHERE id = $1 AND empresa_id = $9
-                    RETURNING *
+                    RETURNING 
+                        id, empresa_id AS "empresaId", codigo, nombre, descripcion,
+                        area_padre_id AS "areaPadreId", responsable_id AS "responsableId", 
+                        activa, created_at AS "createdAt", updated_at AS "updatedAt",
+                        created_by AS "createdBy", updated_by AS "updatedBy"
                 `,
                 values: [
                     areaData.id,
@@ -216,7 +224,7 @@ export async function PUT(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        const areaActualizada = toCamelCase(result.rows[0]);
+        const areaActualizada = result.rows[0];
         return NextResponse.json(areaActualizada);
     } catch (error) {
         console.error('Error al actualizar área:', error);

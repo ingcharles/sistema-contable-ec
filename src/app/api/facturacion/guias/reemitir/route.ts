@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
             usuarioId: context.usuarioId!
         });
 
-        if (!compHeader || compHeader.tipo_comprobante !== '06') {
+        if (!compHeader || compHeader.tipoComprobante !== '06') {
             return NextResponse.json({ error: 'Guía de remisión no encontrada' }, { status: 404 });
         }
 
@@ -39,39 +39,39 @@ export async function POST(req: NextRequest) {
         });
 
         const dataSri = SriStandardizer.standardizeGuia({
-            razonSocial: empresaDoc.razon_social,
-            nombreComercial: empresaDoc.nombre_comercial,
+            razonSocial: empresaDoc.razonSocial,
+            nombreComercial: empresaDoc.nombreComercial,
             ruc: empresaDoc.ruc,
             estab: compHeader.estab,
-            ptoEmi: compHeader.pto_emi,
+            ptoEmi: compHeader.ptoEmi,
             secuencial: compHeader.secuencial,
             dirMatriz: empresaDoc.direccion,
-            dirEstablecimiento: compHeader.direccion_partida || empresaDoc.direccion,
-            dirPartida: compHeader.direccion_partida,
-            razonSocialTransportista: compHeader.transportista_nombre,
-            tipoIdentificacionTransportista: compHeader.transportista_identificacion?.length === 13 ? '04' : '05',
-            rucTransportista: compHeader.transportista_identificacion,
-            obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
-            fechaEmision: compHeader.fecha_emision,
-            fechaIniTransporte: compHeader.fecha_emision,
-            fechaFinTransporte: compHeader.fecha_emision,
-            placa: compHeader.placa_vehiculo,
+            dirEstablecimiento: compHeader.direccionPartida || empresaDoc.direccion,
+            dirPartida: compHeader.direccionPartida,
+            razonSocialTransportista: compHeader.transportistaNombre,
+            tipoIdentificacionTransportista: compHeader.transportistaIdentificacion?.length === 13 ? '04' : '05',
+            rucTransportista: compHeader.transportistaIdentificacion,
+            obligadoContabilidad: empresaDoc.esObligadoContabilidad,
+            fechaEmision: compHeader.fechaEmision,
+            fechaIniTransporte: compHeader.fechaEmision,
+            fechaFinTransporte: compHeader.fechaEmision,
+            placa: compHeader.placaVehiculo,
             destinatarios: destinatarios.map((d: any) => ({
                 identificacionDestinatario: d.identificacion,
-                razonSocialDestinatario: d.razon_social,
+                razonSocialDestinatario: d.razonSocial,
                 dirDestinatario: d.direccion,
-                motivoTraslado: d.motivo_traslado,
-                codDocSustento: d.cod_doc_sustento,
-                numDocSustento: d.num_doc_sustento,
-                fechaEmisionDocSustento: d.fecha_doc_sustento,
+                motivoTraslado: d.motivoTraslado,
+                codDocSustento: d.codDocSustento,
+                numDocSustento: d.numDocSustento,
+                fechaEmisionDocSustento: d.fechaDocSustento,
                 detalles: d.detalles.map((det: any) => ({
-                    codigoInterno: det.codigo_interno,
+                    codigoInterno: det.codigoInterno,
                     descripcion: det.descripcion,
                     cantidad: det.cantidad
                 }))
             })),
-            ambienteSri: configSri.ambiente_sri,
-            tipoEmisionSri: compHeader.tipo_emision_sri || '1'
+            ambienteSri: configSri.ambienteSri,
+            tipoEmisionSri: compHeader.tipoEmisionSri || '1'
         });
 
         const resultado = await ReemisionService.procesarReemision(

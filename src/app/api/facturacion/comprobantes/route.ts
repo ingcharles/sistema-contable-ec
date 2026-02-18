@@ -227,7 +227,13 @@ export async function POST(req: NextRequest) {
         // 1. Obtener información del Tercero (Cliente) y validar límite de crédito
         const terceroResult = await db.query(
             {
-                text: 'SELECT limite_credito, dias_credito FROM directorio.terceros WHERE id = $1 AND empresa_id = $2',
+                text: `
+                    SELECT 
+                        limite_credito AS "limiteCredito", 
+                        dias_credito AS "diasCredito" 
+                    FROM directorio.terceros 
+                    WHERE id = $1 AND empresa_id = $2
+                `,
                 values: [clienteId, context.empresaId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
@@ -250,10 +256,10 @@ export async function POST(req: NextRequest) {
             );
 
             const totalDeuda = parseFloat(deudaActualResult.rows[0].total_deuda || '0');
-            const limiteCredito = parseFloat(cliente.limite_credito || '0');
+            const limiteCredito = parseFloat(cliente.limiteCredito || '0');
 
             // Determinar si es una factura a crédito (algún pago con plazo > 0)
-            const esCredito = pagos.some((p: any) => parseInt(p.plazo) > 0) || (cliente.dias_credito > 0 && pagos.length === 0);
+            const esCredito = pagos.some((p: any) => parseInt(p.plazo) > 0) || (cliente.diasCredito > 0 && pagos.length === 0);
 
             if (esCredito && limiteCredito > 0 && (totalDeuda + total) > limiteCredito) {
                 return NextResponse.json({
@@ -266,7 +272,12 @@ export async function POST(req: NextRequest) {
         const result = await db.transaction(async (client) => {
             // 1. Obtener punto de emisión activo
             const puntoActivoResult = await client.query(`
-        SELECT * FROM configuracion.fn_obtener_punto_activo_usuario($1, $2)
+                SELECT 
+                    id, 
+                    punto_emision_id AS "puntoEmisionId",
+                    sucursal_codigo AS "sucursalCodigo",
+                    punto_emi AS "puntoEmi"
+                FROM configuracion.fn_obtener_punto_activo_usuario($1, $2)
             `, [context.usuarioId, context.empresaId]);
 
             if (puntoActivoResult.rows.length === 0) {
@@ -289,7 +300,7 @@ export async function POST(req: NextRequest) {
                     DO UPDATE SET 
                         secuencial_actual = GREATEST(configuracion.puntos_emision_secuenciales.secuencial_actual, $3 + 1), 
                         updated_at = NOW()
-                `, [puntoActivo.punto_emision_id, tipoComprobanteId, secuencialInt, context.usuarioId]);
+                `, [puntoActivo.puntoEmisionId, tipoComprobanteId, secuencialInt, context.usuarioId]);
             } else {
                 // Generar automáticamente el siguiente secuencial
                 const secuencialConfigResult = await client.query(`
@@ -297,7 +308,7 @@ export async function POST(req: NextRequest) {
                     FROM configuracion.puntos_emision_secuenciales
                     WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
                     FOR UPDATE
-                `, [puntoActivo.punto_emision_id, tipoComprobanteId]);
+                `, [puntoActivo.puntoEmisionId, tipoComprobanteId]);
 
                 let nextSecuencialInt = 1;
 
@@ -308,7 +319,7 @@ export async function POST(req: NextRequest) {
                     await client.query(`
                         INSERT INTO configuracion.puntos_emision_secuenciales(punto_emision_id, tipo_comprobante_id, secuencial_actual, created_by)
                         VALUES($1, $2, 2, $3)
-                    `, [puntoActivo.punto_emision_id, tipoComprobanteId, context.usuarioId]);
+                    `, [puntoActivo.puntoEmisionId, tipoComprobanteId, context.usuarioId]);
                 }
 
                 if (secuencialConfigResult.rows.length > 0) {
@@ -317,7 +328,7 @@ export async function POST(req: NextRequest) {
                         UPDATE configuracion.puntos_emision_secuenciales
                         SET secuencial_actual = secuencial_actual + 1, updated_at = NOW()
                         WHERE punto_emision_id = $1 AND tipo_comprobante_id = $2
-                    `, [puntoActivo.punto_emision_id, tipoComprobanteId]);
+                    `, [puntoActivo.puntoEmisionId, tipoComprobanteId]);
                 }
 
                 // Formatear secuencial actual (9 dígitos)
@@ -328,7 +339,13 @@ export async function POST(req: NextRequest) {
             const detallesConDatos = [];
             for (const d of detalles) {
                 const prodResult = await client.query(`
-                    SELECT p.*, c.cuenta_inventario, c.cuenta_costo_venta, c.cuenta_venta
+                    SELECT 
+                        p.id, p.codigo_principal AS "codigoPrincipal", 
+                        p.nombre, p.stock_actual AS "stockActual", 
+                        p.costo_promedio AS "costoPromedio",
+                        c.cuenta_inventario AS "cuentaInventario", 
+                        c.cuenta_costo_venta AS "cuentaCostoVenta", 
+                        c.cuenta_venta AS "cuentaVenta"
                     FROM inventario.productos p
                     LEFT JOIN inventario.categorias_producto c ON p.categoria_id = c.id
                     WHERE p.empresa_id = $1 AND p.codigo_principal = $2
@@ -336,12 +353,12 @@ export async function POST(req: NextRequest) {
 
                 if (prodResult.rows.length > 0) {
                     const prod = prodResult.rows[0];
-                    if (prod.stock_actual < d.cantidad) {
-                        throw new Error(`Stock insuficiente para producto ${d.descripcion}.Disponible: ${prod.stock_actual} `);
+                    if (prod.stockActual < d.cantidad) {
+                        throw new Error(`Stock insuficiente para producto ${d.descripcion}.Disponible: ${prod.stockActual} `);
                     }
                     detallesConDatos.push({ ...d, ...prod });
                 } else {
-                    detallesConDatos.push({ ...d, graba_iva: true }); // Default para items manuales
+                    detallesConDatos.push({ ...d, grabaIva: true }); // Default para items manuales
                 }
             }
 
@@ -356,7 +373,7 @@ export async function POST(req: NextRequest) {
             ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
                 RETURNING id
             `, [
-                context.empresaId, context.usuarioId, tipoComprobanteId, puntoActivo.punto_emision_id, secuencial, fechaEmision,
+                context.empresaId, context.usuarioId, tipoComprobanteId, puntoActivo.puntoEmisionId, secuencial, fechaEmision,
                 clienteId, clienteNombre, clienteIdentificacion, subtotal, totalDescuento, iva, total,
                 estado, claveAcceso, numeroAutorizacion, ambienteSri, tipoEmisionSri
             ]);
@@ -380,7 +397,7 @@ export async function POST(req: NextRequest) {
                 stock_anterior, stock_resultante, referencia, fecha)
         VALUES($1, $2, $3, (SELECT id FROM inventario.bodegas WHERE empresa_id = $1 LIMIT 1),
             'SALIDA', $4, $5, $6, $6 - $4, $7, $8)
-        `, [context.empresaId, context.usuarioId, detalle.id, detalle.cantidad, detalle.costo_promedio, detalle.stock_actual, secuencial, fechaEmision]);
+        `, [context.empresaId, context.usuarioId, detalle.id, detalle.cantidad, detalle.costoPromedio, detalle.stockActual, secuencial, fechaEmision]);
 
                     await client.query(`
                         UPDATE inventario.productos SET stock_actual = stock_actual - $1, updated_at = NOW()
@@ -392,7 +409,7 @@ export async function POST(req: NextRequest) {
             // --- 3. REGISTRO EN CARTERA ---
             if (codigoSri === '01') {
                 const fechaVencimiento = new Date(fechaEmision);
-                fechaVencimiento.setDate(fechaVencimiento.getDate() + (cliente.dias_credito || 0));
+                fechaVencimiento.setDate(fechaVencimiento.getDate() + (cliente.diasCredito || 0));
 
                 await client.query(`
                     INSERT INTO cartera.cartera_documentos
@@ -415,7 +432,7 @@ export async function POST(req: NextRequest) {
             await client.query(`
                 INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
         VALUES($1, $2, $3, 0, 'REGISTRO DE VENTA CXC')
-            `, [asientoId, cliente.cuenta_contable_cxc || '1.1.02.01', total]);
+            `, [asientoId, cliente.cuentaContableCxc || '1.1.02.01', total]);
 
             // Detalle de Ventas, IVA e Inventario/Costo
             for (const d of detallesConDatos) {
@@ -423,10 +440,10 @@ export async function POST(req: NextRequest) {
                 await client.query(`
                     INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
         VALUES($1, $2, 0, $3, 'VENTA PRODUCTO ' || $4)
-            `, [asientoId, d.cuenta_venta || '4.1.01.01', d.total - (d.graba_iva ? d.total * 0.12 : 0), d.descripcion]);
+            `, [asientoId, d.cuentaVenta || '4.1.01.01', d.total - (d.grabaIva ? d.total * 0.12 : 0), d.descripcion]);
 
                 // Linea IVA (Si aplica)
-                if (d.graba_iva) {
+                if (d.grabaIva) {
                     await client.query(`
                         INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
         VALUES($1, '2.1.03.01', 0, $2, 'IVA EN VENTAS')
@@ -434,17 +451,17 @@ export async function POST(req: NextRequest) {
                 }
 
                 // Linea Costo de Venta e Inventario (Solo si es producto con costo)
-                if (d.id && d.cuenta_inventario && d.cuenta_costo_venta) {
-                    const costoTotal = d.cantidad * d.costo_promedio;
+                if (d.id && d.cuentaInventario && d.cuentaCostoVenta) {
+                    const costoTotal = d.cantidad * d.costoPromedio;
                     await client.query(`
                         INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
         VALUES($1, $2, $3, 0, 'COSTO DE VENTA - ' || $4)
-            `, [asientoId, d.cuenta_costo_venta, costoTotal, d.descripcion]);
+            `, [asientoId, d.cuentaCostoVenta, costoTotal, d.descripcion]);
 
                     await client.query(`
                         INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto)
         VALUES($1, $2, 0, $3, 'BAJA DE INVENTARIO - ' || $4)
-            `, [asientoId, d.cuenta_inventario, costoTotal, d.descripcion]);
+            `, [asientoId, d.cuentaInventario, costoTotal, d.descripcion]);
                 }
             }
 

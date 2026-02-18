@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
             console.log('🔵 [COMPRA] PASO 1: Validando proveedor...');
             // === PASO 1: VALIDAR PROVEEDOR ===
             const tercero = await client.query(
-                'SELECT id, razon_social, identificacion FROM directorio.terceros WHERE id = $1 AND empresa_id = $2',
+                'SELECT id, razon_social AS "razonSocial", identificacion FROM directorio.terceros WHERE id = $1 AND empresa_id = $2',
                 [proveedorId, context.empresaId]
             );
 
@@ -103,9 +103,10 @@ export async function POST(req: NextRequest) {
             }
 
             const proveedor = tercero.rows[0];
-            console.log('✅ [COMPRA] Proveedor encontrado:', proveedor.razon_social);
+            console.log('✅ [COMPRA] Proveedor encontrado:', proveedor.razonSocial);
 
-            const tipoComprobanteId = await ServicioSeguimientoUso.obtenerIdPorCodigo(tipoComprobante || '01');
+            const tipoComprobanteConfig = await ServicioSeguimientoUso.obtenerConfigComprobante(tipoComprobante || '01');
+            const tipoComprobanteId = tipoComprobanteConfig.id;
 
             console.log('🔵 [COMPRA] PASO 2: Verificando duplicados...');
             // === PASO 2: VALIDAR COMPRA DUPLICADA ===
@@ -154,7 +155,8 @@ export async function POST(req: NextRequest) {
                     'SELECT id FROM inventario.bodegas WHERE empresa_id = $1 ORDER BY created_at ASC LIMIT 1',
                     [context.empresaId]
                 );
-                const bodegaId = bodegaResult.rows.length > 0 ? bodegaResult.rows[0].id : null;
+                const bodega = bodegaResult.rows[0];
+                const bodegaId = bodega?.id || null;
 
                 for (const detalle of detalles) {
                     const { productoId, descripcion: desc, cantidad, precioUnitario, subtotal: subDet, porcentajeIva = 0, valorIva = 0, total: totDet } = detalle;
@@ -170,13 +172,14 @@ export async function POST(req: NextRequest) {
                     // Si es un producto inventariable, actualizar stock y kardex
                     if (productoId && bodegaId) {
                         const prodResult = await client.query(
-                            'SELECT stock_actual, costo_promedio FROM inventario.productos WHERE id = $1 AND empresa_id = $2',
+                            'SELECT stock_actual AS "stockActual", costo_promedio AS "costoPromedio" FROM inventario.productos WHERE id = $1 AND empresa_id = $2',
                             [productoId, context.empresaId]
                         );
 
                         if (prodResult.rows.length > 0) {
-                            const stockActual = parseFloat(prodResult.rows[0].stock_actual);
-                            const costoActual = parseFloat(prodResult.rows[0].costo_promedio);
+                            const prod = prodResult.rows[0];
+                            const stockActual = parseFloat(prod.stockActual);
+                            const costoActual = parseFloat(prod.costoPromedio);
                             const nuevoStock = stockActual + cantidad;
 
                             // Calcular nuevo costo promedio ponderado
@@ -328,9 +331,11 @@ export async function POST(req: NextRequest) {
                     const ambiente = datosRetencion.ambiente || 'PRUEBAS';
                     const configResult = await client.query(`
                         SELECT 
-                            sc.cert_p12_certificado, sc.cert_clave_certificado,
-                            sa.url_recepcion, sa.url_autorizacion,
-                            sa.valor as ambiente_sri
+                            sc.cert_p12_certificado AS "certP12Certificado", 
+                            sc.cert_clave_certificado AS "certClaveCertificado",
+                            sa.url_recepcion AS "urlRecepcion", 
+                            sa.url_autorizacion AS "urlAutorizacion",
+                            sa.valor AS "ambienteSri"
                         FROM configuracion.sri_certificados sc
                         INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
                         WHERE sc.empresa_id = $1 AND sa.codigo = $2 AND sc.activo = TRUE
@@ -339,11 +344,11 @@ export async function POST(req: NextRequest) {
 
                     if (configResult.rows.length > 0) {
                         const config = configResult.rows[0];
-                        const p12Base64 = config.cert_p12_certificado?.toString('base64');
+                        const p12Base64 = config.certP12Certificado?.toString('base64');
 
                         // Asegurar que el ambiente en los datos sea el código numérico del SRI (1 o 2)
                         if (datosRetencion.infoTributaria) {
-                            datosRetencion.infoTributaria.ambiente = config.ambiente_sri;
+                            datosRetencion.infoTributaria.ambiente = config.ambienteSri;
                         }
 
                         // VALIDACIÓN DE SEGURIDAD: Verificar que el usuario tenga permiso para usar este punto de emisión
@@ -398,17 +403,17 @@ export async function POST(req: NextRequest) {
                         // Firmar XML
                         const signedXml = await SignatureService.signXml(rawXml, {
                             p12Base64: p12Base64,
-                            passwordP12: config.cert_clave_certificado
+                            passwordP12: config.certClaveCertificado
                         });
 
                         // Validar XML firmado
                         await XsdValidator.validate(signedXml, codDoc);
 
                         // Enviar al SRI
-                        const recepcionResult = await SriWebService.enviarComprobante(signedXml, config.url_recepcion);
+                        const recepcionResult = await SriWebService.enviarComprobante(signedXml, config.urlRecepcion);
 
                         if (recepcionResult.estado === 'RECIBIDA') {
-                            const autorizacionResult = await SriWebService.autorizarComprobante(accessKey, config.url_autorizacion);
+                            const autorizacionResult = await SriWebService.autorizarComprobante(accessKey, config.urlAutorizacion);
 
                             respuestaSri = {
                                 success: true,
@@ -449,7 +454,8 @@ export async function POST(req: NextRequest) {
                             throw new Error('No se pudo obtener el secuencial de la retención.');
                         }
 
-                        const retencionId = await ServicioSeguimientoUso.obtenerIdPorCodigo('07');
+                        const retencionConfig = await ServicioSeguimientoUso.obtenerConfigComprobante('07');
+                        const retencionId = retencionConfig.id;
 
                         // Insertar comprobante SIN xml_firmado inicialmente
                         const comprobanteResult = await client.query(`
@@ -469,7 +475,7 @@ export async function POST(req: NextRequest) {
                             secuencialRetencion,
                             fechaEmision,
                             proveedorId,
-                            proveedor.razon_social,
+                            proveedor.razonSocial,
                             proveedor.identificacion,
                             0, // subtotal (retenciones no tienen subtotal/iva separado)
                             0, // iva

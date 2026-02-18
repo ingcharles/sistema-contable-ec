@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
             usuarioId: context.usuarioId!
         });
 
-        if (!compHeader || compHeader.tipo_comprobante !== '01') {
+        if (!compHeader || compHeader.tipoComprobante !== '01') {
             return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 });
         }
 
@@ -42,48 +42,54 @@ export async function POST(req: NextRequest) {
             usuarioId: context.usuarioId!
         });
         const cliente = (await db.query({
-            text: 'SELECT * FROM directorio.terceros WHERE id = $1',
-            values: [compHeader.cliente_id]
+            text: `
+                SELECT 
+                    id, razon_social AS "razonSocial", identificacion, 
+                    tipo_identificacion AS "tipoIdentificacion", direccion
+                FROM directorio.terceros 
+                WHERE id = $1
+            `,
+            values: [compHeader.clienteId]
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
 
         // 4. Recuperar metadatos
-        const metadata = compHeader.mensajes_sri || {};
+        const metadata = compHeader.mensajesSri || {};
         const pagos = metadata.pagos || [];
 
         // 5. Preparar datos para SRI
         const dataSri = SriStandardizer.standardizeFactura({
             ...compHeader,
             detalles: detalles.map((d: any) => ({
-                codigoPrincipal: d.codigo_principal,
+                codigoPrincipal: d.codigoPrincipal,
                 descripcion: d.descripcion,
                 cantidad: d.cantidad,
-                precioUnitario: d.precio_unitario,
+                precioUnitario: d.precioUnitario,
                 descuento: d.descuento,
                 totalSinImpuestos: d.total,
-                codigoIVA: d.codigo_iva || '2',
-                valorIVA: d.valor_iva,
+                codigoIVA: d.codigoIva || '2',
+                valorIVA: d.valorIva,
                 baseImponible: d.total,
                 tarifa: d.tarifa || 12
             })),
             pagos,
-            razonSocial: empresaDoc.razon_social,
-            nombreComercial: empresaDoc.nombre_comercial,
+            razonSocial: empresaDoc.razonSocial,
+            nombreComercial: empresaDoc.nombreComercial,
             ruc: empresaDoc.ruc,
             estab: compHeader.estab,
-            ptoEmi: compHeader.pto_emi,
+            ptoEmi: compHeader.ptoEmi,
             dirMatriz: empresaDoc.direccion,
-            obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
-            tipoIdentificacionComprador: cliente?.tipo_identificacion || '07',
-            razonSocialComprador: compHeader.cliente_nombre,
-            identificacionComprador: compHeader.cliente_identificacion,
+            obligadoContabilidad: empresaDoc.esObligadoContabilidad,
+            tipoIdentificacionComprador: cliente?.tipoIdentificacion || '07',
+            razonSocialComprador: compHeader.clienteNombre,
+            identificacionComprador: compHeader.clienteIdentificacion,
             direccionComprador: cliente?.direccion,
             totalSinImpuestos: compHeader.subtotal,
-            totalDescuento: compHeader.total_descuento,
+            totalDescuento: compHeader.totalDescuento,
             totalImpuestos: compHeader.iva,
             importeTotal: compHeader.total,
             moneda: 'DOLAR',
-            ambienteSri: configSri.ambiente_sri,
-            tipoEmisionSri: compHeader.tipo_emision_sri || '1'
+            ambienteSri: configSri.ambienteSri,
+            tipoEmisionSri: compHeader.tipoEmisionSri || '1'
         });
 
         // 6. Procesar re-emisión

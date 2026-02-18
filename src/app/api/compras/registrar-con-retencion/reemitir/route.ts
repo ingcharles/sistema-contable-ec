@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
             usuarioId: context.usuarioId!
         });
 
-        if (!compHeader || compHeader.tipo_comprobante !== '07') {
+        if (!compHeader || compHeader.tipoComprobante !== '07') {
             return NextResponse.json({ error: 'Comprobante de retención no encontrado' }, { status: 404 });
         }
 
@@ -39,39 +39,39 @@ export async function POST(req: NextRequest) {
         });
 
         const dataSri = SriStandardizer.standardizeRetencion({
-            razonSocial: empresaDoc.razon_social,
-            nombreComercial: empresaDoc.nombre_comercial,
+            razonSocial: empresaDoc.razonSocial,
+            nombreComercial: empresaDoc.nombreComercial,
             ruc: empresaDoc.ruc,
             estab: compHeader.estab,
-            ptoEmi: compHeader.pto_emi,
+            ptoEmi: compHeader.ptoEmi,
             secuencial: compHeader.secuencial,
             dirMatriz: empresaDoc.direccion,
-            fechaEmision: compHeader.fecha_emision,
-            obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
-            tipoIdentificacionSujetoRetenido: compHeader.cliente_identificacion?.length === 13 ? '04' : '05',
-            razonSocialSujetoRetenido: compHeader.cliente_nombre,
-            identificacionSujetoRetenido: compHeader.cliente_identificacion,
-            periodoFiscal: compHeader.fecha_emision.substring(5, 7) + '/' + compHeader.fecha_emision.substring(0, 4),
+            fechaEmision: compHeader.fechaEmision,
+            obligadoContabilidad: empresaDoc.esObligadoContabilidad,
+            tipoIdentificacionSujetoRetenido: compHeader.clienteIdentificacion?.length === 13 ? '04' : '05',
+            razonSocialSujetoRetenido: compHeader.clienteNombre,
+            identificacionSujetoRetenido: compHeader.clienteIdentificacion,
+            periodoFiscal: compHeader.fechaEmision.substring(5, 7) + '/' + compHeader.fechaEmision.substring(0, 4),
             impuestos: impuestos.map((imp: any) => ({
                 codigo: imp.codigo,
-                codigoRetencion: imp.codigo_retencion,
-                baseImponible: imp.base_imponible,
-                porcentajeRetener: imp.porcentaje_retener,
-                valorRetenido: imp.valor_retenido,
-                codDocSustento: imp.cod_doc_sustento,
-                numDocSustento: imp.num_doc_sustento,
-                fechaEmisionDocSustento: imp.fecha_emision_doc_sustento,
-                codSustento: imp.cod_sustento,
-                numAutDocSustento: imp.num_aut_doc_sustento,
-                totalSinImpuestosDocSustento: imp.total_sin_impuestos_doc_sustento,
-                baseImponibleIvaDocSustento: imp.base_imponible_iva_doc_sustento,
-                importeTotalDocSustento: imp.importe_total_doc_sustento,
-                pagoLocExt: imp.pago_loc_ext,
-                formaPago: imp.forma_pago,
-                ivaDocSustento: imp.iva_doc_sustento
+                codigoRetencion: imp.codigoRetencion,
+                baseImponible: imp.baseImponible,
+                porcentajeRetener: imp.porcentajeRetener,
+                valorRetenido: imp.valorRetenido,
+                codDocSustento: imp.codDocSustento,
+                numDocSustento: imp.numDocSustento,
+                fechaEmisionDocSustento: imp.fechaEmisionDocSustento,
+                codSustento: imp.codSustento,
+                numAutDocSustento: imp.numAutDocSustento,
+                totalSinImpuestosDocSustento: imp.totalSinImpuestosDocSustento,
+                baseImponibleIvaDocSustento: imp.baseImponibleIvaDocSustento,
+                importeTotalDocSustento: imp.importeTotalDocSustento,
+                pagoLocExt: imp.pagoLocExt,
+                formaPago: imp.formaPago,
+                ivaDocSustento: imp.ivaDocSustento
             })),
-            ambienteSri: configSri.ambiente_sri,
-            tipoEmisionSri: compHeader.tipo_emision_sri || '1'
+            ambienteSri: configSri.ambienteSri,
+            tipoEmisionSri: compHeader.tipoEmisionSri
         });
 
         const resultado = await ReemisionService.procesarReemision(

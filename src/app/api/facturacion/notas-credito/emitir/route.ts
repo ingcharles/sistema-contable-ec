@@ -40,9 +40,12 @@ export async function POST(req: NextRequest) {
             {
                 text: `
                     SELECT 
-                        sc.cert_p12_certificado, sc.cert_clave_certificado,
-                        sa.url_recepcion, sa.url_autorizacion, sa.codigo as ambiente_codigo,
-                        sa.valor as ambiente_sri
+                        sc.cert_p12_certificado AS "certP12Certificado", 
+                        sc.cert_clave_certificado AS "certClaveCertificado",
+                        sa.url_recepcion AS "urlRecepcion", 
+                        sa.url_autorizacion AS "urlAutorizacion", 
+                        sa.codigo AS "ambienteCodigo",
+                        sa.valor AS "ambienteSri"
                     FROM configuracion.sri_certificados sc
                     INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
                     WHERE sc.empresa_id = $1 AND sc.activo = TRUE
@@ -59,19 +62,38 @@ export async function POST(req: NextRequest) {
         const configSrv = configResult.rows[0];
 
         const empresaResult = await db.query(
-            { text: 'SELECT razon_social, ruc, direccion, es_obligado_contabilidad, nombre_comercial FROM seguridad.empresas WHERE id = $1', values: [context.empresaId] },
+            {
+                text: `
+                    SELECT 
+                        razon_social AS "razonSocial", ruc, direccion, 
+                        es_obligado_contabilidad AS "esObligadoContabilidad", 
+                        nombre_comercial AS "nombreComercial" 
+                    FROM seguridad.empresas 
+                    WHERE id = $1
+                `,
+                values: [context.empresaId]
+            },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
         const empresaDoc = empresaResult.rows[0];
 
         const clienteResult = await db.query(
-            { text: 'SELECT * FROM directorio.terceros WHERE id = $1 AND empresa_id = $2', values: [clienteId, context.empresaId] },
+            {
+                text: `
+                    SELECT 
+                        id, razon_social AS "razonSocial", identificacion, 
+                        tipo_identificacion AS "tipoIdentificacion", 
+                        direccion, email
+                    FROM directorio.terceros 
+                    WHERE id = $1 AND empresa_id = $2
+                `,
+                values: [clienteId, context.empresaId]
+            },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
         const cliente = clienteResult.rows[0];
 
         const params = await ParametrosRepository.obtenerParametros(context.empresaId!, context.usuarioId!);
-        const paramsRow = params; // Compatibility alias
 
         // 1.3 Validar Parámetros y Cierre
         const validacionParams = ParametrosContablesValidator.validarNotaCredito(params);
@@ -86,20 +108,28 @@ export async function POST(req: NextRequest) {
 
         // --- 1.4 Obtener tasas de IVA y default del catálogo ---
         const ivaCatalogResult = await db.query(
-            { text: "SELECT id, codigo, valor_numerico FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_IMPUESTO_IVA'", values: [] },
+            {
+                text: `
+                    SELECT id, codigo, valor_numerico AS "valorNumerico" 
+                    FROM configuracion.catalogos_items 
+                    WHERE catalogo_codigo = 'SRI_TIPO_IMPUESTO_IVA'
+                `,
+                values: []
+            },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
+        const ivaCatalogRows = ivaCatalogResult.rows;
         const ivaRatesMap: Record<string, number> = {};
         const idToCodeMap: Record<string, string> = {};
         const codeToIdMap: Record<string, string> = {};
 
-        ivaCatalogResult.rows.forEach(row => {
-            ivaRatesMap[row.codigo] = Number(row.valor_numerico);
+        ivaCatalogRows.forEach((row: any) => {
+            ivaRatesMap[row.codigo] = Number(row.valorNumerico);
             idToCodeMap[row.id] = row.codigo;
             codeToIdMap[row.codigo] = row.id;
         });
 
-        const defaultIvaCode = idToCodeMap[paramsRow.iva_catalogo_item_id] || '4'; // Fallback to '4' (15%)
+        const defaultIvaCode = idToCodeMap[params.ivaCatalogoItemId] || '4'; // Fallback to '4' (15%)
 
         // Enriquecer detalles con códigos de IVA
         const detallesEnriquecidos = detalles.map((d: any) => ({
@@ -111,7 +141,9 @@ export async function POST(req: NextRequest) {
         // --- STEP 1: PREPARE AND PERSIST (PENDING STATE) ---
         const persistentData = await db.transaction(async (client) => {
             const pResult = await client.query(`
-                SELECT pe.*, s.codigo as codigo_establecimiento
+                SELECT 
+                    pe.id, pe.codigo, pe.nombre,
+                    s.codigo as "codigoEstablecimiento"
                 FROM configuracion.puntos_emision pe
                 INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id
                 WHERE pe.id = $1 AND s.empresa_id = $2
@@ -142,17 +174,17 @@ export async function POST(req: NextRequest) {
             const valorModificacion = subtotalSinImpuestos + totalIva;
 
             const dataSri = SriStandardizer.standardizeNotaCredito({
-                razonSocial: empresaDoc.razon_social,
-                nombreComercial: empresaDoc.nombre_comercial,
+                razonSocial: empresaDoc.razonSocial,
+                nombreComercial: empresaDoc.nombreComercial,
                 ruc: empresaDoc.ruc,
                 codDoc: tipoComprobante.codigo,
-                estab: punto.codigo_establecimiento,
+                estab: punto.codigoEstablecimiento,
                 ptoEmi: punto.codigo,
                 secuencial: secuencialFormateado,
                 dirMatriz: empresaDoc.direccion,
                 fechaEmision,
-                tipoIdentificacionComprador: cliente.tipo_identificacion,
-                razonSocialComprador: cliente.razon_social,
+                tipoIdentificacionComprador: cliente.tipoIdentificacion,
+                razonSocialComprador: cliente.razonSocial,
                 identificacionComprador: cliente.identificacion,
                 codDocModificado,
                 numDocModificado,
@@ -161,9 +193,9 @@ export async function POST(req: NextRequest) {
                 valorModificacion,
                 motivo,
                 detalles: detallesEnriquecidos,
-                ambienteSri: configSrv.ambiente_sri,
+                ambienteSri: configSrv.ambienteSri,
                 tipoEmisionSri: tipoEmision || params.sriTipoEmision || '1',
-                obligadoContabilidad: empresaDoc.es_obligado_contabilidad
+                obligadoContabilidad: empresaDoc.esObligadoContabilidad
             });
 
             console.log('--- DEBUG NC EMISSION ---');
@@ -177,8 +209,8 @@ export async function POST(req: NextRequest) {
 
             const rawXml = XmlGenerator.generateNotaCreditoXml(dataSri);
             const signedXml = await SignatureService.signXml(rawXml, {
-                p12Base64: configSrv.cert_p12_certificado.toString('base64'),
-                passwordP12: configSrv.cert_clave_certificado
+                p12Base64: configSrv.certP12Certificado.toString('base64'),
+                passwordP12: configSrv.certClaveCertificado
             });
 
             // Persistencia Inicial (Pendiente)
@@ -191,8 +223,8 @@ export async function POST(req: NextRequest) {
                 RETURNING id
             `, [
                 context.empresaId, context.usuarioId, tipoComprobanteId, puntoEmisionId, secuencialFormateado, fechaEmision,
-                clienteId, cliente.razon_social, cliente.identificacion, subtotalSinImpuestos, totalDescuento, totalIva, valorModificacion,
-                accessKey, parseInt(configSrv.ambiente_sri), signedXml, {
+                clienteId, cliente.razonSocial, cliente.identificacion, subtotalSinImpuestos, totalDescuento, totalIva, valorModificacion,
+                accessKey, parseInt(configSrv.ambienteSri), signedXml, {
                     mensajes: [],
                     codDocModificado,
                     numDocModificado,
@@ -254,7 +286,7 @@ export async function POST(req: NextRequest) {
         let fueRecibida = false; // Flag para incrementar secuencial según regla SRI
 
         try {
-            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.url_recepcion);
+            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.urlRecepcion);
 
             // 🔄 RECOVERY FLOW: Detectar "CLAVE ACCESO REGISTRADA"
             const claveAccesoRegistrada = recepcionResult.mensajes?.some((m: any) =>
@@ -267,7 +299,7 @@ export async function POST(req: NextRequest) {
                     // Agregar espera de 3 segundos antes de consultar autorización
                     await new Promise(resolve => setTimeout(resolve, 3000));
 
-                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.urlAutorizacion);
                     estadoSri = autorizacionResult.estado;
 
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
@@ -284,7 +316,7 @@ export async function POST(req: NextRequest) {
                 fueRecibida = true;
 
                 try {
-                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.urlAutorizacion);
                     estadoSri = autorizacionResult.estado;
 
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
@@ -345,8 +377,8 @@ export async function POST(req: NextRequest) {
 
                 if (estadoSri === 'AUTORIZADO') {
                     // Asiento Contable
-                    const asientoNo = `NC-${persistentData.punto.codigo_establecimiento}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
-                    const glosaNC = `NOTA CRÉDITO S/FACTURA ${numDocModificado || ''} - ${cliente.razon_social}`;
+                    const asientoNo = `NC-${persistentData.punto.codigoEstablecimiento}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
+                    const glosaNC = `NOTA CRÉDITO S/FACTURA ${numDocModificado || ''} - ${cliente.razonSocial}`;
                     const asientoResult = await client.query(`
                         INSERT INTO contabilidad.asientos(empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
                         VALUES($1, $2, $3, $4, $5, 'EGRESO', 'MAYORIZADO')
@@ -356,15 +388,15 @@ export async function POST(req: NextRequest) {
 
                     // CXC (Haber - Disminuye deuda)
                     await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1, $2, 0, $3, 'DEVOLUCIÓN DEUDA POR NOTA CRÉDITO', $4)`,
-                        [asientoId, paramsRow.cuenta_cxc_clientes, persistentData.valorModificacion, glosaNC]);
+                        [asientoId, params.cuentaCxcClientes, persistentData.valorModificacion, glosaNC]);
 
                     // Devolución en Ventas (Debe)
                     await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1, $2, $3, 0, 'DEVOLUCIÓN EN VENTAS', $4)`,
-                        [asientoId, paramsRow.cuenta_devolucion_ventas, persistentData.subtotalSinImpuestos, glosaNC]);
+                        [asientoId, params.cuentaDevolucionVentas, persistentData.subtotalSinImpuestos, glosaNC]);
 
                     if (persistentData.totalIva > 0) {
                         await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1, $2, $3, 0, 'IVA EN VENTAS (NC)', $4)`,
-                            [asientoId, paramsRow.cuenta_iva_por_pagar, persistentData.totalIva, glosaNC]);
+                            [asientoId, params.cuentaIvaPorPagar, persistentData.totalIva, glosaNC]);
                     }
                 }
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });

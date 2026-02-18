@@ -23,19 +23,50 @@ export async function POST(req: NextRequest) {
         const { puntoEmisionId, fechaEmision, clienteId, motivo, codDocModificado, numDocModificado, fechaEmisionDocSustento, tipoEmision, detalles = [] } = body;
 
         const configResult = await db.query({
-            text: 'SELECT sc.*, sa.url_recepcion, sa.url_autorizacion, sa.valor as ambiente_sri FROM configuracion.sri_certificados sc INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id WHERE sc.empresa_id = $1 AND sc.activo = TRUE LIMIT 1',
+            text: `
+                SELECT 
+                    sc.cert_p12_certificado AS "certP12Certificado", 
+                    sc.cert_clave_certificado AS "certClaveCertificado",
+                    sa.url_recepcion AS "urlRecepcion", 
+                    sa.url_autorizacion AS "urlAutorizacion", 
+                    sa.codigo AS "ambienteCodigo",
+                    sa.valor AS "ambienteSri"
+                FROM configuracion.sri_certificados sc 
+                INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id 
+                WHERE sc.empresa_id = $1 AND sc.activo = TRUE 
+                LIMIT 1
+            `,
             values: [context.empresaId]
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
         const configSrv = configResult.rows[0];
 
-        const empresaResult = await db.query({ text: 'SELECT * FROM seguridad.empresas WHERE id = $1', values: [context.empresaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+        const empresaResult = await db.query({
+            text: `
+                SELECT 
+                    razon_social AS "razonSocial", ruc, direccion, 
+                    es_obligado_contabilidad AS "esObligadoContabilidad", 
+                    nombre_comercial AS "nombreComercial" 
+                FROM seguridad.empresas 
+                WHERE id = $1
+            `,
+            values: [context.empresaId]
+        }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
         const empresaDoc = empresaResult.rows[0];
 
-        const clienteResult = await db.query({ text: 'SELECT * FROM directorio.terceros WHERE id = $1 AND empresa_id = $2', values: [clienteId, context.empresaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
+        const clienteResult = await db.query({
+            text: `
+                SELECT 
+                    id, razon_social AS "razonSocial", identificacion, 
+                    tipo_identificacion AS "tipoIdentificacion", 
+                    direccion, email, dias_credito AS "diasCredito"
+                FROM directorio.terceros 
+                WHERE id = $1 AND empresa_id = $2
+            `,
+            values: [clienteId, context.empresaId]
+        }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
         const cliente = clienteResult.rows[0];
 
         const params = await ParametrosRepository.obtenerParametros(context.empresaId!, context.usuarioId!);
-        const paramsRow = params; // Compatibility alias
 
         // 1.3 Validar Parámetros y Cierre (Usa validarVentas ya que requiere las mismas cuentas)
         const validacionParams = ParametrosContablesValidator.validarVentas(params);
@@ -50,20 +81,28 @@ export async function POST(req: NextRequest) {
 
         // --- 1.4 Obtener tasas de IVA y default del catálogo (Similar a Factura) ---
         const ivaCatalogResult = await db.query(
-            { text: "SELECT id, codigo, valor_numerico FROM configuracion.catalogos_items WHERE catalogo_codigo = 'SRI_TIPO_IMPUESTO_IVA'", values: [] },
+            {
+                text: `
+                    SELECT id, codigo, valor_numerico AS "valorNumerico" 
+                    FROM configuracion.catalogos_items 
+                    WHERE catalogo_codigo = 'SRI_TIPO_IMPUESTO_IVA'
+                `,
+                values: []
+            },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
+        const ivaCatalogRows = ivaCatalogResult.rows;
         const ivaRatesMap: Record<string, number> = {};
         const idToCodeMap: Record<string, string> = {};
         const codeToIdMap: Record<string, string> = {};
 
-        ivaCatalogResult.rows.forEach(row => {
-            ivaRatesMap[row.codigo] = Number(row.valor_numerico);
+        ivaCatalogRows.forEach((row: any) => {
+            ivaRatesMap[row.codigo] = Number(row.valorNumerico);
             idToCodeMap[row.id] = row.codigo;
             codeToIdMap[row.codigo] = row.id;
         });
 
-        const defaultIvaCode = idToCodeMap[paramsRow.iva_catalogo_item_id] || '4'; // Fallback to '4' (15%)
+        const defaultIvaCode = idToCodeMap[params.ivaCatalogoItemId] || '4'; // Fallback to '4' (15%)
 
         const detallesEnriquecidos = detalles.map((d: any) => ({
             ...d,
@@ -73,7 +112,14 @@ export async function POST(req: NextRequest) {
 
         // --- STEP 1: PREPARE AND PERSIST (PENDING STATE) ---
         const persistentData = await db.transaction(async (client) => {
-            const pResult = await client.query('SELECT pe.*, s.codigo as estab FROM configuracion.puntos_emision pe INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id WHERE pe.id = $1', [puntoEmisionId]);
+            const pResult = await client.query(`
+                SELECT 
+                    pe.id, pe.codigo, pe.nombre,
+                    s.codigo AS "estab"
+                FROM configuracion.puntos_emision pe 
+                INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id 
+                WHERE pe.id = $1
+            `, [puntoEmisionId]);
             const punto = pResult.rows[0];
 
             // Bloquear secuencial para lectura (SIN incrementar todavía - se incrementa solo si SRI recibe exitosamente)
@@ -110,17 +156,17 @@ export async function POST(req: NextRequest) {
             }];
 
             const dataSri = SriStandardizer.standardizeNotaDebito({
-                razonSocial: empresaDoc.razon_social,
-                nombreComercial: empresaDoc.nombre_comercial,
+                razonSocial: empresaDoc.razonSocial,
+                nombreComercial: empresaDoc.nombreComercial,
                 ruc: empresaDoc.ruc,
                 estab: punto.estab,
                 ptoEmi: punto.codigo,
                 secuencial: secuencialFormateado,
                 dirMatriz: empresaDoc.direccion,
                 fechaEmision,
-                obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
-                tipoIdentificacionComprador: cliente.tipo_identificacion,
-                razonSocialComprador: cliente.razon_social,
+                obligadoContabilidad: empresaDoc.esObligadoContabilidad,
+                tipoIdentificacionComprador: cliente.tipoIdentificacion,
+                razonSocialComprador: cliente.razonSocial,
                 identificacionComprador: cliente.identificacion,
                 codDoc: tipoComprobante.codigo,
                 codDocModificado,
@@ -130,7 +176,7 @@ export async function POST(req: NextRequest) {
                 valorTotal,
                 motivo,
                 detalles: detallesEnriquecidos,
-                ambienteSri: configSrv.ambiente_sri,
+                ambienteSri: configSrv.ambienteSri,
                 tipoEmisionSri: tipoEmision || params.sriTipoEmision || '1',
                 codigoIVA,
                 tarifa,
@@ -150,8 +196,8 @@ export async function POST(req: NextRequest) {
             // Validar XSD si existiera para ND (pendiente implementation)
 
             const signedXml = await SignatureService.signXml(rawXml, {
-                p12Base64: configSrv.cert_p12_certificado.toString('base64'),
-                passwordP12: configSrv.cert_clave_certificado
+                p12Base64: configSrv.certP12Certificado.toString('base64'),
+                passwordP12: configSrv.certClaveCertificado
             });
 
             // 3.4 Persistencia INICIAL (Pendiente)
@@ -163,8 +209,8 @@ export async function POST(req: NextRequest) {
                 VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'PENDIENTE', $14, $15, $16, $17)
                 RETURNING id
             `, [context.empresaId, context.usuarioId, tipoComprobanteId, puntoEmisionId, secuencialFormateado, fechaEmision,
-                clienteId, cliente.razon_social, cliente.identificacion, subtotal, totalDescuento, totalIva, valorTotal,
-                accessKey, parseInt(configSrv.ambiente_sri), signedXml, {
+                clienteId, cliente.razonSocial, cliente.identificacion, subtotal, totalDescuento, totalIva, valorTotal,
+                accessKey, parseInt(configSrv.ambienteSri), signedXml, {
                 mensajes: [],
                 codDocModificado,
                 numDocModificado,
@@ -227,7 +273,7 @@ export async function POST(req: NextRequest) {
         let fueRecibida = false; // Flag para incrementar secuencial según regla SRI
 
         try {
-            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.url_recepcion);
+            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.urlRecepcion);
 
             // 🔄 RECOVERY FLOW: Detectar "CLAVE ACCESO REGISTRADA"
             const claveAccesoRegistrada = recepcionResult.mensajes?.some((m: any) =>
@@ -240,7 +286,7 @@ export async function POST(req: NextRequest) {
                     // Agregar espera de 3 segundos antes de consultar autorización
                     await new Promise(resolve => setTimeout(resolve, 3000));
 
-                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.urlAutorizacion);
                     estadoSri = autorizacionResult.estado;
 
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
@@ -257,7 +303,7 @@ export async function POST(req: NextRequest) {
                 fueRecibida = true;
 
                 try {
-                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.urlAutorizacion);
                     estadoSri = autorizacionResult.estado;
 
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
@@ -315,7 +361,7 @@ export async function POST(req: NextRequest) {
                 if (estadoSri === 'AUTORIZADO') {
                     // Generar Asiento Contable
                     const asientoNo = `ND-${persistentData.punto.estab}-${persistentData.punto.codigo}-${persistentData.secuencial}`;
-                    const glosaND = `NOTA DE DÉBITO ${asientoNo} REF FACT ${numDocModificado} - ${cliente.razon_social}`;
+                    const glosaND = `NOTA DE DÉBITO ${asientoNo} REF FACT ${numDocModificado} - ${cliente.razonSocial}`;
                     const asientoResult = await client.query(`
                         INSERT INTO contabilidad.asientos(empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
                         VALUES($1, $2, $3, $4, $5, 'INGRESO', 'MAYORIZADO')
@@ -327,31 +373,31 @@ export async function POST(req: NextRequest) {
                     await client.query(`
                         INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                         VALUES($1, $2, $3, 0, 'CXC NOTA DE DÉBITO', $4) 
-                    `, [asientoId, paramsRow.cuenta_cxc_clientes || '1.1.02.01', persistentData.valorTotal, glosaND]);
+                    `, [asientoId, params.cuentaCxcClientes || '1.1.02.01', persistentData.valorTotal, glosaND]);
 
                     // Haber: Ingresos/Otros Ingresos
                     const conceptoIngreso = `INGRESO POR ND: ${motivo}`;
                     await client.query(`
                         INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                         VALUES($1, $2, 0, $3, $4, $5) 
-                    `, [asientoId, paramsRow.cuenta_ventas || '4.1.01.01', persistentData.subtotal, conceptoIngreso, glosaND]);
+                    `, [asientoId, params.cuentaVentas || '4.1.01.01', persistentData.subtotal, conceptoIngreso, glosaND]);
 
                     if (persistentData.totalIva > 0) {
                         await client.query(`
                             INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
                             VALUES($1, $2, 0, $3, 'IVA EN VENTAS (ND)', $4) 
-                        `, [asientoId, paramsRow.cuenta_iva_por_pagar, persistentData.totalIva, glosaND]);
+                        `, [asientoId, params.cuentaIvaPorPagar, persistentData.totalIva, glosaND]);
                     }
 
                     // Actualizar carteras
                     const fechaVencimiento = new Date(fechaEmision);
-                    fechaVencimiento.setDate(fechaVencimiento.getDate() + (cliente.dias_credito || 0));
+                    fechaVencimiento.setDate(fechaVencimiento.getDate() + (cliente.diasCredito || 0));
                     await client.query(`
                         INSERT INTO cartera.cartera_documentos
                         (empresa_id, usuario_id, tipo_cartera, tipo_documento, nro_comprobante,
                          tercero_id, tercero_nombre, fecha_emision, fecha_vencimiento, monto_total, saldo_pendiente)
                         VALUES($1, $2, 'CXC', 'NOTA_DEBITO', $3, $4, $5, $6, $7, $8, $9)
-                    `, [context.empresaId, context.usuarioId, persistentData.secuencial, clienteId, cliente.razon_social, fechaEmision, fechaVencimiento, persistentData.valorTotal, persistentData.valorTotal]);
+                    `, [context.empresaId, context.usuarioId, persistentData.secuencial, clienteId, cliente.razonSocial, fechaEmision, fechaVencimiento, persistentData.valorTotal, persistentData.valorTotal]);
                 }
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
         } catch (txError: any) {

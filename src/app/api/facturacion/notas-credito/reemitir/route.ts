@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
             usuarioId: context.usuarioId!
         });
 
-        if (!compHeader || compHeader.tipo_comprobante !== '04') {
+        if (!compHeader || compHeader.tipoComprobante !== '04') {
             return NextResponse.json({ error: 'Nota de crédito no encontrada' }, { status: 404 });
         }
 
@@ -38,44 +38,51 @@ export async function POST(req: NextRequest) {
             empresaId: context.empresaId!,
             usuarioId: context.usuarioId!
         });
-        const cliente = (await db.query({
-            text: 'SELECT * FROM directorio.terceros WHERE id = $1',
-            values: [compHeader.cliente_id]
+        const clienteRaw = (await db.query({
+            text: `
+                SELECT 
+                    id, razon_social AS "razonSocial", identificacion, 
+                    tipo_identificacion AS "tipoIdentificacion", direccion
+                FROM directorio.terceros 
+                WHERE id = $1
+            `,
+            values: [compHeader.clienteId]
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
+        const cliente = clienteRaw;
 
-        const metadata = compHeader.mensajes_sri || {};
+        const metadata = compHeader.mensajesSri || {};
 
         const dataSri = SriStandardizer.standardizeNotaCredito({
             ...compHeader,
             detalles: detalles.map((d: any) => ({
-                codigoPrincipal: d.codigo_principal,
+                codigoPrincipal: d.codigoPrincipal,
                 descripcion: d.descripcion,
                 cantidad: d.cantidad,
-                precioUnitario: d.precio_unitario,
+                precioUnitario: d.precioUnitario,
                 descuento: d.descuento,
                 totalSinImpuestos: d.total,
-                codigoIVA: d.codigo_iva || '2',
-                valorIVA: d.valor_iva,
+                codigoIVA: d.codigoIva || '2',
+                valorIVA: d.valorIva,
                 baseImponible: d.total,
                 tarifa: d.tarifa || 12
             })),
-            razonSocial: empresaDoc.razon_social,
-            nombreComercial: empresaDoc.nombre_comercial,
+            razonSocial: empresaDoc.razonSocial,
+            nombreComercial: empresaDoc.nombreComercial,
             ruc: empresaDoc.ruc,
             estab: compHeader.estab,
-            ptoEmi: compHeader.pto_emi,
+            ptoEmi: compHeader.ptoEmi,
             dirMatriz: empresaDoc.direccion,
-            obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
-            razonSocialComprador: compHeader.cliente_nombre,
-            identificacionComprador: compHeader.cliente_identificacion,
-            tipoIdentificacionComprador: cliente?.tipo_identificacion || '07',
+            obligadoContabilidad: empresaDoc.esObligadoContabilidad,
+            razonSocialComprador: compHeader.clienteNombre,
+            identificacionComprador: compHeader.clienteIdentificacion,
+            tipoIdentificacionComprador: cliente?.tipoIdentificacion || '07',
             totalSinImpuestos: compHeader.subtotal,
             importeTotal: compHeader.total,
-            ambienteSri: configSri.ambiente_sri,
-            tipoEmisionSri: compHeader.tipo_emision_sri || '1',
+            ambienteSri: configSri.ambienteSri,
+            tipoEmisionSri: compHeader.tipoEmisionSri || '1',
             codDocModificado: metadata.codDocModificado || '01',
             numDocModificado: metadata.numDocModificado || '001-001-000000001',
-            fechaEmisionDocSustento: metadata.fechaEmisionDocSustento || compHeader.fecha_emision,
+            fechaEmisionDocSustento: metadata.fechaEmisionDocSustento || metadata.fecha_emision_doc_sustento || compHeader.fechaEmision,
             motivo: metadata.motivo || 'DEVOLUCION'
         });
 

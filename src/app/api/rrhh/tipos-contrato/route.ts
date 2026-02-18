@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
 import { TipoContratoEntity } from '@/modules/rrhh/domain/types';
-import { toCamelCase, toSnakeCase } from '@/shared/utils/caseConverter';
+import { toSnakeCase } from '@/shared/utils/caseConverter';
 
 /**
  * GET /api/rrhh/tipos-contrato
@@ -22,16 +22,16 @@ export async function GET(req: NextRequest) {
                 text: `
                     SELECT 
                         id,
-                        empresa_id,
+                        empresa_id AS "empresaId",
                         codigo,
                         nombre,
                         descripcion,
-                        requiere_fecha_fin,
+                        requiere_fecha_fin AS "requiereFechaFin",
                         activo,
-                        created_at,
-                        updated_at,
-                        created_by,
-                        updated_by
+                        created_at AS "createdAt",
+                        updated_at AS "updatedAt",
+                        created_by AS "createdBy",
+                        updated_by AS "updatedBy"
                     FROM nomina.tipos_contrato
                     WHERE empresa_id = $1
                     ORDER BY orden, nombre
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        const tiposContrato: TipoContratoEntity[] = result.rows.map((row: any) => toCamelCase(row));
+        const tiposContrato: TipoContratoEntity[] = result.rows;
         return NextResponse.json(tiposContrato);
     } catch (error) {
         console.error('Error al obtener tipos de contrato:', error);
@@ -100,7 +100,11 @@ export async function POST(req: NextRequest) {
                         requiere_fecha_fin, activo, created_by, updated_by
                     )
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    RETURNING *
+                    RETURNING 
+                        id, empresa_id AS "empresaId", codigo, nombre, descripcion,
+                        requiere_fecha_fin AS "requiereFechaFin", activo, 
+                        created_at AS "createdAt", updated_at AS "updatedAt",
+                        created_by AS "createdBy", updated_by AS "updatedBy"
                 `,
                 values: [
                     empresaId,
@@ -116,7 +120,7 @@ export async function POST(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        const nuevoTipo = toCamelCase(result.rows[0]);
+        const nuevoTipo = result.rows[0];
         return NextResponse.json(nuevoTipo, { status: 201 });
     } catch (error) {
         console.error('Error al crear tipo de contrato:', error);
@@ -179,7 +183,11 @@ export async function PUT(req: NextRequest) {
                         updated_by = $7,
                         updated_at = NOW()
                     WHERE id = $1 AND empresa_id = $8
-                    RETURNING *
+                    RETURNING 
+                        id, empresa_id AS "empresaId", codigo, nombre, descripcion,
+                        requiere_fecha_fin AS "requiereFechaFin", activo, 
+                        created_at AS "createdAt", updated_at AS "updatedAt",
+                        created_by AS "createdBy", updated_by AS "updatedBy"
                 `,
                 values: [
                     tipoData.id,
@@ -195,7 +203,7 @@ export async function PUT(req: NextRequest) {
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        const tipoActualizado = toCamelCase(result.rows[0]);
+        const tipoActualizado = result.rows[0];
         return NextResponse.json(tipoActualizado);
     } catch (error) {
         console.error('Error al actualizar tipo de contrato:', error);

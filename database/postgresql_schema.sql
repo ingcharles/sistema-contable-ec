@@ -855,6 +855,10 @@ COMMENT ON COLUMN facturacion.comprobantes_detalles.total IS 'Subtotal de línea
 COMMENT ON COLUMN facturacion.comprobantes_detalles.valor_iva IS 'Valor del IVA aplicado a esta línea';
 COMMENT ON COLUMN facturacion.comprobantes_detalles.iva_catalogo_item_id IS 'Referencia al catálogo de tipos de IVA (SRI_TIPO_IMPUESTO_IVA). Estandariza el manejo de impuestos usando el catálogo centralizado.';
 
+ALTER TABLE IF EXISTS facturacion.comprobantes_detalles
+    ADD COLUMN codigo_auxiliar character varying(50);
+    ALTER TABLE IF EXISTS facturacion.comprobantes_detalles
+    ADD COLUMN base_imponible numeric(18, 2);
 -- Tabla: facturacion.transportistas
 CREATE TABLE facturacion.transportistas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

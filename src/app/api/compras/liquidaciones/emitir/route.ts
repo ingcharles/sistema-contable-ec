@@ -22,17 +22,46 @@ export async function POST(req: NextRequest) {
         const { puntoEmisionId, fechaEmision, proveedor, detalles = [], pagos = [] } = body;
 
         const configResult = await db.query({
-            text: 'SELECT sc.*, sa.url_recepcion, sa.url_autorizacion, sa.valor as ambiente_sri FROM configuracion.sri_certificados sc INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id WHERE sc.empresa_id = $1 AND sc.activo = TRUE LIMIT 1',
+            text: `
+                SELECT 
+                    sc.cert_p12_certificado AS "certP12Certificado", 
+                    sc.cert_clave_certificado AS "certClaveCertificado",
+                    sa.url_recepcion AS "urlRecepcion", 
+                    sa.url_autorizacion AS "urlAutorizacion", 
+                    sa.codigo AS "ambienteCodigo",
+                    sa.valor AS "ambienteSri"
+                FROM configuracion.sri_certificados sc 
+                INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id 
+                WHERE sc.empresa_id = $1 AND sc.activo = TRUE 
+                LIMIT 1
+            `,
             values: [context.empresaId]
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
         const configSrv = configResult.rows[0];
 
-        const empresaDoc = (await db.query({ text: 'SELECT * FROM seguridad.empresas WHERE id = $1', values: [context.empresaId] }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
+        const empresaDoc = (await db.query({
+            text: `
+                SELECT 
+                    razon_social AS "razonSocial", ruc, direccion, 
+                    es_obligado_contabilidad AS "esObligadoContabilidad", 
+                    nombre_comercial AS "nombreComercial" 
+                FROM seguridad.empresas 
+                WHERE id = $1
+            `,
+            values: [context.empresaId]
+        }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! })).rows[0];
         const params = await ParametrosRepository.obtenerParametros(context.empresaId!, context.usuarioId!);
 
         // --- STEP 1: PREPARE AND PERSIST (PENDING STATE) ---
         const persistentData = await db.transaction(async (client) => {
-            const punto = (await client.query('SELECT pe.*, s.codigo as estab FROM configuracion.puntos_emision pe INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id WHERE pe.id = $1', [puntoEmisionId])).rows[0];
+            const punto = (await client.query(`
+                SELECT 
+                    pe.id, pe.codigo, pe.nombre,
+                    s.codigo AS "estab"
+                FROM configuracion.puntos_emision pe 
+                INNER JOIN configuracion.sucursales s ON pe.sucursal_id = s.id 
+                WHERE pe.id = $1
+            `, [puntoEmisionId])).rows[0];
 
             // 1. Obtener secuencial (bloqueo)
             const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('06');
@@ -55,10 +84,10 @@ export async function POST(req: NextRequest) {
             }];
 
             const dataSri = SriStandardizer.standardizeLiquidacion({
-                ambienteSri: configSrv.ambiente_sri,
+                ambienteSri: configSrv.ambienteSri,
                 tipoEmisionSri: params?.sriTipoEmision || '1',
-                razonSocial: empresaDoc.razon_social,
-                nombreComercial: empresaDoc.nombre_comercial,
+                razonSocial: empresaDoc.razonSocial,
+                nombreComercial: empresaDoc.nombreComercial,
                 ruc: empresaDoc.ruc,
                 codDoc: tipoComprobante.codigo,
                 estab: punto.estab,
@@ -70,7 +99,7 @@ export async function POST(req: NextRequest) {
                 razonSocialProveedor: proveedor.nombre,
                 identificacionProveedor: proveedor.identificacion,
                 direccionProveedor: proveedor.direccion,
-                obligadoContabilidad: empresaDoc.es_obligado_contabilidad,
+                obligadoContabilidad: empresaDoc.esObligadoContabilidad,
                 totalSinImpuestos,
                 importeTotal,
                 detalles,
@@ -82,8 +111,8 @@ export async function POST(req: NextRequest) {
 
             const rawXml = XmlGenerator.generateLiquidacionXml(dataSri);
             const signedXml = await SignatureService.signXml(rawXml, {
-                p12Base64: configSrv.cert_p12_certificado.toString('base64'),
-                passwordP12: configSrv.cert_clave_certificado
+                p12Base64: configSrv.certP12Certificado.toString('base64'),
+                passwordP12: configSrv.certClaveCertificado
             });
 
             // Registro Local de Proveedor si no existe
@@ -155,7 +184,7 @@ export async function POST(req: NextRequest) {
         let mensajesSri: any[] = [];
 
         try {
-            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.url_recepcion);
+            const recepcionResult = await SriWebService.enviarComprobante(persistentData.signedXml, configSrv.urlRecepcion);
 
             // 🔄 RECOVERY FLOW: Detectar "CLAVE ACCESO REGISTRADA"
             const claveAccesoRegistrada = recepcionResult.mensajes?.some((m: any) =>
@@ -167,7 +196,7 @@ export async function POST(req: NextRequest) {
                     // Agregar espera de 3 segundos antes de consultar autorización
                     await new Promise(resolve => setTimeout(resolve, 3000));
 
-                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.urlAutorizacion);
                     estadoSri = autorizacionResult.estado;
 
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
@@ -183,7 +212,7 @@ export async function POST(req: NextRequest) {
                 console.log(`🔄 Recovery Flow LIQ: Clave ${persistentData.claveAcceso} ya registrada en SRI`);
 
                 try {
-                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.url_autorizacion);
+                    const autorizacionResult = await SriWebService.autorizarComprobante(persistentData.claveAcceso, configSrv.urlAutorizacion);
                     estadoSri = autorizacionResult.estado;
 
                     numAutorizacion = autorizacionResult.numeroAutorizacion;
@@ -241,12 +270,12 @@ export async function POST(req: NextRequest) {
 
                     if (persistentData.totalIVA > 0) {
                         await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1,$2,$3,0, 'IVA EN COMPRAS', $4)`,
-                            [asientoId, params.cuenta_iva_compras || '1.1.05.01', persistentData.totalIVA, glosaAsiento]);
+                            [asientoId, params.cuentaIvaCompras || '1.1.05.01', persistentData.totalIVA, glosaAsiento]);
                     }
 
                     // Haber: CXP Proveedores
                     await client.query(`INSERT INTO contabilidad.asientos_detalles(asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES($1,$2,0,$3, 'CUENTAS POR PAGAR PROVEEDORES', $4)`,
-                        [asientoId, params.cuenta_cxp_proveedores, persistentData.importeTotal, glosaAsiento]);
+                        [asientoId, params.cuentaCxpProveedores, persistentData.importeTotal, glosaAsiento]);
                 }
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
         } catch (txError: any) {

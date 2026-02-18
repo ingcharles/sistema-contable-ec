@@ -19,9 +19,11 @@ export async function POST(req: NextRequest) {
         // 1. Obtener datos del comprobante y configuración SRI
         const compResult = await db.query({
             text: `
-                SELECT c.id, c.clave_acceso, c.estado, c.secuencial,
-                       sc.cert_p12_certificado, sc.cert_clave_certificado,
-                       sa.url_autorizacion
+                SELECT 
+                    c.id, c.clave_acceso AS "claveAcceso", c.estado, c.secuencial,
+                    sc.cert_p12_certificado AS "certP12Certificado", 
+                    sc.cert_clave_certificado AS "certClaveCertificado",
+                    sa.url_autorizacion AS "urlAutorizacion"
                 FROM facturacion.comprobantes_electronicos c
                 INNER JOIN configuracion.sri_certificados sc ON sc.empresa_id = c.empresa_id
                 INNER JOIN configuracion.sri_ambiente sa ON sc.sri_ambiente_id = sa.id
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
         // 2. Lógica de Reintento y Espera (Robustez SRI)
         // Check inicial (puede ser Recepción o Autorización dependiendo del estado actual, aqui asumimos que ya pasó recepción)
 
-        let auth = await SriWebService.autorizarComprobante(comp.clave_acceso, comp.url_autorizacion);
+        let auth = await SriWebService.autorizarComprobante(comp.claveAcceso, comp.urlAutorizacion);
         console.log("auth", JSON.stringify(auth));
         // let nuevoEstado = auth.estado; // This line is removed
 
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
 
             while (esEnProcesamiento(auth) && intentos < maxIntentos) {
                 await sleep(5000); // 5 segundos entre intentos
-                auth = await SriWebService.autorizarComprobante(comp.clave_acceso, comp.url_autorizacion);
+                auth = await SriWebService.autorizarComprobante(comp.claveAcceso, comp.urlAutorizacion);
                 intentos++;
             }
 
