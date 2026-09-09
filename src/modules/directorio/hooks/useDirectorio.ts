@@ -16,9 +16,8 @@ export const useTerceros = () => {
             const data = await DirectorioUseCases.listarTerceros(tipo, buscar);
             setTerceros(data);
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar terceros');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar terceros');
         } finally {
             setLoading(false);
         }
@@ -45,9 +44,9 @@ export const useDirectorioMutations = () => {
         try {
             const result = await DirectorioUseCases.guardarTercero(tercero);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar tercero');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar tercero';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);
@@ -60,9 +59,9 @@ export const useDirectorioMutations = () => {
         try {
             const result = await DirectorioUseCases.actualizarTercero(id, tercero);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al actualizar tercero');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al actualizar tercero';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);
@@ -75,9 +74,9 @@ export const useDirectorioMutations = () => {
         try {
             const result = await DirectorioUseCases.eliminarTercero(id);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al eliminar tercero');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al eliminar tercero';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);

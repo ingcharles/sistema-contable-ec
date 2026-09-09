@@ -23,7 +23,8 @@ export class DepreciacionService {
                 SELECT 
                     id, codigo, nombre, categoria,
                     fecha_adquisicion, valor_adquisicion, valor_residual,
-                    vida_util_meses, depreciacion_acumulada, valor_libros
+                    vida_util_meses, depreciacion_acumulada, valor_libros,
+                    cuenta_gasto, cuenta_dep_acumulada
                 FROM activos.activos_fijos
                 WHERE empresa_id = $1 
                 AND estado = 'EN_USO'
@@ -50,11 +51,13 @@ export class DepreciacionService {
             const valorDepreciable = Number(activo.valor_adquisicion) - Number(activo.valor_residual);
             const depreciacionMensual = valorDepreciable / Number(activo.vida_util_meses);
 
-            // Validar que no exceda el valor depreciable
-
             const depreciacionReal = Math.min(depreciacionMensual, valorDepreciable - Number(activo.depreciacion_acumulada));
 
             if (depreciacionReal > 0) {
+                // Si el activo tiene cuentas específicas, las usamos, sino usamos las por defecto de la categoría
+                const cuentaGasto = activo.cuenta_gasto || this.obtenerCuentaGastoDepreciacion(activo.categoria);
+                const cuentaDepAcum = activo.cuenta_dep_acumulada || this.obtenerCuentaDepreciacionAcumulada(activo.categoria);
+
                 detallesDepreciacion.push({
                     activoId: activo.id,
                     codigo: activo.codigo,
@@ -62,7 +65,9 @@ export class DepreciacionService {
                     categoria: activo.categoria,
                     depreciacionMensual: depreciacionReal,
                     nuevaDepreciacionAcumulada: Number(activo.depreciacion_acumulada) + depreciacionReal,
-                    nuevoValorLibros: Number(activo.valor_adquisicion) - (Number(activo.depreciacion_acumulada) + depreciacionReal)
+                    nuevoValorLibros: Number(activo.valor_adquisicion) - (Number(activo.depreciacion_acumulada) + depreciacionReal),
+                    cuentaGasto,
+                    cuentaDepAcum
                 });
 
                 totalDepreciacionMes += depreciacionReal;
@@ -80,7 +85,7 @@ export class DepreciacionService {
 
         // 3. Generar asiento contable y actualizar activos en transacción
         await db.transaction(async (client) => {
-            // 3.1 Crear asiento contable
+            // 3.1 Crear asiento contable (omitido detalles por brevedad, se mantiene igual)
             const asientoResult = await client.query(`
                 INSERT INTO contabilidad.asientos (
                     empresa_id, usuario_id, numero, fecha, glosa, tipo, estado, created_at, updated_at
@@ -96,25 +101,24 @@ export class DepreciacionService {
 
             const asientoId = asientoResult.rows[0].id;
 
-            // 3.2 Detalle del asiento (agrupado por categoría)
-            const porCategoria = this.agruparPorCategoria(detallesDepreciacion);
+            // 3.2 Detalle del asiento (Agrupado por CUENTA en lugar de categoría para ser precisos)
+            const porCuenta = this.agruparPorCuenta(detallesDepreciacion);
 
-            for (const [categoria, datos] of Object.entries(porCategoria)) {
-                const totalCategoria = (datos as any).total;
-                const cuentaGasto = this.obtenerCuentaGastoDepreciacion(categoria);
-                const cuentaDepAcumulada = this.obtenerCuentaDepreciacionAcumulada(categoria);
+            for (const item of Object.values(porCuenta)) {
+                const { cuentaGasto, cuentaDepAcum, total } = item as any;
 
+                const glosaAsiento = `Depreciación de Activos Fijos - Periodo ${periodo}`;
                 // DEBE: Gasto por Depreciación
                 await client.query(`
-                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto)
-                    VALUES ($1, $2, $3, 0, $4)
-                `, [asientoId, cuentaGasto, totalCategoria, `Depreciación ${categoria}`]);
+                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                    VALUES ($1, $2, $3, 0, $4, $5)
+                `, [asientoId, cuentaGasto, total, `Gasto Depreciación Periodo ${periodo}`, glosaAsiento]);
 
                 // HABER: Depreciación Acumulada
                 await client.query(`
-                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto)
-                    VALUES ($1, $2, 0, $3, $4)
-                `, [asientoId, cuentaDepAcumulada, totalCategoria, `Dep. Acumulada ${categoria}`]);
+                    INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa)
+                    VALUES ($1, $2, 0, $3, $4, $5)
+                `, [asientoId, cuentaDepAcum, total, `Depreciación Acumulada Periodo ${periodo}`, `Depreciación de Activos Fijos - Periodo ${periodo}`]);
             }
 
             // 3.3 Actualizar cada activo
@@ -130,6 +134,7 @@ export class DepreciacionService {
 
         }, { empresaId, usuarioId });
 
+
         return {
             success: true,
             mensaje: `Depreciación calculada exitosamente para ${detallesDepreciacion.length} activos`,
@@ -140,22 +145,26 @@ export class DepreciacionService {
     }
 
     /**
-     * Agrupa depreciaciones por categoría de activo
+     * Agrupa depreciaciones por par de cuentas contables
      */
-    private static agruparPorCategoria(detalles: any[]): Record<string, any> {
+    private static agruparPorCuenta(detalles: any[]): Record<string, any> {
         const agrupado: Record<string, any> = {};
 
         for (const detalle of detalles) {
-            const cat = detalle.categoria || 'OTROS';
-            if (!agrupado[cat]) {
-                agrupado[cat] = { total: 0, activos: [] };
+            const key = `${detalle.cuentaGasto}-${detalle.cuentaDepAcum}`;
+            if (!agrupado[key]) {
+                agrupado[key] = {
+                    cuentaGasto: detalle.cuentaGasto,
+                    cuentaDepAcum: detalle.cuentaDepAcum,
+                    total: 0
+                };
             }
-            agrupado[cat].total += detalle.depreciacionMensual;
-            agrupado[cat].activos.push(detalle);
+            agrupado[key].total += detalle.depreciacionMensual;
         }
 
         return agrupado;
     }
+
 
     /**
      * Obtiene cuenta contable de gasto por depreciación según categoría

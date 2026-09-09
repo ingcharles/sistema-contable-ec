@@ -2,58 +2,46 @@
 
 import { useState, useEffect } from 'react';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { TipoComprobante, EstadoSRI, Factura } from '@/shared/types';
-import { formatearDinero } from '@/shared/utils/formatearDinero';
-import {
-    Plus, RotateCcw, Truck, Receipt, X, Eye, FileCode, Send, RotateCw, Download
-} from 'lucide-react';
-import { DataTable, Column } from '@/shared/ui/DataTable';
+import { Factura } from '@/shared/types';
+import { Plus, Receipt, X, RotateCw } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
-import { EstadoBadge } from '@/shared/ui/EstadoBadge';
 
-// Modals y Tipos de otros módulos
+// Modals
 import { GuiaRemisionModal } from '@/modules/facturacion/ui/components/GuiaRemisionModal';
-import { GuiaRemision } from '@/modules/facturacion/domain/guias';
 import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
-
 import { NuevaFacturaModal } from '@/modules/facturacion/ui/components/NuevaFacturaModal';
 import { NotaCreditoModal } from '@/modules/facturacion/ui/components/NotaCreditoModal';
 import { NotaDebitoModal } from '@/modules/facturacion/ui/components/NotaDebitoModal';
-
-// Importar catálogos para evitar hardcoding
-import { AMBIENTE, TIPO_EMISION } from '@/modules/facturacion/domain/catalogos';
 import { FacturaRIDE } from '@/modules/facturacion/ui/components/FacturaRIDE';
+import { RetencionRIDE } from '@/modules/facturacion/ui/components/RetencionRIDE';
+import { NotaCreditoRIDE } from '@/modules/facturacion/ui/components/NotaCreditoRIDE';
+import { NotaDebitoRIDE } from '@/modules/facturacion/ui/components/NotaDebitoRIDE';
+import { LiquidacionCompraRIDE } from '@/modules/facturacion/ui/components/LiquidacionCompraRIDE';
+import { GuiaRemisionRIDE } from '@/modules/facturacion/ui/components/GuiaRemisionRIDE';
 import { XmlModal } from '@/modules/facturacion/ui/components/XmlModal';
 import { SriStandardizer } from '@/modules/facturacion/domain/services/SriStandardizer';
-import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 
-export default function FacturacionPage() {
+// Componentes de Tablas
+import { ComprobantesEmitidosTable } from '@/modules/facturacion/ui/components/ComprobantesEmitidosTable';
+
+export default function FacturasEmitidasPage() {
     const { currentEmpresa } = useEmpresa();
-    const [activeTab, setActiveTab] = useState<'comprobantes' | 'guias'>('comprobantes');
-    const [selectedFacturaNC, setSelectedFacturaNC] = useState<any | null>(null);
-    const [selectedFacturaND, setSelectedFacturaND] = useState<any | null>(null);
-    const [selectedFacturaGuia, setSelectedFacturaGuia] = useState<any | null>(null);
-    const [facturaVerRide, setFacturaVerRide] = useState<any | null>(null);
+    const [selectedFacturaNC, setSelectedFacturaNC] = useState<Factura | null>(null);
+    const [selectedFacturaND, setSelectedFacturaND] = useState<Factura | null>(null);
+    const [selectedFacturaGuia, setSelectedFacturaGuia] = useState<Factura | null>(null);
+    const [facturaVerRide, setFacturaVerRide] = useState<Factura | null>(null);
     const [xmlVer, setXmlVer] = useState<string | null>(null);
-    const [guias, setGuias] = useState<GuiaRemision[]>([]);
     const [showModalGuia, setShowModalGuia] = useState(false);
     const [showModalFactura, setShowModalFactura] = useState(false);
     const [loading, setLoading] = useState(true);
-
-    // Mock facturas as state to allow adding new ones
-    const [facturas, setFacturas] = useState<any[]>([]);
+    const [facturas, setFacturas] = useState<Factura[]>([]);
 
     const loadData = async () => {
         if (!currentEmpresa) return;
         setLoading(true);
         try {
-            const [dataFacturas, dataGuias] = await Promise.all([
-                FacturacionUseCases.listarComprobantes(),
-                FacturacionUseCases.listarGuias()
-            ]);
-
-            setFacturas(dataFacturas);
-            setGuias(dataGuias);
+            const dataFacturas = await FacturacionUseCases.listarComprobantes();
+            setFacturas(dataFacturas?.data || dataFacturas || []);
         } catch (error) {
             console.error('Error al cargar datos:', error);
         } finally {
@@ -63,32 +51,57 @@ export default function FacturacionPage() {
 
     useEffect(() => {
         loadData();
-    }, [currentEmpresa?.id, activeTab]);
+    }, [currentEmpresa?.id]);
 
-    const handleSaveFactura = async (nuevaFactura: any) => {
+    const handleSaveFactura = async () => {
         if (!currentEmpresa) return;
 
         try {
-            await FacturacionUseCases.emitirFactura(nuevaFactura);
-            alert('Factura emitida y autorizada exitosamente por el SRI (Conectado a API)');
+            // Nota: FacturaForm ya llama a vender (que emite), 
+            // aquí solo refrescamos la lista y cerramos el modal.
             loadData();
             setShowModalFactura(false);
         } catch (error) {
-            alert('Error al emitir factura: ' + (error as Error).message);
+            console.error('Error al procesar guardado:', error);
+        }
+    };
+
+    const handleAutorizar = async (row: any) => {
+        try {
+            setLoading(true);
+            const res = await FacturacionUseCases.autorizar(row.id);
+            if (res.estado === 'AUTORIZADO') {
+                alert('¡Documento autorizado exitosamente!');
+            } else if (res.estado === 'EN_PROCESAMIENTO' || res.estado === 'RECIBIDA') {
+                alert(`Documento en proceso. Estado: ${res.estado}. Por favor espere unos segundos y actualice.`);
+            } else {
+                alert('SRI Respuesta: ' + (res.estado || 'Desconocido'));
+            }
+            loadData();
+        } catch (err: any) {
+            alert('Error al autorizar: ' + err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleReemitir = async (row: any) => {
         try {
             setLoading(true);
-            const dataSri = SriStandardizer.standardizeFactura(row);
-            const res = await FacturacionUseCases.emitirFactura(dataSri);
+            const res = await FacturacionUseCases.reemitir(row.id, row.tipoComprobante);
 
-            if (res.estado === 'AUTORIZADO') {
-                alert('¡Documento autorizado exitosamente!');
+            if (res.success) {
+                if (res.estado === 'AUTORIZADO') {
+                    alert('¡Documento autorizado exitosamente!');
+                } else if (res.estado === 'EN_PROCESAMIENTO') {
+                    alert('Documento enviado a procesamiento. Por favor espere unos segundos y actualice.');
+                } else {
+                    const msg = res.mensajes?.map((m: any) => m.mensaje).join('\n') || res.estado;
+                    alert(`SRI Respuesta (${res.estado}): ${msg}`);
+                }
                 loadData();
             } else {
-                alert('Error SRI: ' + JSON.stringify(res.error || res.detalles));
+                alert('Error al re-emitir: ' + (res.error || JSON.stringify(res.details || 'Error desconocido')));
             }
         } catch (err: any) {
             alert('Error al re-emitir: ' + err.message);
@@ -97,161 +110,7 @@ export default function FacturacionPage() {
         }
     };
 
-    const columns: Column<Factura>[] = [
-        { header: 'Fecha', accessorKey: 'fechaEmision', className: 'text-slate-600' },
-        { header: 'Secuencial', accessorKey: 'secuencial', className: 'font-mono font-bold' },
-        { header: 'Cliente', accessorKey: 'terceroNombre', className: 'font-medium' },
-        {
-            header: 'Total',
-            accessorKey: 'importeTotal',
-            className: 'text-right font-bold',
-            cell: (row) => formatearDinero(row.importeTotal)
-        },
-        {
-            header: 'Estado',
-            accessorKey: 'estado',
-            className: 'text-center',
-            cell: (row) => <EstadoBadge estado={row.estado} />
-        },
-        {
-            header: 'Acciones',
-            className: 'text-center',
-            cell: (row) => (
-                <div className="flex items-center justify-center gap-2">
-                    {row.estado !== EstadoSRI.AUTORIZADO && (
-                        <button
-                            title="Re-emitir al SRI"
-                            onClick={() => handleReemitir(row)}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                            <Send size={18} />
-                        </button>
-                    )}
-                    {row.tipo === TipoComprobante.FACTURA && row.estado === EstadoSRI.AUTORIZADO && (
-                        <>
-                            <button
-                                title="Emitir Nota de Crédito"
-                                onClick={() => setSelectedFacturaNC(row)}
-                                className="p-2 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                            >
-                                <RotateCcw size={18} />
-                            </button>
-                            <button
-                                title="Emitir Nota de Débito"
-                                onClick={() => setSelectedFacturaND(row)}
-                                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            >
-                                <Plus size={18} className="text-blue-500" />
-                            </button>
-                            <button
-                                title="Generar Guía de Remisión"
-                                onClick={() => { setSelectedFacturaGuia(row); setShowModalGuia(true); }}
-                                className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            >
-                                <Truck size={18} />
-                            </button>
-                        </>
-                    )}
-                    <button onClick={() => setFacturaVerRide(row)} className="p-2 text-slate-500 hover:text-sri-blue hover:bg-blue-50 rounded-lg transition-colors" title="Ver RIDE">
-                        <Eye size={18} />
-                    </button>
-                    <button
-                        onClick={() => {
-                            const dataSri = SriStandardizer.standardizeFactura(row as any);
-                            const xml = XmlGenerator.generateFacturaXml(dataSri);
-                            setXmlVer(xml);
-                        }}
-                        className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Ver XML"
-                    >
-                        <FileCode size={18} />
-                    </button>
-                </div>
-            )
-        }
-    ];
-
-    const guiaColumns: Column<GuiaRemision>[] = [
-        { header: 'Fecha', accessorKey: 'fechaEmision', className: 'text-slate-600' },
-        { header: 'Secuencial', accessorKey: 'secuencial', className: 'font-mono font-bold' },
-        {
-            header: 'Transportista',
-            cell: (row) => (
-                <div className="flex flex-col">
-                    <span className="font-medium">{row.transportista?.razonSocial}</span>
-                    <span className="text-[10px] text-slate-500">Placa: {row.transportista?.placa}</span>
-                </div>
-            )
-        },
-        {
-            header: 'Destinatario',
-            cell: (row) => (
-                <div className="flex flex-col">
-                    <span className="font-medium">{row.destinatarios?.[0]?.razonSocial}</span>
-                    <span className="text-[10px] text-slate-500">{row.destinatarios?.[0]?.direccionDestino}</span>
-                </div>
-            )
-        },
-        {
-            header: 'Estado',
-            accessorKey: 'estado',
-            className: 'text-center',
-            cell: (row) => <EstadoBadge estado={row.estado} />
-        },
-        {
-            header: 'Acciones',
-            className: 'text-right',
-            cell: (row) => (
-                <div className="flex justify-end gap-2">
-                    {row.estado !== 'AUTORIZADO' && (
-                        <button
-                            title="Re-emitir al SRI"
-                            onClick={() => handleReemitir(row)}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                            <Send size={16} />
-                        </button>
-                    )}
-                    <button className="p-1.5 text-slate-400 hover:text-sri-blue"><Eye size={16} /></button>
-                    <button
-                        onClick={() => {
-                            // Estandarización para Guía de Remisión
-                            const dataSri = {
-                                infoTributaria: {
-                                    ambiente: AMBIENTE.PRUEBAS, tipoEmision: TIPO_EMISION.NORMAL, razonSocial: currentEmpresa.razonSocial, ruc: currentEmpresa.ruc,
-                                    codDoc: '06', estab: '001', ptoEmi: '001', secuencial: row.secuencial, dirMatriz: currentEmpresa.direccionMatriz
-                                },
-                                infoGuiaRemision: {
-                                    dirEstablecimiento: currentEmpresa.direccionMatriz, dirPartida: row.puntoPartida, razonSocialTransportista: row.transportista?.razonSocial,
-                                    tipoIdentificacionTransportista: '04', rucTransportista: row.transportista?.ruc, obligadoContabilidad: 'SI',
-                                    fechaIniTraslado: row.fechaInicioTraslado, fechaFinTraslado: row.fechaFinTraslado, placa: row.transportista?.placa
-                                },
-                                destinatarios: row.destinatarios?.map((d: any) => ({
-                                    identificacionDestinatario: d.identificacion, razonSocialDestinatario: d.razonSocial, dirDestinatario: d.direccionDestino,
-                                    motivoTraslado: d.motivoTraslado, codDocSustento: '01', numDocSustento: d.documentoReferencia || '001-001-000000001',
-                                    detalles: d.items?.map((i: any) => ({ codigoInterno: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad }))
-                                }))
-                            };
-                            const xml = XmlGenerator.generateGuiaXml(dataSri);
-                            setXmlVer(xml);
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-blue-600"
-                        title="Ver XML"
-                    >
-                        <FileCode size={16} />
-                    </button>
-                    <button className="p-1.5 text-slate-400 hover:text-green-600"><Download size={16} /></button>
-                </div>
-            )
-        }
-    ];
-
     if (!currentEmpresa) return null;
-
-    const tabs = [
-        { id: 'comprobantes', label: 'Comprobantes Emitidos' },
-        { id: 'guias', label: 'Guías de Remisión' }
-    ];
 
     return (
         <div className="space-y-6">
@@ -263,21 +122,7 @@ export default function FacturacionPage() {
                         </div>
                         Facturación Electrónica
                     </h1>
-                    <p className="text-slate-500 text-sm mt-1">Gestión de comprobantes y guías de remisión autorizados por el SRI</p>
-                </div>
-                <div className="flex gap-2">
-                    <div className="flex bg-slate-100 p-1 rounded-lg">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-white text-sri-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
+                    <p className="text-slate-500 text-sm mt-1">Gestión de facturas emitidas y autorizadas por el SRI</p>
                 </div>
             </div>
 
@@ -287,34 +132,24 @@ export default function FacturacionPage() {
                         <RotateCw size={18} className={loading ? 'animate-spin' : ''} />
                         Actualizar
                     </Button>
-                    {activeTab === 'comprobantes' && (
-                        <Button onClick={() => setShowModalFactura(true)} className="gap-2">
-                            <Plus size={18} />
-                            Nueva Factura
-                        </Button>
-                    )}
-                    {activeTab === 'guias' && (
-                        <Button onClick={() => { setSelectedFacturaGuia(null); setShowModalGuia(true); }} className="gap-2">
-                            <Plus size={18} />
-                            Nueva Guía
-                        </Button>
-                    )}
+                    <Button onClick={() => setShowModalFactura(true)} className="gap-2">
+                        <Plus size={18} />
+                        Nueva Factura
+                    </Button>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                    {activeTab === 'comprobantes' ? (
-                        <DataTable
-                            columns={columns}
-                            data={facturas}
-                            loading={loading}
-                        />
-                    ) : (
-                        <DataTable
-                            columns={guiaColumns}
-                            data={guias}
-                            loading={loading}
-                        />
-                    )}
+                    <ComprobantesEmitidosTable
+                        facturas={facturas}
+                        loading={loading}
+                        onReemitir={handleReemitir}
+                        onAutorizar={handleAutorizar}
+                        onNuevaNotaCredito={(factura) => setSelectedFacturaNC(factura)}
+                        onNuevaNotaDebito={(factura) => setSelectedFacturaND(factura)}
+                        onNuevaGuia={(factura) => { setSelectedFacturaGuia(factura); setShowModalGuia(true); }}
+                        onVerRide={(factura) => setFacturaVerRide(factura)}
+                        onVerXml={(xml) => setXmlVer(xml)}
+                    />
                 </div>
             </div>
 
@@ -331,7 +166,6 @@ export default function FacturacionPage() {
                     facturaReferencia={selectedFacturaGuia}
                     onClose={() => { setShowModalGuia(false); setSelectedFacturaGuia(null); }}
                     onSave={() => { loadData(); setShowModalGuia(false); setSelectedFacturaGuia(null); }}
-                    empresaId={currentEmpresa?.id || ''}
                 />
             )}
 
@@ -362,7 +196,33 @@ export default function FacturacionPage() {
                         </div>
                         <div className="flex-1 overflow-y-auto p-8 bg-slate-100">
                             <div className="bg-white shadow-lg mx-auto max-w-[21cm] min-h-[29.7cm]">
-                                <FacturaRIDE factura={facturaVerRide} />
+                                {(() => {
+                                    const tipoDoc = facturaVerRide.tipoComprobante;
+                                    const xmlFirmado = facturaVerRide.xmlFirmado;
+
+                                    // Si tiene XML firmado, usar los componentes específicos que parsean XML
+                                    if (xmlFirmado) {
+                                        switch (tipoDoc) {
+                                            case '03':
+                                                return <LiquidacionCompraRIDE comprobante={facturaVerRide} />;
+                                            case '04':
+                                                return <NotaCreditoRIDE comprobante={facturaVerRide} />;
+                                            case '05':
+                                                return <NotaDebitoRIDE comprobante={facturaVerRide} />;
+                                            case '06':
+                                                return <GuiaRemisionRIDE comprobante={facturaVerRide} />;
+                                            case '07':
+                                                return <RetencionRIDE comprobante={facturaVerRide} />;
+                                            default:
+                                                return <FacturaRIDE comprobante={facturaVerRide} />;
+                                        }
+                                    }
+
+                                    // Sin XML firmado, usar el componente genérico con datos de la DB
+                                    return (
+                                        <FacturaRIDE comprobante={facturaVerRide} />
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>

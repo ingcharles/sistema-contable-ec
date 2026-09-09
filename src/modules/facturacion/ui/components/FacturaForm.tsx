@@ -11,19 +11,20 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { FacturaViewModel, DetalleFactura, PagoFactura } from '../../domain/FacturaViewModel';
-import { AMBIENTE, TIPO_EMISION } from '../../domain/catalogos';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
 import { Trash2, Plus, Calculator, User, FileText, CreditCard, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validarIdentificacion } from '@/shared/utils/validacionesIdentificacion';
+import { formatearDinero } from '@/shared/utils/formatearDinero';
 import { useCatalogos } from '@/shared/hooks/useCatalogos';
+import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
+import { useToast } from '@/shared/context/ToastContext';
 
 // Repositorios para integración
-import { InventarioUseCases, FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { InventarioUseCases, FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useTerceros } from '@/modules/directorio/hooks/useDirectorio';
 import { Tercero } from '@/modules/directorio/domain/types';
 import { Producto } from '@/modules/inventario/domain/types';
-import { SriStandardizer } from '../../domain/services/SriStandardizer';
-import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
+import { getLocalDateIso } from '@/shared/utils/dateUtils';
 
 export interface FacturaFormProps {
     factura?: Partial<FacturaViewModel>;
@@ -35,13 +36,13 @@ export interface FacturaFormProps {
 
 export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', showButtons = true }: FacturaFormProps) {
     const { currentEmpresa } = useEmpresa();
-    const { parametros, cargarParametros } = useConfiguracion();
+    const { puntoActivo } = usePuntoEmision();
+    const { showToast } = useToast();
 
-    useEffect(() => {
-        cargarParametros();
-    }, []);
+    // Determinar IVA por defecto desde parámetros globales de la empresa
+    const parametros = currentEmpresa?.parametros;
 
-    // Estados para integración
+    // Cargar catálogos dinámicos
     const { terceros: clientes, cargarTerceros: cargarClientes } = useTerceros();
     const [productos, setProductos] = useState<Producto[]>([]);
     const [busquedaCliente, setBusquedaCliente] = useState('');
@@ -50,13 +51,34 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     // Cargar catálogos dinámicos
     const { getCatalogo } = useCatalogos([
         'SRI_TIPO_IDENTIFICACION',
-        'SRI_TIPO_IMPUESTO_IVA',
         'SRI_FORMA_PAGO'
     ]);
 
     const tiposIdentificacion = getCatalogo('SRI_TIPO_IDENTIFICACION');
-    const tarifasIVA = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
     const formasPago = getCatalogo('SRI_FORMA_PAGO');
+
+    const defaultIVA = useMemo(() => {
+        return parametros?.ivaCodigo || '4';
+    }, [parametros?.ivaCodigo]);
+
+
+
+    // Cargar secuencial automático
+    useEffect(() => {
+        const cargarSecuencial = async () => {
+            if (puntoActivo?.puntoEmisionId && !factura?.id) {
+                try {
+                    const data = await FacturacionUseCases.obtenerSiguienteSecuencial(puntoActivo.puntoEmisionId, '01');
+                    if (data.success) {
+                        setSecuencial(data.secuencial);
+                    }
+                } catch (error) {
+                    console.error('Error al cargar secuencial:', error);
+                }
+            }
+        };
+        cargarSecuencial();
+    }, [puntoActivo?.puntoEmisionId, factura?.id]);
 
     // Cargar datos de otros módulos
     useEffect(() => {
@@ -69,19 +91,19 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
 
                 const listaProductos: Producto[] = productosData.map((p: any) => ({
                     id: p.id,
-                    empresaId: p.empresa_id || currentEmpresa.id,
-                    codigoPrincipal: p.codigo_principal,
-                    codigoAuxiliar: p.codigo_auxiliar || '',
+                    empresaId: p.empresaId || currentEmpresa.id,
+                    codigoPrincipal: p.codigoPrincipal,
+                    codigoAuxiliar: p.codigoAuxiliar || '',
                     nombre: p.nombre,
-                    categoriaId: p.categoria_id,
-                    categoriaNombre: p.categoria_nombre || '',
-                    stockActual: Number(p.stock_actual),
-                    costoPromedio: Number(p.costo_promedio),
-                    precioVenta: Number(p.precio_venta),
-                    grabaIva: p.graba_iva,
-                    stockMinimo: Number(p.stock_minimo),
-                    createdAt: p.created_at || '',
-                    updatedAt: p.updated_at || '',
+                    categoriaId: p.categoriaId,
+                    categoriaNombre: p.categoriaNombre || '',
+                    stockActual: Number(p.stockActual),
+                    costoPromedio: Number(p.costoPromedio),
+                    precioVenta: Number(p.precioVenta),
+                    grabaIva: p.grabaIva,
+                    stockMinimo: Number(p.stockMinimo),
+                    createdAt: p.createdAt || '',
+                    updatedAt: p.updatedAt || '',
                     createdBy: ''
                 }));
 
@@ -92,21 +114,33 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
     }, [currentEmpresa?.id]);
 
     // Datos del Cliente
-    const [tipoIdentificacion, setTipoIdentificacion] = useState(factura?.tipoIdentificacionAdquirente || '04');
-    const [identificacion, setIdentificacion] = useState(factura?.identificacionAdquirente || '');
-    const [razonSocial, setRazonSocial] = useState(factura?.razonSocialAdquirente || '');
-    const [direccion, setDireccion] = useState(factura?.direccionAdquirente || '');
-    const [email, setEmail] = useState(factura?.emailAdquirente || '');
+    const [tipoIdentificacion, setTipoIdentificacion] = useState(factura?.tipoIdentificacionComprador || '04');
+    const [identificacion, setIdentificacion] = useState(factura?.identificacionComprador || '');
+    const [razonSocial, setRazonSocial] = useState(factura?.razonSocialComprador || '');
+    const [direccion, setDireccion] = useState(factura?.direccionComprador || '');
+    const [email, setEmail] = useState(factura?.emailComprador || '');
+    const [clienteId, setClienteId] = useState<string | undefined>(undefined);
 
     // Estado de validación
     const [errorIdentificacion, setErrorIdentificacion] = useState('');
     const [identificacionValida, setIdentificacionValida] = useState(false);
+    const [errorSubmit, setErrorSubmit] = useState<string | null>(null);
 
     // Datos del Comprobante
-    const [estab, setEstab] = useState(factura?.estab || '001');
-    const [ptoEmi, setPtoEmi] = useState(factura?.ptoEmi || '001');
-    const [secuencial, setSecuencial] = useState(factura?.secuencial || '');
-    const [fechaEmision, setFechaEmision] = useState(factura?.fechaEmision || new Date().toISOString().split('T')[0]);
+    const [estab, setEstab] = useState(factura?.estab || puntoActivo?.codigoEstablecimiento);
+    const [ptoEmi, setPtoEmi] = useState(factura?.ptoEmi || puntoActivo?.codigoPunto);
+    const [secuencial, setSecuencial] = useState(factura?.secuencial);
+    const [fechaEmision, setFechaEmision] = useState(factura?.fechaEmision || getLocalDateIso());
+
+    // Actualizar estab y ptoEmi cuando cambie el punto activo
+    useEffect(() => {
+        if (puntoActivo && !factura?.id) {
+            setEstab(puntoActivo.codigoEstablecimiento);
+            setPtoEmi(puntoActivo.codigoPunto);
+        }
+    }, [puntoActivo, factura?.id]);
+
+
 
     // Detalles
     const [detalles, setDetalles] = useState<DetalleFactura[]>(factura?.detalles || [{
@@ -116,11 +150,19 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         cantidad: 1,
         precioUnitario: 0,
         descuento: 0,
-        codigoIVA: '2', // Default 12%/15%
+        codigoIVA: defaultIVA,
         baseImponible: 0,
         valorIVA: 0,
+        tarifa: parametros?.ivaValor || 15,
         total: 0,
     }]);
+
+    const handleNumeroFacturaChange = (val: string) => {
+        const parts = val.split('-');
+        if (parts[0] !== undefined) setEstab(parts[0]);
+        if (parts[1] !== undefined) setPtoEmi(parts[1]);
+        if (parts[2] !== undefined) setSecuencial(parts[2]);
+    };
 
     // Pagos
     const [pagos, setPagos] = useState<PagoFactura[]>(factura?.pagos || [{
@@ -144,43 +186,32 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         setRazonSocial(cliente.razonSocial);
         setDireccion(cliente.direccion);
         setEmail(cliente.email);
+        setClienteId(cliente.id);
         setBusquedaCliente('');
         setMostrarListaClientes(false);
+        setTipoIdentificacion(cliente.tipoIdentificacion);
 
-        if (cliente.identificacion === '9999999999999') {
-            setTipoIdentificacion('07'); // Consumidor Final
-        } else if (cliente.identificacion.length === 10) {
-            setTipoIdentificacion('05'); // Cédula
-        } else if (cliente.identificacion.length === 13) {
-            setTipoIdentificacion('04'); // RUC
-        }
     };
 
     // Validar identificación en tiempo real
     useEffect(() => {
-        if (!identificacion || tipoIdentificacion === '07') {
+        if (!identificacion) {
             setErrorIdentificacion('');
-            setIdentificacionValida(tipoIdentificacion === '07');
             return;
         }
+        const resultado = validarIdentificacion(
+            tipoIdentificacion as '04' | '05' | '06' | '07' | '08',
+            identificacion
+        );
 
-        if (identificacion.length >= 5) {
-            const resultado = validarIdentificacion(
-                tipoIdentificacion as '04' | '05' | '06' | '07' | '08',
-                identificacion
-            );
-
-            if (!resultado.isValid) {
-                setErrorIdentificacion(resultado.error || 'Identificación inválida');
-                setIdentificacionValida(false);
-            } else {
-                setErrorIdentificacion('');
-                setIdentificacionValida(true);
-            }
+        if (!resultado.isValid) {
+            setErrorIdentificacion(resultado.error || 'Identificación inválida');
+            setIdentificacionValida(false);
         } else {
             setErrorIdentificacion('');
-            setIdentificacionValida(false);
+            setIdentificacionValida(true);
         }
+
     }, [identificacion, tipoIdentificacion]);
 
     // Efecto para manejar el cambio manual a Consumidor Final
@@ -201,9 +232,10 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             cantidad: 1,
             precioUnitario: 0,
             descuento: 0,
-            codigoIVA: '2', // Default
+            codigoIVA: defaultIVA,
             baseImponible: 0,
             valorIVA: 0,
+            tarifa: parametros?.ivaValor || 15,
             total: 0,
         }]);
     };
@@ -222,27 +254,22 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                 detalle.productoId = producto.id;
                 detalle.descripcion = producto.nombre;
                 detalle.precioUnitario = producto.precioVenta;
-                detalle.codigoIVA = producto.grabaIva ? '2' : '0';
+                // If product is taxable, use default IVA from params
+                detalle.codigoIVA = producto.grabaIva ? defaultIVA : '0';
             }
         }
 
         detalle.baseImponible = (detalle.cantidad * detalle.precioUnitario) - detalle.descuento;
 
         let porcentajeIVA = 0;
-        const tarifaSeleccionada = tarifasIVA.find(t => t.codigo === detalle.codigoIVA);
-
-        if (tarifaSeleccionada) {
-            if (detalle.codigoIVA === '2') {
-                porcentajeIVA = (parametros?.iva || 15) / 100;
-            } else {
-                const match = tarifaSeleccionada.valor.match(/(\d+)%/);
-                if (match) {
-                    porcentajeIVA = parseInt(match[1]) / 100;
-                }
-            }
+        if (detalle.codigoIVA === (parametros?.ivaCodigo)) {
+            porcentajeIVA = (parametros?.ivaValor || 15) / 100;
+        } else {
+            porcentajeIVA = 0;
         }
 
         detalle.valorIVA = detalle.baseImponible * porcentajeIVA;
+        detalle.tarifa = porcentajeIVA * 100;
         detalle.total = detalle.baseImponible + detalle.valorIVA;
 
         nuevosDetalles[index] = detalle;
@@ -292,28 +319,30 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
         const totalPagos = pagos.reduce((sum, p) => sum + (Number(p.total) || 0), 0);
 
         if (Math.abs(totalPagos - totales.importeTotal) > 0.02) {
-            alert(`El total de las formas de pago ($${totalPagos.toFixed(2)}) debe ser igual al importe total de la factura ($${totales.importeTotal.toFixed(2)})`);
+            setErrorSubmit(`El total de las formas de pago ($${totalPagos.toFixed(2)}) debe ser igual al importe total de la factura ($${totales.importeTotal.toFixed(2)})`);
             return;
         }
 
+        setErrorSubmit(null);
+
         const nuevaFactura: FacturaViewModel = {
             id: factura?.id,
-            ambiente: AMBIENTE.PRUEBAS,
-            tipoEmision: TIPO_EMISION.NORMAL,
+            ambiente: '1',
+            tipoEmision: '1',
             razonSocial: currentEmpresa.razonSocial,
             nombreComercial: currentEmpresa.nombreComercial,
             ruc: currentEmpresa.ruc,
             codDoc: '01',
-            estab,
-            ptoEmi,
-            secuencial,
+            estab: estab || '',
+            ptoEmi: ptoEmi || '',
+            secuencial: secuencial || '',
             dirMatriz: currentEmpresa.direccionMatriz,
             fechaEmision,
-            tipoIdentificacionAdquirente: tipoIdentificacion,
-            razonSocialAdquirente: razonSocial,
-            identificacionAdquirente: identificacion,
-            direccionAdquirente: direccion,
-            emailAdquirente: email,
+            tipoIdentificacionComprador: tipoIdentificacion,
+            razonSocialComprador: razonSocial,
+            identificacionComprador: identificacion,
+            direccionComprador: direccion,
+            emailComprador: email,
             detalles,
             ...totales,
             pagos,
@@ -321,110 +350,78 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             obligadoContabilidad: currentEmpresa.obligadoContabilidad ? 'SI' : 'NO',
         };
 
-        const dataSri = SriStandardizer.standardizeFactura(nuevaFactura, parametros?.iva || 15);
-
-        let sriResult = {
-            success: false,
-            status: 'BORRADOR',
-            numeroAutorizacion: null as string | null,
-            claveAcceso: null as string | null
-        };
-
         try {
-            const emisionRes = await FacturacionUseCases.emitirFactura(dataSri);
-            sriResult = {
-                success: true,
-                status: emisionRes.status || 'AUTORIZADO',
-                numeroAutorizacion: emisionRes.numeroAutorizacion,
-                claveAcceso: emisionRes.claveAcceso
-            };
-        } catch (sriError: any) {
-            console.error('Error SRI:', sriError);
-            sriResult.status = 'ERROR SRI';
-        }
-
-        try {
-            const resLocal = await FacturacionUseCases.registrarComprobante({
-                tipoComprobante: 'FACTURA',
-                fechaEmision,
-                clienteId: identificacion,
+            const res = await FacturacionUseCases.vender({
+                ...nuevaFactura,
+                ambiente: currentEmpresa?.ambienteSriNombre || '1',
+                puntoEmisionId: puntoActivo?.puntoEmisionId,
+                clienteId: clienteId || identificacion,
                 clienteNombre: razonSocial,
                 clienteIdentificacion: identificacion,
-                subtotal: totales.totalSinImpuestos,
-                iva: totales.totalIVA,
-                total: totales.importeTotal,
-                detalles: detalles.map(d => ({
-                    codigoPrincipal: d.codigoPrincipal,
-                    descripcion: d.descripcion,
-                    cantidad: d.cantidad,
-                    precioUnitario: d.precioUnitario,
-                    descuento: d.descuento,
-                    total: d.total
-                })),
-                secuencial: parseInt(secuencial),
-                claveAcceso: sriResult.claveAcceso,
-                numeroAutorizacion: sriResult.numeroAutorizacion,
-                estado: sriResult.status
+                ivaRate: parametros?.ivaValor,
+                // Pass the configured code to the backend use case if needed, 
+                // though the standardizer will handle it based on detail codes now.
             });
 
-            await ContabilidadUseCases.registrarAsiento({
-                numero: `AS-VTA-${secuencial}`,
-                fecha: fechaEmision,
-                glosa: `P/R Venta Factura ${estab}-${ptoEmi}-${secuencial} - ${razonSocial}`,
-                tipo: 'INGRESO',
-                detalles: [
-                    { cuentaCodigo: '1.1.01.01', debe: totales.importeTotal, haber: 0 },
-                    { cuentaCodigo: '4.1.01.01', debe: 0, haber: totales.totalSinImpuestos },
-                    { cuentaCodigo: '2.1.05.01', debe: 0, haber: totales.totalIVA }
-                ]
-            });
-
-            if (sriResult.success) {
-                alert(`Factura emitida y autorizada: ${sriResult.numeroAutorizacion}`);
-            } else {
-                alert(`Factura guardada localmente. Error SRI: ${sriResult.status}. Deberá reintentar el envío después.`);
+            if (res.success) {
+                if (res.estado === 'AUTORIZADO') {
+                    showToast(`Factura emitida y autorizada: ${res.numeroAutorizacion}`, 'success');
+                } else {
+                    showToast(`Factura guardada localmente. Estado SRI: ${res.estado}. Deberá reintentar el envío después.`, 'success');
+                }
+                onSubmit({ ...nuevaFactura, id: res.id, estado: res.estado });
             }
-
-            onSubmit({ ...nuevaFactura, id: resLocal.id, estado: sriResult.status as any });
         } catch (error: any) {
-            console.error('Error al guardar localmente:', error);
-            alert(`Error al guardar la factura: ${error.message}`);
+            console.error('Error en proceso de venta:', error);
+            setErrorSubmit(`Error al procesar la venta: ${error.message}`);
         }
     };
 
     return (
         <form id={id} onSubmit={handleSubmit} className="space-y-8">
             {/* Encabezado Técnico */}
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
-                <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <FileText size={16} /> Información del Comprobante
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Establecimiento</label>
-                        <Input value={estab} onChange={(e) => setEstab(e.target.value)} placeholder="001" maxLength={3} required />
+            <div>
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                    <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                        <FileText size={16} />
                     </div>
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Información del Comprobante</h3>
+                </div>
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Punto Emisión</label>
-                        <Input value={ptoEmi} onChange={(e) => setPtoEmi(e.target.value)} placeholder="001" maxLength={3} required />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Secuencial</label>
-                        <Input value={secuencial} onChange={(e) => setSecuencial(e.target.value)} placeholder="000000001" maxLength={9} required />
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase font-mono">Número de factura (Estab-PtoEmi-Secuencial)</label>
+                        <Input
+                            value={`${estab}-${ptoEmi}-${secuencial}`}
+                            onChange={(e) => handleNumeroFacturaChange(e.target.value)}
+                            placeholder="001-001-000000001"
+                            className="font-mono font-bold text-sri-blue bg-slate-100"
+                            required
+                            disabled
+                        />
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Fecha Emisión</label>
-                        <Input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} required />
+                        <Input
+                            type="date"
+                            value={fechaEmision}
+                            onChange={(e) => setFechaEmision(e.target.value)}
+                            className="bg-slate-100"
+                            required
+                            disabled
+                        />
                     </div>
                 </div>
             </div>
 
             {/* Datos del Cliente */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm relative">
-                <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <User size={16} /> Datos del Adquirente
-                    </h4>
+            <div className="space-y-4">
+                <div className="flex justify-between items-center mb-4 pb-3 border-b-2 border-sri-blue/10">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <User size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Datos del Comprador</h3>
+                    </div>
                     <div className="relative w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                         <input
@@ -451,7 +448,9 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                         )}
                     </div>
                 </div>
+            </div>
 
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
@@ -522,10 +521,13 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
 
             {/* Detalles */}
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <Calculator size={16} /> Detalles de Factura
-                    </h4>
+                <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-sri-blue/10">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <Calculator size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Detalles de Factura</h3>
+                    </div>
                     <Button type="button" onClick={agregarDetalle} variant="secondary" size="sm" className="flex items-center gap-2">
                         <Plus size={14} /> Agregar Ítem
                     </Button>
@@ -598,21 +600,11 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                                         />
                                     </td>
                                     <td className="px-4 py-3">
-                                        <select
-                                            value={detalle.codigoIVA}
-                                            onChange={(e) => actualizarDetalle(index, 'codigoIVA', e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-sri-blue/10"
-                                        >
-                                            {tarifasIVA && tarifasIVA.length > 0 ? (
-                                                tarifasIVA.map(tarifa => (
-                                                    <option key={tarifa.codigo} value={tarifa.codigo}>
-                                                        {tarifa.codigo === '2' ? `${parametros?.iva || 15}%` : tarifa.valor}
-                                                    </option>
-                                                ))
-                                            ) : (
-                                                <option value="2">{parametros?.iva || 15}%</option>
-                                            )}
-                                        </select>
+                                        <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-bold text-center text-slate-600">
+                                            {detalle.codigoIVA === (parametros?.ivaCodigo)
+                                                ? (parametros?.ivaEtiqueta || '15%')
+                                                : '0%'}
+                                        </div>
                                     </td>
                                     <td className="px-4 py-3 text-right font-black text-slate-900">
                                         ${(Number(detalle.total) || 0).toFixed(2)}
@@ -637,10 +629,13 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
             {/* Pie de Factura: Pago y Totales */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 <div className="lg:col-span-2 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <CreditCard size={16} /> Formas de Pago
-                        </h4>
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                                <CreditCard size={16} />
+                            </div>
+                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Formas de Pago</h3>
+                        </div>
                         <Button type="button" onClick={agregarPago} variant="secondary" size="sm" className="flex items-center gap-2">
                             <Plus size={14} /> Agregar Pago
                         </Button>
@@ -714,25 +709,35 @@ export function FacturaForm({ factura, onSubmit, onCancel, id = 'factura-form', 
                     </div>
                 </div>
 
-                <div className="bg-sri-blue p-8 rounded-3xl text-white shadow-xl shadow-blue-900/20 space-y-4">
-                    <div className="flex justify-between text-blue-100 font-medium">
-                        <span>Subtotal Sin Impuestos:</span>
-                        <span className="font-bold text-white">${totales.totalSinImpuestos.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-blue-100 font-medium">
-                        <span>Descuento Total:</span>
-                        <span className="font-bold text-white">${totales.totalDescuento.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-blue-100 font-medium">
-                        <span>IVA ({parametros?.iva || 15}%):</span>
-                        <span className="font-bold text-white">${totales.totalIVA.toFixed(2)}</span>
-                    </div>
-                    <div className="pt-4 border-t border-white/10 flex justify-between items-center">
-                        <span className="text-lg font-black uppercase tracking-wider">Importe Total:</span>
-                        <span className="text-3xl font-black">${totales.importeTotal.toFixed(2)}</span>
+                <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <div className="w-80 space-y-2 text-right">
+                        <div className="flex justify-between text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span>Subtotal Sin Impuestos:</span>
+                            <span className="font-mono text-sm">{formatearDinero(totales.totalSinImpuestos)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span>Descuento Total:</span>
+                            <span className="font-mono text-sm">{formatearDinero(totales.totalDescuento)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span>IVA ({parametros?.ivaEtiqueta || '15%'}):</span>
+                            <span className="font-mono text-sm">{formatearDinero(totales.totalIVA)}</span>
+                        </div>
+                        <div className="flex justify-between font-black text-sri-blue pt-2 mt-2 border-t border-slate-200">
+                            <span className="text-xs uppercase tracking-widest">Importe Total:</span>
+                            <span className="text-2xl font-mono">{formatearDinero(totales.importeTotal)}</span>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {/* Alerta de Error de Envío */}
+            {errorSubmit && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                    <AlertCircle size={20} className="shrink-0" />
+                    <p className="text-sm font-medium">{errorSubmit}</p>
+                </div>
+            )}
 
             {/* Botones de Acción */}
             {showButtons && (

@@ -16,8 +16,8 @@ export const useImpuestos = () => {
         try {
             const data = await ImpuestosUseCases.listarFormularios(tipo);
             setFormularios(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar formularios');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar formularios');
         } finally {
             setLoading(false);
         }
@@ -29,8 +29,8 @@ export const useImpuestos = () => {
         try {
             const data = await ImpuestosUseCases.listarFormularios('ATS');
             setAnexos(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar anexos');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar anexos');
         } finally {
             setLoading(false);
         }
@@ -41,8 +41,9 @@ export const useImpuestos = () => {
         try {
             await ImpuestosUseCases.generarFormulario(tipo, periodo);
             await cargarFormularios(tipo);
-        } catch (err: any) {
-            setError(err.message || 'Error al generar formulario');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al generar formulario';
+            setError(msg);
             throw err;
         } finally {
             setLoading(false);
@@ -54,8 +55,9 @@ export const useImpuestos = () => {
         try {
             await ImpuestosUseCases.generarFormulario('ATS', periodo);
             await cargarAnexos();
-        } catch (err: any) {
-            setError(err.message || 'Error al generar ATS');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al generar ATS';
+            setError(msg);
             throw err;
         } finally {
             setLoading(false);

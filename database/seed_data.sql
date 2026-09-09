@@ -1,550 +1,460 @@
 -- ============================================================================
--- ECUCONTABLE PRO - SEED DATA (DATOS DE PRUEBA)
--- ============================================================================
--- Descripción: Script para poblar la base de datos con información inicial
--- para desarrollo y pruebas.
--- Orden de ejecución: 1. Schema, 2. Indexes, 3. Seed Data
+-- ECUCONTABLE PRO - MASTER SEED DATA (RBAC + GRANULAR MENU + ESPAÑOL)
 -- ============================================================================
 
--- 1. EMPRESA DEMO
-INSERT INTO seguridad.empresas (id, ruc, razon_social, nombre_comercial, direccion, email, es_obligado_contabilidad)
-VALUES (
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    '1790011222001',
-    'EMPRESA DEMO S.A.',
-    'ECUCONTABLE STORE',
-    'Av. Amazonas y Naciones Unidas, Quito',
-    'admin@ecucontable.com',
-    true
-) ON CONFLICT (ruc) DO NOTHING;
-
--- 2. USUARIO SUPERADMIN
--- Password: password123 (Hash SHA-256 referencial)
-INSERT INTO seguridad.usuarios (id, email, nombre, password_hash, rol, activo)
-VALUES (
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
-    'admin@demo.com',
-    'Administrador Demo',
-    'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 
-    'SUPERADMIN',
-    true
-) ON CONFLICT (email) DO NOTHING;
-
--- 3. RELACIÓN USUARIO-EMPRESA
-INSERT INTO seguridad.usuarios_empresas (usuario_id, empresa_id)
-VALUES (
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
-) ON CONFLICT (usuario_id, empresa_id) DO NOTHING;
-
--- 3. Poblar Roles Estándar
-INSERT INTO seguridad.roles (nombre) VALUES 
-('SUPERADMIN'), ('ADMIN'), ('CONTADOR'), ('AUDITOR'), ('ASISTENTE')
+-- 1. ROLES BASE
+INSERT INTO seguridad.roles (nombre, descripcion) VALUES
+('SUPERADMIN', 'Propietario del Sistema (SaaS)'),
+('ADMIN', 'Administrador del Negocio'),
+('CONTADOR', 'Contador General'),
+('AUDITOR', 'Auditor Externo/Interno'),
+('ASISTENTE', 'Asistente Contable/Administrativo'),
+('VENDEDOR', 'Ejecutivo de Ventas'),
+('BODEGUERO', 'Encargado de Bodega')
 ON CONFLICT (nombre) DO NOTHING;
 
-
-
--- 5. Insertar Menu Items y sus Permisos
-DO $$ 
-DECLARE 
-    role_superadmin UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'SUPERADMIN');
-    role_admin UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'ADMIN');
-    role_contador UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'CONTADOR');
-    role_auditor UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'AUDITOR');
-    role_asistente UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'ASISTENTE');
-    item_id UUID;
-BEGIN
-    -- Limpiar items anteriores para evitar duplicados si se re-ejecuta
-    DELETE FROM configuracion.menu_items;
-
-    -- Dashboard
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Dashboard', 'LayoutDashboard', '/dashboard', 10, 'GRATUITO') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_auditor), (item_id, role_asistente);
-
-    -- Facturación
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Facturación', 'FileText', '/facturacion', 20, 'GRATUITO') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
-
-    -- Compras
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Compras', 'ShoppingCart', '/compras', 30, 'GRATUITO') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
-
-    -- Buzón XML
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Buzón XML', 'UploadCloud', '/buzon', 40, 'PROFESIONAL') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
-
-    -- Terceros
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Terceros', 'Contact2', '/directorio', 50, 'GRATUITO') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
-
-    -- Cartera
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Cartera', 'Wallet', '/cartera', 60, 'PROFESIONAL') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
-
-    -- Inventario
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Inventario', 'Package', '/inventario', 70, 'GRATUITO') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
-
-    -- Activos Fijos
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Activos Fijos', 'Monitor', '/activos', 80, 'PROFESIONAL') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
-
-    -- Caja Chica
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Caja Chica', 'Coins', '/caja-chica', 90, 'GRATUITO') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador), (item_id, role_asistente);
-
-    -- Bancos
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Bancos', 'Landmark', '/bancos', 100, 'PROFESIONAL') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
-
-    -- Contabilidad
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Contabilidad', 'TrendingUp', '/contabilidad', 110, 'PROFESIONAL') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
-
-    -- Impuestos
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Impuestos', 'PieChart', '/impuestos', 120, 'PROFESIONAL') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
-
-    -- Nómina
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Nómina', 'Users', '/nomina', 130, 'EMPRESARIAL') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
-
-    -- Reportes
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Reportes', 'FileBarChart', '/reportes', 140, 'GRATUITO') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin), (item_id, role_contador);
-
-    -- Auditoría
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Auditoría', 'ShieldAlert', '/auditoria', 150, 'EMPRESARIAL') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_auditor);
-
-    -- Configuración
-    INSERT INTO configuracion.menu_items (label, icon_name, path, orden, plan_minimo)
-    VALUES ('Configuración', 'Settings', '/configuracion', 160, 'GRATUITO') RETURNING id INTO item_id;
-    INSERT INTO configuracion.menu_item_roles (menu_item_id, rol_id) VALUES (item_id, role_superadmin), (item_id, role_admin);
-
-END $$;
-
-
-
-
-
--- 4. Migrar roles de usuarios actuales (Single -> Many)
-INSERT INTO seguridad.usuarios_roles (usuario_id, rol_id)
-SELECT id, (SELECT id FROM seguridad.roles WHERE nombre = 'SUPERADMIN')
-FROM seguridad.usuarios u
-ON CONFLICT DO NOTHING;
-
-
-
--- 4. TERCEROS (CLIENTES Y PROVEEDORES)
--- Consumidor Final (obligatorio según SRI)
-INSERT INTO directorio.terceros (id, empresa_id, tipo_identificacion, identificacion, razon_social, tipo_tercero, activo, created_by)
-VALUES (
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t01',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    '07',
-    '9999999999999',
-    'CONSUMIDOR FINAL',
-    'CLIENTE',
-    true,
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
-) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
-
--- Cliente ejemplo 1
-INSERT INTO directorio.terceros (id, empresa_id, tipo_identificacion, identificacion, razon_social, nombre_comercial, tipo_tercero, 
-                      email, telefono, celular, direccion, ciudad, provincia, limite_credito, dias_credito, activo, created_by)
-VALUES (
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t02',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    '04',
-    '1792345678001',
-    'TECNOLOGÍA AVANZADA CIA. LTDA.',
-    'TECH ADVANCE',
-    'CLIENTE',
-    'ventas@techadvance.com',
-    '02-2345678',
-    '0998765432',
-    'Av. República del Salvador N34-183',
-    'Quito',
-    'Pichincha',
-    5000.00,
-    30,
-    true,
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
-) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
-
--- Cliente ejemplo 2
-INSERT INTO directorio.terceros (id, empresa_id, tipo_identificacion, identificacion, razon_social, tipo_tercero, 
-                      email, telefono, direccion, ciudad, provincia, limite_credito, dias_credito, activo, created_by)
-VALUES (
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t03',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    '05',
-    '1712345678',
-    'RODRIGUEZ MARTINEZ JUAN CARLOS',
-    'CLIENTE',
-    'jrodriguez@email.com',
-    '02-3456789',
-    'Calle Los Shyris N45-123',
-    'Quito',
-    'Pichincha',
-    2000.00,
-    15,
-    true,
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
-) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
-
--- Proveedor ejemplo 1
-INSERT INTO directorio.terceros (id, empresa_id, tipo_identificacion, identificacion, razon_social, nombre_comercial, tipo_tercero,
-                      es_contribuyente_especial, email, telefono, direccion, ciudad, provincia, dias_credito, activo, created_by)
-VALUES (
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t04',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    '04',
-    '1791234567001',
-    'IMPORTADORA SUMINISTROS S.A.',
-    'IMPORT SUMINISTROS',
-    'PROVEEDOR',
-    true,
-    'compras@importsuministros.com',
-    '02-4567890',
-    'Av. 6 de Diciembre N33-123',
-    'Quito',
-    'Pichincha',
-    45,
-    true,
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
-) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
-
--- Cliente Y Proveedor (AMBOS)
-INSERT INTO directorio.terceros (id, empresa_id, tipo_identificacion, identificacion, razon_social, nombre_comercial, tipo_tercero,
-                      email, telefono, direccion, ciudad, provincia, limite_credito, dias_credito, activo, created_by)
-VALUES (
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t05',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    '04',
-    '1798765432001',
-    'COMERCIAL DISTRIBUIDORA DEL NORTE S.A.',
-    'DISTRYNORTE',
-    'AMBOS',
-    'admin@distrynorte.com',
-    '02-5678901',
-    'Av. Eloy Alfaro N35-456',
-    'Quito',
-    'Pichincha',
-    3000.00,
-    30,
-    true,
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11'
-) ON CONFLICT (empresa_id, identificacion) DO NOTHING;
-
--- 5. PLAN DE CUENTAS BÁSICO (NIIF)
--- INSERT INTO contabilidad.plan_cuentas (empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo) VALUES
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1', 'ACTIVO', 'ACTIVO', 1, 0),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1', 'ACTIVO CORRIENTE', 'ACTIVO', 2, 0),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01', 'EFECTIVO Y EQUIVALENTES', 'ACTIVO', 3, 0),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01.01', 'CAJA GENERAL', 'ACTIVO', 4, 500.00),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.01.02', 'BANCOS', 'ACTIVO', 4, 15000.00),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '1.1.03', 'INVENTARIOS', 'ACTIVO', 3, 0),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '2', 'PASIVO', 'PASIVO', 1, 0),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '2.1', 'PASIVO CORRIENTE', 'PASIVO', 2, 0),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '4', 'INGRESOS', 'INGRESO', 1, 0),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '4.1', 'INGRESOS OPERACIONALES', 'INGRESO', 2, 0),
--- ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', '5', 'GASTOS', 'GASTO', 1, 0);
-INSERT INTO contabilidad.plan_cuentas 
-(empresa_id, usuario_id, codigo, nombre, tipo, nivel, saldo, acepta_movimiento) VALUES
--- Activo
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1','ACTIVO','ACTIVO',1,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1','ACTIVO CORRIENTE','ACTIVO',2,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01','EFECTIVO Y EQUIVALENTES','ACTIVO',3,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.01','CAJA GENERAL','ACTIVO',4,500.00, true),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.02','BANCOS','ACTIVO',4,15000.00, true),
--- nuevas cuentas de movimiento
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.03','CAJA CHICA','ACTIVO',4,200.00, true),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.01.04','CUENTAS POR COBRAR CLIENTES','ACTIVO',4,3500.00, true),
-
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03','INVENTARIOS','ACTIVO',3,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03.01','INVENTARIO DE MERCADERÍAS','ACTIVO',4,8000.00, true),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','1.1.03.02','INVENTARIO DE MATERIA PRIMA','ACTIVO',4,2500.00, true),
-
--- Pasivo
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2','PASIVO','PASIVO',1,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1','PASIVO CORRIENTE','PASIVO',2,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.01','CUENTAS POR PAGAR PROVEEDORES','PASIVO',3,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.01.01','PROVEEDORES NACIONALES','PASIVO',4,4200.00, true),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','2.1.01.02','PROVEEDORES EXTRANJEROS','PASIVO',4,12000.00, true),
-
--- Ingresos
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4','INGRESOS','INGRESO',1,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1','INGRESOS OPERACIONALES','INGRESO',2,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01','VENTAS DE MERCADERÍAS','INGRESO',3,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.01','VENTAS LOCALES','INGRESO',4,25000.00, true),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','4.1.01.02','VENTAS EXPORTACIÓN','INGRESO',4,8000.00, true),
-
--- Gastos
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5','GASTOS','GASTO',1,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1','GASTOS OPERACIONALES','GASTO',2,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01','COSTO DE VENTAS','GASTO',3,0, false),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01.01','COSTO DE MERCADERÍAS VENDIDAS','GASTO',4,12000.00, true),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11','e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11','5.1.01.02','COSTO DE PRODUCCIÓN / SERVICIOS','GASTO',4,6000.00, true);
-
--- 6. BODEGA PRINCIPAL
-INSERT INTO inventario.bodegas (id, empresa_id, codigo, nombre, responsable, ubicacion)
-VALUES (
-    'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'MATRIZ',
-    'BODEGA CENTRAL',
-    'Juan Bodeguero',
-    'Planta Baja'
-) ON CONFLICT (empresa_id, codigo) DO NOTHING;
-
--- 7. CATEGORÍA DE PRODUCTOS
-INSERT INTO inventario.categorias_producto (id, empresa_id, nombre, cuenta_inventario, cuenta_costo_venta, cuenta_venta)
-VALUES (
-    'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'TECNOLOGÍA',
-    '1.1.03.01', -- Inventario MP
-    '5.1.01.01', -- Costo Ventas (Nivel 4)
-    '4.1.01.01'  -- Ventas (Nivel 4)
-);
-
--- 8. PRODUCTOS
-INSERT INTO inventario.productos (id, empresa_id, usuario_id, codigo_principal, nombre, precio_venta, categoria_id, stock_actual, stock_minimo, costo_promedio)
-VALUES 
-(
-    'p0eebc99-9c0b-4ef8-bb6d-6bb9bd380p01',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
-    'LAP-001',
-    'LAPTOP DELL INSPIRON 15',
-    899.99,
-    'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01',
-    10, 
-    2,
-    650.00
-),
-(
-    'p0eebc99-9c0b-4ef8-bb6d-6bb9bd380p02',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
-    'MOU-001',
-    'MOUSE INALAMBRICO LOGITECH',
-    25.50,
-    'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01',
-    50,
-    10,
-    12.00
-);
-
--- 9. CUENTA BANCARIA
-INSERT INTO bancos.bancos_cuentas (empresa_id, usuario_id, numero_cuenta, nombre, banco, saldo_actual)
-VALUES (
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
-    '1234567890',
-    'CUENTA CORRIENTE PRINCIPAL',
-    'BANCO PICHINCHA',
-    15000.00
-) ON CONFLICT (empresa_id, numero_cuenta) DO NOTHING;
-
--- 10. ASIENTO CONTABLE DE APERTURA (Ejemplo)
-INSERT INTO contabilidad.asientos (id, empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
-VALUES (
-    'as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11',
-    '2024-00001',
-    '2024-01-01',
-    'ASIENTO DE APERTURA 2024',
-    'APERTURA',
-    'MAYORIZADO'
-) ON CONFLICT (empresa_id, numero) DO NOTHING;
-
-INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES
-('as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1', '1.1.01.02', 15000.00, 0, 'Saldo Bancos'),
-('as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1', '1.1.01.01', 500.00, 0, 'Caja Chica'),
-('as0ebc99-9c0b-4ef8-bb6d-6bb9bd380as1', '4.1', 0, 15500.00, 'Capital Social');
-
--- ============================================================================
--- CATÁLOGOS SRI Y DEL SISTEMA
--- ============================================================================
-
--- 1. CREACIÓN DE TIPOS DE CATÁLOGO
-INSERT INTO configuracion.catalogos_tipos (codigo, nombre, descripcion) VALUES
-('SRI_TIPO_COMPROBANTE', 'Tipos de Comprobante SRI', 'Tabla 3: Tipos de Comprobante'),
-('SRI_TIPO_IDENTIFICACION', 'Tipos de Identificación', 'Tabla 6: Tipos de Identificación'),
-('SRI_IMPUESTO_RETENCION', 'Códigos de Retención', 'Tabla 9: Impuestos y Retenciones'),
-('SRI_TIPO_IMPUESTO_IVA', 'Porcentajes de IVA', 'Tabla 16: Código de Porcentaje IVA'),
-('SRI_FORMA_PAGO', 'Formas de Pago', 'Tabla 24: Formas de Pago'),
-('SYS_TIPO_CUENTA_BANCO', 'Tipos de Cuenta Bancaria', 'Catálogo interno de sistema'),
-('SYS_BANCOS_ECUADOR', 'Bancos del Ecuador', 'Instituciones financieras principales'),
-('SRI_UNIDAD_MEDIDA', 'Unidades de Medida SRI', 'Unidades estándar para facturación')
+-- 2. PLANES DE SUSCRIPCIÓN
+INSERT INTO seguridad.planes (nombre, codigo, descripcion, precio_mensual) VALUES
+('Plan Gratuito', 'GRATUITO', 'Funciones básicas', 0),
+('Plan Profesional', 'PROFESIONAL', 'Funciones avanzadas + Facturación', 25.00),
+('Plan Empresarial', 'EMPRESARIAL', 'Todo incluido (RRHH + Contabilidad Completa)', 50.00)
 ON CONFLICT (codigo) DO NOTHING;
 
--- 2. INSERCIÓN DE ITEMS DE CATÁLOGOS SRI
+-- 3. PERMISOS (CAPABILITIES) - GRANULAR LIST
+INSERT INTO seguridad.permisos (codigo, nombre, descripcion) VALUES
+-- Dashboard
+('VER_DASHBOARD', 'Ver Dashboard', 'Tablero Principal'),
 
--- A. SRI_TIPO_COMPROBANTE
-INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor, descripcion) VALUES
-('SRI_TIPO_COMPROBANTE', '01', 'FACTURA', 'Comprobante de venta'),
-('SRI_TIPO_COMPROBANTE', '03', 'LIQUIDACIÓN DE KOMPRA DE BIENES Y PRESTACIÓN DE SERVICIOS', 'Compras a personas sin RUC'),
-('SRI_TIPO_COMPROBANTE', '04', 'NOTA DE CRÉDITO', 'Anulaciones o descuentos'),
-('SRI_TIPO_COMPROBANTE', '05', 'NOTA DE DÉBITO', 'Cobros adicionales'),
-('SRI_TIPO_COMPROBANTE', '06', 'GUÍA DE REMISIÓN', 'Sustento de traslado'),
-('SRI_TIPO_COMPROBANTE', '07', 'COMPROBANTE DE RETENCIÓN', 'Retenciones en la fuente e IVA')
-ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
+-- Comercial > Ventas
+('VER_MODULO_COMERCIAL', 'Ver Módulo Comercial', 'Acceso Grupo Comercial'),
+('VER_VENTAS_FACTURAS', 'Ver Facturas Venta', 'Emitir facturas'),
+('VER_VENTAS_NC', 'Ver Notas Crédito', 'Emitir notas de crédito'),
+('VER_VENTAS_ND', 'Ver Notas Débito', 'Emitir notas de débito'),
+('VER_VENTAS_GUIAS', 'Ver Guías Remisión', 'Emitir guías'),
+('VER_VENTAS_PROFORMAS', 'Ver Proformas', 'Emitir proformas'),
 
--- B. SRI_TIPO_IDENTIFICACION
-INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUES
-('SRI_TIPO_IDENTIFICACION', '04', ' RUC'),
-('SRI_TIPO_IDENTIFICACION', '05', 'CÉDULA'),
-('SRI_TIPO_IDENTIFICACION', '06', 'PASAPORTE'),
-('SRI_TIPO_IDENTIFICACION', '07', 'CONSUMIDOR FINAL'),
-('SRI_TIPO_IDENTIFICACION', '08', 'IDENTIFICACIÓN DEL EXTERIOR')
-ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
+-- Comercial > Compras
+('VER_COMPRAS_FACTURAS', 'Ver Facturas Compra', 'Registrar compras'),
+('VER_COMPRAS_LIQ', 'Ver Liq. Compra', 'Liquidaciones de compra'),
+('VER_COMPRAS_RET', 'Ver Retenciones', 'Comprobantes de retención'),
+('VER_COMPRAS_ORDENES', 'Ver Órdenes Compra', 'Órdenes de pedido'),
 
--- C. SRI_TIPO_IMPUESTO_IVA
-INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor, descripcion, orden) VALUES
-('SRI_TIPO_IMPUESTO_IVA', '0', '0%', 'Tarifa 0% de IVA', 1),
-('SRI_TIPO_IMPUESTO_IVA', '2', '12%', 'Tarifa 12% de IVA', 2),
-('SRI_TIPO_IMPUESTO_IVA', '3', '14%', 'Tarifa 14% de IVA', 4),
-('SRI_TIPO_IMPUESTO_IVA', '4', '15%', 'Tarifa 15% de IVA', 3),
-('SRI_TIPO_IMPUESTO_IVA', '5', '5%', 'Tarifa 5% de IVA (Materiales construcción)', 5),
-('SRI_TIPO_IMPUESTO_IVA', '6', 'NO OBJETO DE IMPUESTO', 'No grava IVA', 6),
-('SRI_TIPO_IMPUESTO_IVA', '7', 'EXENTO DE IVA', 'Exento legal de IVA', 7)
-ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
+-- Comercial > Inventario
+('VER_INVENTARIO', 'Ver Inventario', 'Acceso Grupo Inventario'),
+('VER_INV_KARDEX', 'Ver Productos/Kardex', 'Gestión productos'),
+('VER_INV_CATEGORIAS', 'Ver Categorías', 'Gestión categorías'),
+('VER_INV_BODEGAS', 'Ver Bodegas', 'Gestión bodegas'),
+('VER_INV_TRANSF', 'Ver Transferencias', 'Movimientos entre bodegas'),
 
--- D. SRI_FORMA_PAGO
-INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUES
-('SRI_FORMA_PAGO', '01', 'SIN UTILIZACION DEL SISTEMA FINANCIERO'),
-('SRI_FORMA_PAGO', '15', 'COMPENSACIÓN DE DEUDAS'),
-('SRI_FORMA_PAGO', '16', 'TARJETA DE DÉBITO'),
-('SRI_FORMA_PAGO', '19', 'TARJETA DE CRÉDITO'),
-('SRI_FORMA_PAGO', '20', 'OTROS CON UTILIZACION DEL SISTEMA FINANCIERO'),
-('SRI_FORMA_PAGO', '21', 'ENDOSO DE TÍTULOS')
-ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
+-- Comercial > Otros
+('VER_CARTERA', 'Ver Cartera', 'Cobros y Pagos'),
+('VER_TERCEROS', 'Ver Terceros', 'Clientes y Proveedores'),
+('VER_CAJA_CHICA', 'Ver Caja Chica', 'Acceso Caja Chica'),
 
--- E. SYS_TIPO_CUENTA_BANCO
-INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUES
-('SYS_TIPO_CUENTA_BANCO', 'AHORROS', 'CUENTA DE AHORROS'),
-('SYS_TIPO_CUENTA_BANCO', 'CORRIENTE', 'CUENTA CORRIENTE')
-ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
+-- Financiero > Contabilidad
+('VER_MODULO_FINANCIERO', 'Ver Módulo Financiero', 'Acceso Grupo Financiero'),
+('VER_CONT_PLAN', 'Ver Plan Cuentas', 'Plan de cuentas'),
+('VER_CONT_ASIENTOS', 'Ver Asientos', 'Libro diario manual'),
+('VER_CONT_COSTOS', 'Ver Centros Costos', 'Gestión centros de costo'),
 
--- F. SYS_BANCOS_ECUADOR (Principales)
-INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUES
-('SYS_BANCOS_ECUADOR', 'BP', 'BANCO PICHINCHA'),
-('SYS_BANCOS_ECUADOR', 'BG', 'BANCO GUAYAQUIL'),
-('SYS_BANCOS_ECUADOR', 'BB', 'PRODUBANCO'),
-('SYS_BANCOS_ECUADOR', 'BPA', 'BANCO DEL PACÍFICO'),
-('SYS_BANCOS_ECUADOR', 'BI', 'BANCO INTERNACIONAL'),
-('SYS_BANCOS_ECUADOR', 'BOL', 'BANCO BOLIVARIANO')
-ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
- 
--- G. SRI_UNIDAD_MEDIDA
-INSERT INTO configuracion.catalogos_items (catalogo_codigo, codigo, valor) VALUES
-('SRI_UNIDAD_MEDIDA', 'UND', 'UNIDAD'),
-('SRI_UNIDAD_MEDIDA', 'KG', 'KILOGRAMO'),
-('SRI_UNIDAD_MEDIDA', 'LT', 'LITRO'),
-('SRI_UNIDAD_MEDIDA', 'MT', 'METRO'),
-('SRI_UNIDAD_MEDIDA', 'SER', 'SERVICIO'),
-('SRI_UNIDAD_MEDIDA', 'CAJ', 'CAJA'),
-('SRI_UNIDAD_MEDIDA', 'PAQ', 'PAQUETE'),
-('SRI_UNIDAD_MEDIDA', 'SER', 'SERVICIO')
-ON CONFLICT (catalogo_codigo, codigo) DO NOTHING;
+-- Financiero > Reportes
+('VER_REP_DIARIO', 'Ver Libro Diario', 'Reporte Diario'),
+('VER_REP_MAYOR', 'Ver Libro Mayor', 'Reporte Mayor'),
+('VER_REP_BAL_COMP', 'Ver Bal. Comprobación', 'Balance de Comprobación'),
+('VER_REP_ESF', 'Ver Est. Situación', 'Estado de Situación Financiera'),
+('VER_REP_ERI', 'Ver Est. Resultados', 'Estado de Resultados Integral'),
+('VER_REP_FLUJO', 'Ver Flujo Efectivo', 'Estado de Flujo Efectivo'),
+('VER_REP_PATRIMONIO', 'Ver Cambios Patrimonio', 'Estado Cambios Patrimonio'),
 
--- 11. DATOS INICIALES PARA CAJA CHICA
-INSERT INTO caja_chica.caja_chica (id, empresa_id, nombre, responsable, monto_asignado, saldo_actual)
-VALUES (
-    'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380cc1',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'Caja Principal Matriz',
-    'María Auxiliadora',
-    500.00,
-    500.00
-) ON CONFLICT (empresa_id, nombre) DO NOTHING;
+-- Financiero > Otros
+('VER_BANCOS', 'Ver Bancos', 'Movimientos y Conciliación'),
+('VER_IMPUESTOS', 'Ver Impuestos', 'Formularios y ATS'),
+('VER_ACTIVOS', 'Ver Activos Fijos', 'Gestión Activos y Depreciación'),
 
--- 12. DATOS INICIALES PARA CARTERA
-INSERT INTO cartera.documentos_pendientes 
-(id, empresa_id, tipo, tercero_id, nro_comprobante, fecha_emision, fecha_vencimiento, 
- dias_credito, monto_total, total_pagado, saldo_pendiente)
-VALUES (
-    'dcxc01-9c0b-4ef8-bb6d-6bb9bd380001',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'CXC',
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t02',
-    '001-002-000004521',
-    CURRENT_DATE - INTERVAL '45 days',
-    CURRENT_DATE - INTERVAL '15 days',
-    30,
-    1680.00,
-    0,
-    1680.00
-) ON CONFLICT (empresa_id, nro_comprobante) DO NOTHING;
+-- Recursos Humanos
+('VER_MODULO_RRHH', 'Ver RRHH', 'Acceso Grupo RRHH'),
+('VER_RRHH_EMPLEADOS', 'Ver Empleados', 'Fichas y Contratos'),
+('VER_RRHH_NOMINA', 'Ver Nómina', 'Roles de Pago'),
+('VER_RRHH_PRESTAMOS', 'Ver Préstamos', 'Anticipos y Préstamos'),
+('VER_RRHH_BENEFICIOS', 'Ver Beneficios', 'Décimos y Utilidades'),
+('VER_RRHH_ASISTENCIA', 'Ver Asistencia', 'Horas extras y atrasos'),
+('VER_RRHH_VACACIONES', 'Ver Vacaciones', 'Solicitudes y Saldos'),
+('VER_RRHH_LIQUIDACIONES', 'Ver Liquidaciones', 'Actas de Finiquito'),
 
-INSERT INTO cartera.documentos_pendientes 
-(id, empresa_id, tipo, tercero_id, nro_comprobante, fecha_emision, fecha_vencimiento, 
- dias_credito, monto_total, total_pagado, saldo_pendiente)
-VALUES (
-    'dcxc02-9c0b-4ef8-bb6d-6bb9bd380002',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'CXC',
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t03',
-    '001-002-000004525',
-    CURRENT_DATE - INTERVAL '5 days',
-    CURRENT_DATE + INTERVAL '25 days',
-    30,
-    500.00,
-    200.00,
-    300.00
-) ON CONFLICT (empresa_id, nro_comprobante) DO NOTHING;
+-- Sistema
+('VER_MODULO_SISTEMA', 'Ver Sistema', 'Acceso Grupo Sistema'),
+('VER_SYS_SEGURIDAD', 'Ver Seguridad', 'Usuarios y Roles'),
+('VER_SYS_CONFIG', 'Ver Configuración', 'Empresa y Parámetros'),
+('VER_SYS_PLANES', 'Ver Gestión Planes', 'Administrar planes de suscripción'),
+('VER_SYS_FACT_ELEC', 'Ver Fact. Electrónica', 'Firma y Buzón'),
+('VER_SYS_AUDITORIA', 'Ver Auditoría', 'Logs'),
+('VER_SYS_REPORTES', 'Ver Reportes Gral', 'Reportes del sistema')
+ON CONFLICT (codigo) DO NOTHING;
 
-INSERT INTO cartera.documentos_pendientes 
-(id, empresa_id, tipo, tercero_id, nro_comprobante, fecha_emision, fecha_vencimiento, 
- dias_credito, monto_total, total_pagado, saldo_pendiente)
-VALUES (
-    'dcxp01-9c0b-4ef8-bb6d-6bb9bd380003',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'CXP',
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t04',
-    '045-002-000123456',
-    CURRENT_DATE - INTERVAL '20 days',
-    CURRENT_DATE + INTERVAL '10 days',
-    30,
-    153.58,
-    0,
-    153.58
-) ON CONFLICT (empresa_id, nro_comprobante) DO NOTHING;
+-- 4. ASIGNACIÓN A ROLES (MATRIZ COMPLETA)
+DO $$
+DECLARE
+    r_super UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'SUPERADMIN');
+    r_admin UUID := (SELECT id FROM seguridad.roles WHERE nombre = 'ADMIN');
+    r_cont UUID  := (SELECT id FROM seguridad.roles WHERE nombre = 'CONTADOR');
+    r_vend UUID  := (SELECT id FROM seguridad.roles WHERE nombre = 'VENDEDOR');
+    r_bod  UUID  := (SELECT id FROM seguridad.roles WHERE nombre = 'BODEGUERO');
+    r_aud  UUID  := (SELECT id FROM seguridad.roles WHERE nombre = 'AUDITOR');
+BEGIN
+    -- 1. SUPERADMIN: Todo acceso (Dueño del SaaS)
+    INSERT INTO seguridad.roles_permisos (rol_id, permiso_id)
+    SELECT r_super, id FROM seguridad.permisos ON CONFLICT DO NOTHING;
+    
+    -- 2. ADMIN: Todo acceso MENOS Planes y Auditoría (Admin de Empresa)
+    INSERT INTO seguridad.roles_permisos (rol_id, permiso_id)
+    SELECT r_admin, id FROM seguridad.permisos 
+    WHERE codigo NOT IN ('VER_SYS_PLANES', 'VER_SYS_AUDITORIA','VER_SYS_SEGURIDAD')
+    ON CONFLICT DO NOTHING;
 
-INSERT INTO cartera.anticipos 
-(id, empresa_id, tipo, tercero_id, fecha, referencia, monto_original, monto_usado, saldo_disponible, estado)
-VALUES (
-    'ant001-9c0b-4ef8-bb6d-6bb9bd380001',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'CXP',
-    't0eebc99-9c0b-4ef8-bb6d-6bb9bd380t04',
-    CURRENT_DATE - INTERVAL '30 days',
-    'Transf. Inicial Obra',
-    500.00,
-    0,
-    500.00,
-    'DISPONIBLE'
-);
+    -- 3. CONTADOR: Financiero completo, Reportes, Impuestos, Activos, Compras (Retenciones)
+    INSERT INTO seguridad.roles_permisos (rol_id, permiso_id)
+    SELECT r_cont, id FROM seguridad.permisos 
+    WHERE codigo LIKE 'VER_MODULO_FINANCIERO' 
+       OR codigo LIKE 'VER_CONT_%' 
+       OR codigo LIKE 'VER_REP_%' 
+       OR codigo LIKE 'VER_BANCOS' 
+       OR codigo LIKE 'VER_IMPUESTOS' 
+       OR codigo LIKE 'VER_ACTIVOS'
+       -- Acceso visual a comercial para contexto
+       OR codigo = 'VER_MODULO_COMERCIAL'
+       OR codigo IN ('VER_COMPRAS_FACTURAS', 'VER_COMPRAS_RET', 'VER_COMPRAS_LIQ', 'VER_TERCEROS')
+       OR codigo = 'VER_DASHBOARD'
+    ON CONFLICT DO NOTHING;
+
+    -- 3. VENDEDOR: Comercial (Ventas), Cartera (Cobros), Terceros, Inventario (Ver Stock)
+    INSERT INTO seguridad.roles_permisos (rol_id, permiso_id)
+    SELECT r_vend, id FROM seguridad.permisos 
+    WHERE codigo IN (
+        'VER_DASHBOARD',
+        'VER_MODULO_COMERCIAL',
+        'VER_VENTAS_FACTURAS', 'VER_VENTAS_NC', 'VER_VENTAS_PROFORMAS', 'VER_VENTAS_GUIAS',
+        'VER_CARTERA', -- Para cobros básicos
+        'VER_TERCEROS', -- Crear clientes
+        'VER_INVENTARIO', 'VER_INV_KARDEX' -- Consultar stock y precios
+    ) ON CONFLICT DO NOTHING;
+
+    -- 4. BODEGUERO: Inventario Completo, Transferencias, Compras (Ver Ordenes)
+    INSERT INTO seguridad.roles_permisos (rol_id, permiso_id)
+    SELECT r_bod, id FROM seguridad.permisos 
+    WHERE codigo LIKE 'VER_INV_%' 
+       OR codigo IN ('VER_DASHBOARD', 'VER_MODULO_COMERCIAL', 'VER_INVENTARIO', 'VER_COMPRAS_ORDENES')
+    ON CONFLICT DO NOTHING;
+
+    -- 5. AUDITOR: Acceso de lectura global + Auditoría Sistema
+    INSERT INTO seguridad.roles_permisos (rol_id, permiso_id)
+    SELECT r_aud, id FROM seguridad.permisos 
+    WHERE codigo LIKE 'VER_%' -- Asumimos que los permisos VER_ son de lectura
+      AND codigo != 'VER_SYS_CONFIG' -- No configurar
+    ON CONFLICT DO NOTHING;
+END $$;
+
+-- 5. ASIGNACIÓN A PLANES (FEATURE GATING)
+DO $$
+DECLARE
+    p_emp UUID := (SELECT id FROM seguridad.planes WHERE codigo = 'EMPRESARIAL');
+    p_pro UUID := (SELECT id FROM seguridad.planes WHERE codigo = 'PROFESIONAL');
+    p_gra UUID := (SELECT id FROM seguridad.planes WHERE codigo = 'GRATUITO');
+BEGIN
+    -- 1. PLAN EMPRESARIAL: Todo incluido
+    INSERT INTO seguridad.planes_permisos (plan_id, permiso_id)
+    SELECT p_emp, id FROM seguridad.permisos ON CONFLICT DO NOTHING;
+    
+    -- 2. PLAN PROFESIONAL: Comercial + Financiero Básico (Sin RRHH, Sin Activos, Sin Costos)
+    INSERT INTO seguridad.planes_permisos (plan_id, permiso_id)
+    SELECT p_pro, id FROM seguridad.permisos
+    WHERE codigo NOT LIKE 'VER_RRHH_%' 
+      AND codigo NOT LIKE 'VER_ACTIVOS'
+      AND codigo != 'VER_CONT_COSTOS'
+    ON CONFLICT DO NOTHING;
+
+    -- 3. PLAN GRATUITO: Solo Facturación Básica, Clientes y Productos
+    INSERT INTO seguridad.planes_permisos (plan_id, permiso_id)
+    SELECT p_gra, id FROM seguridad.permisos
+    WHERE codigo IN (
+        'VER_DASHBOARD',
+        'VER_MODULO_COMERCIAL',
+        'VER_VENTAS_FACTURAS', 'VER_VENTAS_PROFORMAS',
+        'VER_TERCEROS',
+        'VER_INVENTARIO', 'VER_INV_KARDEX', -- Solo ver y crear prod
+        'VER_SYS_CONFIG' -- Solo básica (Empresa)
+    ) ON CONFLICT DO NOTHING;
+END $$;
+
+-- 6. USUARIOS BASE
+INSERT INTO seguridad.empresas (id, ruc, razon_social, nombre_comercial, es_obligado_contabilidad) VALUES (
+    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '1722039953001', 'EMPRESA DEMO S.A.', 'ECUCONTABLE STORE', true
+) ON CONFLICT (ruc) DO NOTHING;
+
+INSERT INTO seguridad.usuarios (id, email, nombre, password_hash, activo, plan_id) VALUES (
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', 'admin@demo.com', 'Administrador Demo', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', true,
+    (SELECT id FROM seguridad.planes WHERE codigo = 'EMPRESARIAL')
+) ON CONFLICT (email) DO UPDATE SET plan_id = EXCLUDED.plan_id;
+
+INSERT INTO seguridad.usuarios_empresas (usuario_id, empresa_id) VALUES (
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO seguridad.usuarios_roles (usuario_id, rol_id)
+SELECT 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380c11', id FROM seguridad.roles WHERE nombre = 'ADMIN'
+ON CONFLICT DO NOTHING;
+
+-- 7. MENU ITEMS HIERARCHY
+DELETE FROM configuracion.menu_items;
+
+DO $$
+DECLARE
+    -- Group Parents
+    g_comercial UUID;
+    g_financiero UUID;
+    g_rrhh UUID;
+    g_sistema UUID;
+    
+    -- Sub-Group Parents
+    sg_ventas UUID;
+    sg_compras UUID;
+    sg_inventario UUID;
+    sg_cartera UUID;
+    sg_terceros UUID;
+    sg_cajachica UUID;
+    sg_contabilidad UUID;
+    sg_reportes UUID;
+    sg_bancos UUID;
+    sg_impuestos UUID;
+    sg_activos UUID;
+    sg_rrhh_empleados UUID;
+    sg_rrhh_nomina UUID;
+    sg_rrhh_prestamos UUID;
+    sg_rrhh_beneficios UUID;
+    sg_rrhh_asistencia UUID;
+    sg_rrhh_vacaciones UUID;
+    sg_rrhh_liquidaciones UUID;
+    sg_seguridad UUID;
+    sg_config UUID;
+    sg_factel UUID;
+BEGIN
+    -- DASHBOARD
+    INSERT INTO configuracion.menu_items (etiqueta, icono, ruta, orden, permiso_id)
+    VALUES ('Dashboard', 'LayoutDashboard', '/dashboard', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_DASHBOARD'));
+
+    -- GRUPO COMERCIAL
+    INSERT INTO configuracion.menu_items (etiqueta, icono, ruta, orden, permiso_id)
+    VALUES ('Comercial', 'Store', '#', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_MODULO_COMERCIAL'))
+    RETURNING id INTO g_comercial;
+    
+        -- Sub: Ventas
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_comercial, 'Ventas', 'ShoppingBag', '#', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_VENTAS_FACTURAS'))
+        RETURNING id INTO sg_ventas;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_ventas, 'Facturación', 'FileText', '/facturacion', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_VENTAS_FACTURAS')),
+            (sg_ventas, 'Notas de Crédito', 'FileMinus', '/facturacion/notas-credito', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_VENTAS_NC')),
+            (sg_ventas, 'Notas de Débito', 'FilePlus', '/facturacion/notas-debito', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_VENTAS_ND')),
+            (sg_ventas, 'Guías de Remisión', 'Truck', '/facturacion/guias', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_VENTAS_GUIAS')),
+            (sg_ventas, 'Proformas', 'ClipboardList', '/facturacion/proformas', 50, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_VENTAS_PROFORMAS'));
+
+        -- Sub: Compras
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_comercial, 'Compras', 'ShoppingCart', '#', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_COMPRAS_FACTURAS'))
+        RETURNING id INTO sg_compras;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_compras, 'Facturas Compra', 'FileInput', '/compras', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_COMPRAS_FACTURAS')),
+            (sg_compras, 'Liq. de Compra', 'FileSpreadsheet', '/compras/liquidaciones', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_COMPRAS_LIQ')),
+            (sg_compras, 'Retenciones', 'Scissors', '/compras/retenciones', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_COMPRAS_RET')),
+            (sg_compras, 'Notas de Crédito', 'FileMinus', '/compras/notas-credito', 35, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_COMPRAS_FACTURAS')),
+            (sg_compras, 'Órdenes Compra', 'ClipboardCheck', '/compras/ordenes-compra', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_COMPRAS_ORDENES')),
+            (sg_compras, 'Buzón XML', 'Inbox', '/buzon', 50, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_COMPRAS_FACTURAS'));
+
+        -- Sub: Inventario
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_comercial, 'Inventario', 'Package', '#', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_INVENTARIO'))
+        RETURNING id INTO sg_inventario;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_inventario, 'Kardex / Productos', 'Box', '/inventario/kardex', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_INV_KARDEX')),
+            (sg_inventario, 'Categorías', 'Tags', '/inventario/categorias', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_INV_CATEGORIAS')),
+            (sg_inventario, 'Bodegas', 'Warehouse', '/inventario/bodegas', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_INV_BODEGAS')),
+            (sg_inventario, 'Transferencias', 'ArrowLeftRight', '/inventario/transferencias', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_INV_TRANSF'));
+
+        -- Otros Comercial
+        -- Sub: Cartera
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_comercial, 'Cartera', 'Wallet', '#', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CARTERA'))
+        RETURNING id INTO sg_cartera;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_cartera, 'Cuentas por Cobrar', 'ArrowDownLeft', '/cartera/clientes', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CARTERA')),
+            (sg_cartera, 'Cuentas por Pagar', 'ArrowUpRight', '/cartera/proveedores', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CARTERA')),
+            (sg_cartera, 'Anticipos', 'Coins', '/cartera/anticipos', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CARTERA'));
+
+        -- Sub: Terceros
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_comercial, 'Terceros', 'Contact2', '#', 50, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_TERCEROS'))
+        RETURNING id INTO sg_terceros;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_terceros, 'Clientes', 'UserCheck', '/directorio/clientes', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_TERCEROS')),
+            (sg_terceros, 'Proveedores', 'Truck', '/directorio/proveedores', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_TERCEROS'));
+
+        -- Sub: Caja Chica
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_comercial, 'Caja Chica', 'Coins', '#', 60, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CAJA_CHICA'))
+        RETURNING id INTO sg_cajachica;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_cajachica, 'Vales y Caja', 'Wallet2', '/caja-chica/vales', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CAJA_CHICA'));
 
 
+    -- GRUPO FINANCIERO
+    INSERT INTO configuracion.menu_items (etiqueta, icono, ruta, orden, permiso_id)
+    VALUES ('Financiero', 'Landmark', '#', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_MODULO_FINANCIERO'))
+    RETURNING id INTO g_financiero;
 
+        -- Sub: Contabilidad
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_financiero, 'Contabilidad', 'BookOpen', '#', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CONT_PLAN'))
+        RETURNING id INTO sg_contabilidad;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_contabilidad, 'Plan de Cuentas', 'ListTree', '/contabilidad/plan-cuentas', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CONT_PLAN')),
+            (sg_contabilidad, 'Asientos', 'Edit3', '/contabilidad/asientos', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CONT_ASIENTOS')),
+            (sg_contabilidad, 'Centros Costos', 'Target', '/contabilidad/centros-costos', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_CONT_COSTOS'));
+
+        -- Sub: Reportes
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_financiero, 'Reportes Contables', 'BarChart4', '#', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_REP_DIARIO'))
+        RETURNING id INTO sg_reportes;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_reportes, 'Libro Diario', 'Book', '/reportes/libro-diario', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_REP_DIARIO')),
+            (sg_reportes, 'Libro Mayor', 'BookText', '/reportes/libro-mayor', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_REP_MAYOR')),
+            (sg_reportes, 'Balance Comprob.', 'Scale', '/reportes/balance-comprobacion', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_REP_BAL_COMP')),
+            (sg_reportes, 'Est. Situación Fin.', 'Building', '/reportes/estado-situacion', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_REP_ESF')),
+            (sg_reportes, 'Est. Resultados', 'TrendingUp', '/reportes/estado-resultados', 50, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_REP_ERI')),
+            (sg_reportes, 'Flujo Efectivo', 'Banknote', '/reportes/flujo-efectivo', 60, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_REP_FLUJO')),
+            (sg_reportes, 'Cambios Patrimonio', 'Users', '/reportes/cambios-patrimonio', 70, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_REP_PATRIMONIO'));
+
+        -- Otros Financiero
+        -- Sub: Bancos
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_financiero, 'Bancos', 'CreditCard', '#', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_BANCOS'))
+        RETURNING id INTO sg_bancos;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_bancos, 'Movimientos', 'ArrowLeftRight', '/bancos/movimientos', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_BANCOS')),
+            (sg_bancos, 'Conciliación', 'CheckCircle2', '/bancos/conciliacion', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_BANCOS'));
+
+        -- Sub: Impuestos
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_financiero, 'Impuestos (SRI)', 'Stamp', '#', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_IMPUESTOS'))
+        RETURNING id INTO sg_impuestos;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_impuestos, 'Declaraciones', 'FileText', '/impuestos/declaraciones', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_IMPUESTOS')),
+            (sg_impuestos, 'Anexo Transaccional (ATS)', 'Table', '/impuestos/ats', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_IMPUESTOS'));
+
+        -- Sub: Activos Fijos
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_financiero, 'Activos Fijos', 'Monitor', '#', 50, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_ACTIVOS'))
+        RETURNING id INTO sg_activos;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_activos, 'Activos', 'Monitor', '/activos-fijos/lista', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_ACTIVOS')),
+            (sg_activos, 'Depreciaciones', 'TrendingDown', '/activos-fijos/depreciaciones', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_ACTIVOS')),
+            (sg_activos, 'Bajas', 'Trash2', '/activos-fijos/bajas', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_ACTIVOS'));
+
+
+    -- GRUPO RRHH
+    INSERT INTO configuracion.menu_items (etiqueta, icono, ruta, orden, permiso_id)
+    VALUES ('Recursos Humanos', 'Users', '#', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_MODULO_RRHH'))
+    RETURNING id INTO g_rrhh;
+
+    -- Sub: Empleados
+    INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+    VALUES (g_rrhh, 'Empleados', 'UserPlus', '#', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_EMPLEADOS'))
+    RETURNING id INTO sg_rrhh_empleados;
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+        (sg_rrhh_empleados, 'Ficha Personal', 'User', '/rrhh/empleados', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_EMPLEADOS')),
+        (sg_rrhh_empleados, 'Contratos', 'FileSignature', '/rrhh/empleados', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_EMPLEADOS'));
+
+    -- Sub: Nómina
+    INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+    VALUES (g_rrhh, 'Nómina', 'Table2', '#', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_NOMINA'))
+    RETURNING id INTO sg_rrhh_nomina;
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+        (sg_rrhh_nomina, 'Roles de Pago', 'Banknote', '/rrhh/nomina', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_NOMINA'));
+
+    -- Sub: Préstamos
+    INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+    VALUES (g_rrhh, 'Préstamos', 'HandCoins', '#', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_PRESTAMOS'))
+    RETURNING id INTO sg_rrhh_prestamos;
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+        (sg_rrhh_prestamos, 'Anticipos', 'Coins', '/rrhh/prestamos', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_PRESTAMOS')),
+        (sg_rrhh_prestamos, 'Préstamos', 'Landmark', '/rrhh/prestamos', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_PRESTAMOS'));
+
+    -- Sub: Beneficios
+    INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+    VALUES (g_rrhh, 'Beneficios', 'Gift', '#', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_BENEFICIOS'))
+    RETURNING id INTO sg_rrhh_beneficios;
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+        (sg_rrhh_beneficios, 'Décimos', 'CalendarPlus', '/rrhh/beneficios', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_BENEFICIOS')),
+        (sg_rrhh_beneficios, 'Utilidades', 'TrendingUp', '/rrhh/beneficios', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_BENEFICIOS')),
+        (sg_rrhh_beneficios, 'Fondos de Reserva', 'PiggyBank', '/rrhh/beneficios', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_BENEFICIOS'));
+
+    -- Sub: Asistencia
+    INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+    VALUES (g_rrhh, 'Asistencia', 'Clock', '#', 50, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_ASISTENCIA'))
+    RETURNING id INTO sg_rrhh_asistencia;
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+        (sg_rrhh_asistencia, 'Horas Extras', 'Timer', '/rrhh/asistencia', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_ASISTENCIA')),
+        (sg_rrhh_asistencia, 'Atrasos y Faltas', 'UserMinus', '/rrhh/asistencia', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_ASISTENCIA'));
+
+    -- Sub: Vacaciones
+    INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+    VALUES (g_rrhh, 'Vacaciones', 'Palmtree', '#', 60, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_VACACIONES'))
+    RETURNING id INTO sg_rrhh_vacaciones;
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+        (sg_rrhh_vacaciones, 'Solicitudes', 'FilePlus', '/rrhh/vacaciones', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_VACACIONES')),
+        (sg_rrhh_vacaciones, 'Saldos', 'ListVideo', '/rrhh/vacaciones', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_VACACIONES'));
+
+    -- Sub: Liquidaciones
+    INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+    VALUES (g_rrhh, 'Liquidaciones', 'FileX', '#', 70, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_LIQUIDACIONES'))
+    RETURNING id INTO sg_rrhh_liquidaciones;
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+        (sg_rrhh_liquidaciones, 'Actas de Finiquito', 'FileText', '/rrhh/liquidaciones', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_RRHH_LIQUIDACIONES'));
+
+
+    -- GRUPO SISTEMA
+    INSERT INTO configuracion.menu_items (etiqueta, icono, ruta, orden, permiso_id)
+    VALUES ('Sistema', 'Settings', '#', 90, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_MODULO_SISTEMA'))
+    RETURNING id INTO g_sistema;
+
+        -- Sub: Seguridad
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_sistema, 'Seguridad', 'Shield', '#', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_SEGURIDAD'))
+        RETURNING id INTO sg_seguridad;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_seguridad, 'Usuarios', 'UserCog', '/administracion/usuarios', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_SEGURIDAD')),
+            (sg_seguridad, 'Gestión de Roles', 'Lock', '/configuracion/roles', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_SEGURIDAD')),
+            (sg_seguridad, 'Puntos de Usuario', 'UserCheck', '/administracion/puntos-usuario', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_SEGURIDAD'));
+
+        -- Sub: Configuración
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_sistema, 'Configuración', 'Settings2', '#', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_CONFIG'))
+        RETURNING id INTO sg_config;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_config, 'Empresa', 'Building2', '/configuracion/empresa', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_CONFIG')),
+            (sg_config, 'Sucursales', 'Database', '/configuracion/sucursales', 20, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_CONFIG')),
+            (sg_config, 'Puntos Emisión', 'Computer', '/configuracion/puntos-emision', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_CONFIG')),
+            (sg_config, 'Gestión de Planes', 'CreditCard', '/administracion/planes', 35, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_PLANES')),
+            (sg_config, 'Parámetros', 'Sliders', '/configuracion/parametros', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_CONFIG'));
+
+        -- Sub: Fact. Electrónica
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id)
+        VALUES (g_sistema, 'Fact. Electrónica', 'Wifi', '#', 30, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_FACT_ELEC'))
+        RETURNING id INTO sg_factel;
+            INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+            (sg_factel, 'Firma Electrónica', 'FileSignature', '/configuracion/firma-electronica', 10, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_FACT_ELEC'));
+
+        -- Otros Sistema
+        INSERT INTO configuracion.menu_items (padre_id, etiqueta, icono, ruta, orden, permiso_id) VALUES 
+        (g_sistema, 'Auditoría', 'Eye', '/auditoria', 40, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_AUDITORIA')),
+        (g_sistema, 'Reportes Gral.', 'PieChart', '/reportes-generales', 50, (SELECT id FROM seguridad.permisos WHERE codigo = 'VER_SYS_REPORTES'));
+
+END $$;

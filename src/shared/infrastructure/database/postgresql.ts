@@ -9,12 +9,20 @@ class PostgreSQLClient {
     private pool: Pool;
 
     private constructor() {
+        // Validar variables de entorno requeridas
+        const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'] as const;
+        for (const envVar of requiredEnvVars) {
+            if (!process.env[envVar]) {
+                throw new Error(`Variable de entorno ${envVar} no está definida. Configúrela en el archivo .env`);
+            }
+        }
+
         this.pool = new Pool({
-            host: process.env.DB_HOST || '127.0.0.1',
+            host: process.env.DB_HOST,
             port: parseInt(process.env.DB_PORT || '5435'),
-            database: process.env.DB_NAME || 'ecucontabledb',
-            user: process.env.DB_USER || 'postgres',
-            password: process.env.DB_PASSWORD || 'admin',
+            database: process.env.DB_NAME,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
             max: 20, // máximo de conexiones en el pool
             idleTimeoutMillis: 30000,
             connectionTimeoutMillis: 2000,
@@ -70,7 +78,7 @@ class PostgreSQLClient {
      */
     public async transaction<T>(
         callback: (client: any) => Promise<T>,
-        context: { empresaId: string; usuarioId: string }
+        context: { empresaId: string | null; usuarioId: string | null }
     ): Promise<T> {
         const client = await this.pool.connect();
         try {

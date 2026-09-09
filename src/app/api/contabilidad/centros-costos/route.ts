@@ -57,18 +57,19 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const id = crypto.randomUUID();
-
-        await db.query(
+        const result = await db.query(
             {
                 text: `
-                    INSERT INTO contabilidad.centros_costos (id, empresa_id, codigo, nombre, nivel, activo)
-                    VALUES ($1, $2, $3, $4, $5, $6)
+                    INSERT INTO contabilidad.centros_costos (empresa_id, codigo, nombre, nivel, activo)
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING id
                 `,
-                values: [id, context.empresaId, codigo, nombre, nivel, activo]
+                values: [context.empresaId, codigo, nombre, nivel, activo]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
+
+        const id = result.rows[0].id;
 
         return NextResponse.json({ success: true, id, message: 'Centro de costos creado exitosamente' }, { status: 201 });
     } catch (error: any) {

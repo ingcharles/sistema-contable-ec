@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
                 RETURNING cuenta_contable_codigo
             `, [esEgreso ? -montoVal : montoVal, cuentaBancoId]);
 
-            const ctaBanco = bancoResult.rows[0]?.cuenta_contable_codigo || '1.1.01.01';
+            const ctaBanco = bancoResult.rows[0]?.cuenta_contable_codigo;
 
             // 5. Obtener cuentas de anticipo de configuración parametrizada
             const paramsResult = await client.query(
@@ -132,8 +132,8 @@ export async function POST(req: NextRequest) {
             );
 
             const params = paramsResult.rows[0];
-            const ctaAnticipoCliente = params?.cuenta_anticipo_clientes || '2.1.04.01';
-            const ctaAnticipoProveedor = params?.cuenta_anticipo_proveedores || '1.1.04.01';
+            const ctaAnticipoCliente = params?.cuenta_anticipo_clientes;
+            const ctaAnticipoProveedor = params?.cuenta_anticipo_proveedores;
 
             // 6. Asiento Contable
             const asientoResult = await client.query(`
@@ -148,14 +148,15 @@ export async function POST(req: NextRequest) {
             ]);
             const asientoId = asientoResult.rows[0].id;
 
+            const glosaAsiento = `Anticipo ${esCliente ? 'Cliente' : 'Proveedor'} - ${tercero.razon_social}`;
             if (esCliente) {
                 // Ingreso de dinero: Debe Banco / Haber Anticipo Clientes (Pasivo)
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'BANCO')`, [asientoId, ctaBanco, montoVal]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'ANTICIPO CLIENTE')`, [asientoId, ctaAnticipoCliente, montoVal]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'BANCO', $4)`, [asientoId, ctaBanco, montoVal, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'ANTICIPO CLIENTE', $4)`, [asientoId, ctaAnticipoCliente, montoVal, glosaAsiento]);
             } else {
                 // Egreso de dinero: Debe Anticipo Proveedores (Activo) / Haber Banco
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'ANTICIPO PROVEEDOR')`, [asientoId, ctaAnticipoProveedor, montoVal]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'BANCO')`, [asientoId, ctaBanco, montoVal]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'ANTICIPO PROVEEDOR', $4)`, [asientoId, ctaAnticipoProveedor, montoVal, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'BANCO', $4)`, [asientoId, ctaBanco, montoVal, glosaAsiento]);
             }
 
             return { anticipoId: anticipoResult.rows[0].id, asientoId };

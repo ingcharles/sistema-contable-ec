@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateContext } from '@/shared/middleware/authContext';
 import { db } from '@/shared/infrastructure/database/postgresql';
-import { ServicioSeguimientoUso, TipoComprobanteEnum } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
+import { ServicioSeguimientoUso } from '@/modules/shared/domain/services/ServicioSeguimientoUso';
 import { XmlGenerator } from '@/modules/facturacion/domain/services/XmlGenerator';
 
 /**
@@ -15,14 +15,16 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const url = new URL(req.url);
-        const estado = url.searchParams.get('estado');
-        const desde = url.searchParams.get('desde');
-        const hasta = url.searchParams.get('hasta');
+        const { searchParams } = new URL(req.url);
+        const estado = searchParams.get('estado');
+        const desde = searchParams.get('desde');
+        const hasta = searchParams.get('hasta');
 
-        let whereConditions = ['empresa_id = $1', "tipo_comprobante = 'GUIA_REMISION'"];
-        let values: any[] = [context.empresaId];
-        let paramIndex = 2;
+        const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('06');
+        const tipoComprobanteId = tipoComprobante.id;
+        let whereConditions = ['empresa_id = $1', "tipo_comprobante_id = $2"];
+        let values: any[] = [context.empresaId, tipoComprobanteId];
+        let paramIndex = 3;
 
         if (estado) {
             whereConditions.push(`estado = $${paramIndex}`);
@@ -107,10 +109,13 @@ export async function POST(req: NextRequest) {
         }
 
         // ===== VALIDACIÓN DE CUOTA DE GUÍAS =====
+        const tipoComprobante = await ServicioSeguimientoUso.obtenerConfigComprobante('06');
+        const tipoComprobanteId = tipoComprobante.id;
+
         if (context.usuarioId) {
             const verificacionCuota = await ServicioSeguimientoUso.verificarCuota(
                 context.usuarioId,
-                TipoComprobanteEnum.GUIA_REMISION
+                tipoComprobanteId
             );
 
             if (!verificacionCuota.permitido) {
@@ -118,7 +123,7 @@ export async function POST(req: NextRequest) {
                     error: 'Cuota de guías excedida',
                     mensaje: verificacionCuota.mensaje,
                     detalles: {
-                        tipo: TipoComprobanteEnum.GUIA_REMISION,
+                        tipo: '06',
                         usado: verificacionCuota.actual,
                         limite: verificacionCuota.limite
                     }
@@ -130,17 +135,17 @@ export async function POST(req: NextRequest) {
         const empresaResult = await db.query(
             {
                 text: `
-                    SELECT e.ruc, e.razon_social, e.ambiente_sri, e.direccion_matriz,
+                    SELECT e.ruc, e.razon_social, e.ambiente_sri, e.direccion,
                            s.codigo as estab_code, pe.codigo as pto_emi_code, pes.secuencial_actual
-                    FROM configuracion.empresas e
+                    FROM seguridad.empresas e
                     LEFT JOIN configuracion.sucursales s ON e.id = s.empresa_id AND s.es_matriz = true
                     LEFT JOIN configuracion.puntos_emision pe ON (pe.id = $2 OR (s.id = pe.sucursal_id AND pe.activo = true))
-                    LEFT JOIN configuracion.puntos_emision_secuenciales pes ON pe.id = pes.punto_emision_id AND pes.tipo_comprobante = '06'
+                    LEFT JOIN configuracion.puntos_emision_secuenciales pes ON pe.id = pes.punto_emision_id AND pes.tipo_comprobante_id = $3
                     WHERE e.id = $1
                     ORDER BY pe.id = $2 DESC, pe.created_at ASC
                     LIMIT 1
                 `,
-                values: [context.empresaId, puntoEmisionId || null]
+                values: [context.empresaId, puntoEmisionId || null, tipoComprobanteId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
@@ -172,26 +177,25 @@ export async function POST(req: NextRequest) {
         };
         const claveAcceso = XmlGenerator.generateAccessKey(accessKeyData);
 
-        const id = crypto.randomUUID();
-
-        await db.transaction(async (client) => {
+        const resultData = await db.transaction(async (client) => {
             // A. Insertar cabecera
-            await client.query(
+            const insertResult = await client.query(
                 {
                     text: `
                         INSERT INTO facturacion.comprobantes_electronicos (
-                            id, empresa_id, tipo_comprobante, secuencial, clave_acceso,
+                            empresa_id, tipo_comprobante_id, secuencial, clave_acceso,
                             fecha_emision, cliente_id, cliente_nombre, cliente_identificacion,
                             direccion_partida, direccion_destino, transportista_nombre,
                             transportista_identificacion, placa_vehiculo, estado,
                             created_at, updated_at, created_by, subtotal, total
                         ) VALUES (
-                            $1, $2, '06', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
                             'BORRADOR', NOW(), NOW(), $14, 0, 0
                         )
+                        RETURNING id
                     `,
                     values: [
-                        id, context.empresaId, nextSecuencialVal, claveAcceso, fechaEmision,
+                        context.empresaId, tipoComprobanteId, nextSecuencialVal, claveAcceso, fechaEmision,
                         clienteId, clienteNombre, clienteIdentificacion, direccionPartida, direccionDestino,
                         transportistaNombre || '', transportistaIdentificacion || '', placaVehiculo || '',
                         context.usuarioId
@@ -199,41 +203,45 @@ export async function POST(req: NextRequest) {
                 }
             );
 
+            const id = insertResult.rows[0].id;
+
             // B. Guardar detalles
             if (detalles && detalles.length > 0) {
                 for (const d of detalles) {
                     await client.query(`
                         INSERT INTO facturacion.comprobantes_detalles (
-                            comprobante_id, codigo_principal, descripcion, cantidad, precio_unitario, total
-                        ) VALUES ($1, $2, $3, $4, 0, 0)
+                            comprobante_id, codigo_principal, descripcion, cantidad, precio_unitario, total, valor_iva, codigo_iva, tarifa
+                        ) VALUES ($1, $2, $3, $4, 0, 0, 0, '0', 0)
                     `, [id, d.codigoInterno || d.codigoPrincipal || 'S/N', d.descripcion, d.cantidad]);
                 }
             }
 
             // C. Actualizar secuencial
             await client.query(`
-                INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante, secuencial_actual)
+                INSERT INTO configuracion.puntos_emision_secuenciales (punto_emision_id, tipo_comprobante_id, secuencial_actual)
                 VALUES (
                     (SELECT id FROM configuracion.puntos_emision pe 
                      JOIN configuracion.sucursales s ON pe.sucursal_id = s.id 
                      WHERE s.empresa_id = $1 AND s.es_matriz = true AND pe.codigo = $2 LIMIT 1),
-                    '06', $3 + 1
+                    $3, $4 + 1
                 )
-                ON CONFLICT (punto_emision_id, tipo_comprobante) 
+                ON CONFLICT (punto_emision_id, tipo_comprobante_id) 
                 DO UPDATE SET secuencial_actual = EXCLUDED.secuencial_actual
-            `, [context.empresaId, ptoEmi, nextSecuencialVal]);
+            `, [context.empresaId, ptoEmi, tipoComprobanteId, nextSecuencialVal]);
+
+            return { id };
 
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
 
         // Incrementar contador de uso
         if (context.usuarioId) {
-            await ServicioSeguimientoUso.incrementarUso(context.usuarioId, TipoComprobanteEnum.GUIA_REMISION);
+            await ServicioSeguimientoUso.incrementarUso(context.usuarioId, tipoComprobanteId);
         }
 
         return NextResponse.json({
             success: true,
-            id,
+            id: resultData.id,
             secuencial,
             claveAcceso,
             message: 'Guía de remisión creada exitosamente'

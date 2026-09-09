@@ -18,9 +18,10 @@ interface TerceroModalProps {
     onSave: () => void;
     empresaId: string;
     terceroEditar?: Tercero;
+    prefixedType?: TipoTercero;
 }
 
-export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: TerceroModalProps) => {
+export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar, prefixedType }: TerceroModalProps) => {
     const { getCatalogo } = useCatalogos(['SRI_TIPO_IDENTIFICACION']);
     const tiposIdentificacion = getCatalogo('SRI_TIPO_IDENTIFICACION');
 
@@ -31,7 +32,7 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
         identificacion: '',
         razonSocial: '',
         nombreComercial: '',
-        tipo: TipoTercero.CLIENTE,
+        tipo: prefixedType || TipoTercero.CLIENTE,
         direccion: '',
         telefono: '',
         celular: '',
@@ -173,7 +174,7 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
 
                 {/* SECCIÓN 2: CONTACTO Y UBICACIÓN */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-1">
                         <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Email Facturación *</label>
                         <input
                             type="email"
@@ -183,7 +184,7 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
                             placeholder="ejemplo@correo.com"
                         />
                     </div>
-                    <div>
+                    <div className="md:col-span-1">
                         <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Celular</label>
                         <input
                             type="text"
@@ -191,6 +192,16 @@ export const TerceroModal = ({ onClose, onSave, empresaId, terceroEditar }: Terc
                             onChange={e => handleChange('celular', e.target.value)}
                             className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
                             placeholder="0998877665"
+                        />
+                    </div>
+                    <div className="md:col-span-1">
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Dirección</label>
+                        <input
+                            type="text"
+                            value={formData.direccion}
+                            onChange={e => handleChange('direccion', e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                            placeholder="Ej: Av. Principal 123"
                         />
                     </div>
                 </div>

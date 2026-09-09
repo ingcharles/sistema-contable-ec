@@ -29,7 +29,7 @@ export const useKardex = () => {
                     cantidadSalida: !isEntrada ? cantidad : 0,
                     valorSalida: !isEntrada ? cantidad * costo : 0,
                     saldoCantidad: Number(item.stock_resultante),
-                    saldoValor: Number(item.stock_resultante) * costo, // Costo unitario actual como proxy del costo promedio actual
+                    saldoValor: Number(item.stock_resultante) * costo,
                     costoUnitario: costo,
                     createdAt: item.created_at || new Date().toISOString(),
                     updatedAt: item.created_at || new Date().toISOString(),
@@ -37,9 +37,8 @@ export const useKardex = () => {
                 };
             });
             setMovimientos(mappedData);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar kardex');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar kardex');
         } finally {
             setLoading(false);
         }

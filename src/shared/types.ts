@@ -13,8 +13,9 @@ export enum EstadoSRI {
     PENDIENTE = 'PENDIENTE',
     AUTORIZADO = 'AUTORIZADO',
     ANULADO = 'ANULADO',
-    DEVUELTO = 'DEVUELTO',
-    RECHAZADO = 'RECHAZADO'
+    DEVUELTA = 'DEVUELTA',
+    RECHAZADO = 'RECHAZADO',
+    NO_AUTORIZADO = 'NO AUTORIZADO'
 }
 
 export enum TipoComprobante {
@@ -45,24 +46,53 @@ export interface Plan {
     features?: PlanFeature[];
 }
 
+export interface ParametrosEmpresa {
+    sbu: number;
+    ivaCatalogoItemId: string | null;
+    maxConsumidorFinal: number;
+    cuentaCaja: string;
+    cuentaIvaVentas: string;
+    cuentaIvaCompras: string;
+    cuentaCxcClientes: string;
+    cuentaCxpProveedores: string;
+    cuentaVentas: string;
+    cuentaCompras: string;
+    cuentaInventario: string;
+    cuentaIvaPorPagar: string;
+    cuentaCostoVentas: string;
+    fechaCierre: string | null;
+    ivaValor: number;
+    ivaCodigo: string;
+    ivaEtiqueta: string;
+}
+
 export interface Empresa {
     id: string;
     razonSocial: string;
     nombreComercial: string;
     ruc: string;
     direccionMatriz: string;
+    email?: string;
     obligadoContabilidad: boolean;
     agenteRetencion: boolean;
     contribuyenteEspecial: string | null;
     rimpe: 'NEGOCIO_POPULAR' | 'EMPRENDEDOR' | null;
-    logoUrl?: string;
+    logo?: string;
     ambienteSri?: number;
+    ambienteSriNombre?: string;
+    // Colores de marca (branding)
+    colorPrimario?: string | null;
+    colorSecundario?: string | null;
+    colorAcento?: string | null;
+    // Parámetros contables globales
+    parametros?: ParametrosEmpresa;
 }
 
 export interface Usuario {
     id: string;
     nombre: string;
     roles: ('SUPERADMIN' | 'ADMIN' | 'CONTADOR' | 'AUDITOR' | 'ASISTENTE')[];
+    permissions?: string[];
     email: string;
     plan?: Plan; // Plan poblado
     planId?: string;
@@ -92,13 +122,16 @@ export interface ComprobanteElectronico {
     tipo: TipoComprobante;
     secuencial: string;
     fechaEmision: string;
-    terceroNombre: string;
+    terceroNombre: string; // Deprecated: use razonSocialComprador
+    razonSocialComprador: string;
     terceroId: string;
+    identificacionComprador: string;
     totalSinImpuestos: number;
     totalImpuestos: number;
     importeTotal: number;
     estado: EstadoSRI;
     claveAcceso: string;
+    tipoIdentificacionComprador?: string;
 }
 
 export interface CuentaContable {
@@ -114,21 +147,37 @@ export interface CuentaContable {
 // Tipos de Facturación
 export interface Factura extends Auditable {
     id: string;
-    empresaId: string;
-    tipo: TipoComprobante;
+    empresaId?: string;
+    tipo?: TipoComprobante; // Para compatibilidad
+    tipoComprobante?: string; // Lo que realmente viene de la API
+    tipoComprobanteNombre?: string;
     secuencial: string;
     fechaEmision: string;
-    terceroNombre: string;
-    terceroId: string;
-    terceroEmail?: string;
-    subtotal: number;
-    descuento: number;
-    totalImpuestos: number;
+    terceroNombre: string; // Deprecated: use razonSocialComprador
+    razonSocialComprador: string;
+    terceroId?: string;
+    terceroRuc?: string; // Deprecated: use identificacionComprador
+    identificacionComprador: string;
+    terceroEmail?: string; // Deprecated: use emailComprador
+    emailComprador?: string;
+    tipoIdentificacionComprador?: string;
+    tipoIdentificacionCompradorNombre?: string;
+    subtotal?: number;
+    descuento?: number;
+    iva?: number;
+    totalImpuestos?: number;
     importeTotal: number;
     estado: EstadoSRI;
     claveAcceso: string;
+    numeroAutorizacion?: string;
+    fechaAutorizacion?: string;
+    xmlFirmado?: string;
     documentoModificadoId?: string;
     motivoModificacion?: string;
+    direccionComprador?: string;
+    detalles?: any[];
+    totalIVA?: number;
+    mensajesSri?: any; // JSON string or object from DB
 }
 
 export interface GuiaRemision extends Auditable {

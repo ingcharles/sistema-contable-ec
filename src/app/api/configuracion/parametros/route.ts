@@ -17,12 +17,13 @@ export async function GET(req: NextRequest) {
             {
                 text: `
                     SELECT 
-                        sbu, iva, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
-                        cuenta_iva_compras, cuenta_ret_renta_por_pagar, cuenta_cxc_clientes,
-                        cuenta_anticipo_clientes, cuenta_cxp_proveedores, cuenta_anticipo_proveedores,
-                        fecha_cierre
-                    FROM configuracion.parametros
-                    WHERE empresa_id = $1
+                        p.*,
+                        ci.codigo as iva_codigo,
+                        ci.valor as iva_etiqueta,
+                        ci.valor_numerico as iva_valor
+                    FROM configuracion.parametros p
+                    LEFT JOIN configuracion.catalogos_items ci ON p.iva_catalogo_item_id = ci.id
+                    WHERE p.empresa_id = $1
                 `,
                 values: [context.empresaId]
             },
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
             // Valores por defecto si no existen
             return NextResponse.json({
                 sbu: 460,
-                iva: 15,
+                ivaCatalogoItemId: null,
                 maxConsumidorFinal: 50,
                 cuentaCaja: '1.1.01.01',
                 cuentaIvaVentas: '2.1.07.01',
@@ -43,6 +44,31 @@ export async function GET(req: NextRequest) {
                 cuentaAnticipoClientes: '2.1.04.01',
                 cuentaCxpProveedores: '2.1.01.01',
                 cuentaAnticipoProveedores: '1.1.04.01',
+                // Nuevas cuentas para asientos automáticos
+                cuentaVentas: '4.1.01.01',
+                cuentaDevolucionVentas: '4.1.01.02',
+                cuentaCompras: '5.1.01.01',
+                cuentaInventario: '1.1.03.01',
+                cuentaIvaPorPagar: '2.1.05.01',
+                cuentaRetIvaPorPagar: '2.1.03.02',
+                cuentaCostoVentas: '5.1.01.01',
+                cuentaDescuentoVentas: '4.1.01.03',
+                // Nómina
+                cuentaSueldos: '5.1.01.01',
+                cuentaAportePatronal: '5.1.01.02',
+                cuentaDecimoTercero: '5.1.01.03',
+                cuentaDecimoCuarto: '5.1.01.04',
+                cuentaIessPorPagar: '2.1.03.01',
+                cuentaSueldosPorPagar: '2.1.03.02',
+                cuentaProvDecimoTercero: '2.1.03.03',
+                cuentaProvDecimoCuarto: '2.1.03.04',
+                // Caja Chica
+                cuentaCajaChica: '1.1.01.02',
+                cuentaGastosVarios: '5.2.01.99',
+                // Inventario
+                cuentaSobranteInventario: '4.2.01.01',
+                cuentaFaltanteInventario: '5.2.01.01',
+                sriTipoEmision: '1',
                 fechaCierre: null
             });
         }
@@ -51,7 +77,7 @@ export async function GET(req: NextRequest) {
         // CamelCase mapping
         return NextResponse.json({
             sbu: Number(row.sbu),
-            iva: Number(row.iva),
+            ivaCatalogoItemId: row.iva_catalogo_item_id,
             maxConsumidorFinal: Number(row.max_consumidor_final),
             cuentaCaja: row.cuenta_caja,
             cuentaIvaVentas: row.cuenta_iva_ventas,
@@ -61,7 +87,39 @@ export async function GET(req: NextRequest) {
             cuentaAnticipoClientes: row.cuenta_anticipo_clientes,
             cuentaCxpProveedores: row.cuenta_cxp_proveedores,
             cuentaAnticipoProveedores: row.cuenta_anticipo_proveedores,
-            fechaCierre: row.fecha_cierre
+            // Nuevas cuentas
+            cuentaVentas: row.cuenta_ventas,
+            cuentaDevolucionVentas: row.cuenta_devolucion_ventas,
+            cuentaCompras: row.cuenta_compras,
+            cuentaInventario: row.cuenta_inventario,
+            cuentaIvaPorPagar: row.cuenta_iva_por_pagar,
+            cuentaRetIvaPorPagar: row.cuenta_ret_iva_por_pagar,
+            cuentaCostoVentas: row.cuenta_costo_ventas,
+            cuentaDescuentoVentas: row.cuenta_descuento_ventas,
+            // Nómina
+            cuentaSueldos: row.cuenta_sueldos,
+            cuentaAportePatronal: row.cuenta_aporte_patronal,
+            cuentaDecimoTercero: row.cuenta_decimo_tercero,
+            cuentaDecimoCuarto: row.cuenta_decimo_cuarto,
+            cuentaIessPorPagar: row.cuenta_iess_por_pagar,
+            cuentaSueldosPorPagar: row.cuenta_sueldos_por_pagar,
+            cuentaProvDecimoTercero: row.cuenta_prov_decimo_tercero,
+            cuentaProvDecimoCuarto: row.cuenta_prov_decimo_cuarto,
+            aportePersonalIess: Number(row.aporte_personal_iess),
+            aportePatronalIess: Number(row.aporte_patronal_iess),
+            fondoReservaPorcentaje: Number(row.fondo_reserva_porcentaje),
+            divisorVacaciones: Number(row.divisor_vacaciones),
+            // Caja Chica
+            cuentaCajaChica: row.cuenta_caja_chica,
+            cuentaGastosVarios: row.cuenta_gastos_varios,
+            // Inventario
+            cuentaSobranteInventario: row.cuenta_sobrante_inventario,
+            cuentaFaltanteInventario: row.cuenta_faltante_inventario,
+            sriTipoEmision: row.sri_tipo_emision,
+            fechaCierre: row.fecha_cierre,
+            ivaValor: row.iva_valor,
+            ivaCodigo: row.iva_codigo,
+            ivaEtiqueta: row.iva_etiqueta
         });
 
     } catch (error: any) {
@@ -83,24 +141,41 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const {
-            sbu, iva, maxConsumidorFinal, cuentaCaja, cuentaIvaVentas,
+            sbu, ivaCatalogoItemId, maxConsumidorFinal, cuentaCaja, cuentaIvaVentas,
             cuentaIvaCompras, cuentaRetRentaPorPagar, cuentaCxcClientes,
             cuentaAnticipoClientes, cuentaCxpProveedores, cuentaAnticipoProveedores,
-            fechaCierre
+            cuentaVentas, cuentaDevolucionVentas, cuentaCompras, cuentaInventario,
+            cuentaIvaPorPagar, cuentaRetIvaPorPagar, cuentaCostoVentas, cuentaDescuentoVentas,
+            fechaCierre,
+            cuentaSueldos, cuentaAportePatronal, cuentaDecimoTercero, cuentaDecimoCuarto,
+            cuentaIessPorPagar, cuentaSueldosPorPagar, cuentaProvDecimoTercero, cuentaProvDecimoCuarto,
+            aportePersonalIess, aportePatronalIess, fondoReservaPorcentaje, divisorVacaciones,
+            cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario,
+            sriTipoEmision
         } = body;
 
         await db.query(
             {
                 text: `
                     INSERT INTO configuracion.parametros (
-                        empresa_id, sbu, iva, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
+                        empresa_id, sbu, iva_catalogo_item_id, max_consumidor_final, cuenta_caja, cuenta_iva_ventas,
                         cuenta_iva_compras, cuenta_ret_renta_por_pagar, cuenta_cxc_clientes,
                         cuenta_anticipo_clientes, cuenta_cxp_proveedores, cuenta_anticipo_proveedores,
-                        fecha_cierre, updated_at, updated_by
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), $14)
+                        cuenta_ventas, cuenta_devolucion_ventas, cuenta_compras, cuenta_inventario,
+                        cuenta_iva_por_pagar, cuenta_ret_iva_por_pagar, cuenta_costo_ventas,
+                        cuenta_descuento_ventas, fecha_cierre,
+                        cuenta_sueldos, cuenta_aporte_patronal, cuenta_decimo_tercero,
+                        cuenta_decimo_cuarto, cuenta_iess_por_pagar, cuenta_sueldos_por_pagar,
+                        cuenta_prov_decimo_tercero, cuenta_prov_decimo_cuarto,
+                        cuenta_caja_chica, cuenta_gastos_varios,
+                        cuenta_sobrante_inventario, cuenta_faltante_inventario,
+                        aporte_personal_iess, aporte_patronal_iess, fondo_reserva_porcentaje, divisor_vacaciones,
+                        sri_tipo_emision,
+                        updated_at, updated_by
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, NOW(), $39)
                     ON CONFLICT (empresa_id) DO UPDATE SET
                         sbu = EXCLUDED.sbu,
-                        iva = EXCLUDED.iva,
+                        iva_catalogo_item_id = EXCLUDED.iva_catalogo_item_id,
                         max_consumidor_final = EXCLUDED.max_consumidor_final,
                         cuenta_caja = EXCLUDED.cuenta_caja,
                         cuenta_iva_ventas = EXCLUDED.cuenta_iva_ventas,
@@ -110,15 +185,48 @@ export async function POST(req: NextRequest) {
                         cuenta_anticipo_clientes = EXCLUDED.cuenta_anticipo_clientes,
                         cuenta_cxp_proveedores = EXCLUDED.cuenta_cxp_proveedores,
                         cuenta_anticipo_proveedores = EXCLUDED.cuenta_anticipo_proveedores,
+                        cuenta_ventas = EXCLUDED.cuenta_ventas,
+                        cuenta_devolucion_ventas = EXCLUDED.cuenta_devolucion_ventas,
+                        cuenta_compras = EXCLUDED.cuenta_compras,
+                        cuenta_inventario = EXCLUDED.cuenta_inventario,
+                        cuenta_iva_por_pagar = EXCLUDED.cuenta_iva_por_pagar,
+                        cuenta_ret_iva_por_pagar = EXCLUDED.cuenta_ret_iva_por_pagar,
+                        cuenta_costo_ventas = EXCLUDED.cuenta_costo_ventas,
+                        cuenta_descuento_ventas = EXCLUDED.cuenta_descuento_ventas,
                         fecha_cierre = EXCLUDED.fecha_cierre,
+                        cuenta_sueldos = EXCLUDED.cuenta_sueldos,
+                        cuenta_aporte_patronal = EXCLUDED.cuenta_aporte_patronal,
+                        cuenta_decimo_tercero = EXCLUDED.cuenta_decimo_tercero,
+                        cuenta_decimo_cuarto = EXCLUDED.cuenta_decimo_cuarto,
+                        cuenta_iess_por_pagar = EXCLUDED.cuenta_iess_por_pagar,
+                        cuenta_sueldos_por_pagar = EXCLUDED.cuenta_sueldos_por_pagar,
+                        cuenta_prov_decimo_tercero = EXCLUDED.cuenta_prov_decimo_tercero,
+                        cuenta_prov_decimo_cuarto = EXCLUDED.cuenta_prov_decimo_cuarto,
+                        cuenta_caja_chica = EXCLUDED.cuenta_caja_chica,
+                        cuenta_gastos_varios = EXCLUDED.cuenta_gastos_varios,
+                        cuenta_sobrante_inventario = EXCLUDED.cuenta_sobrante_inventario,
+                        cuenta_faltante_inventario = EXCLUDED.cuenta_faltante_inventario,
+                        sri_tipo_emision = EXCLUDED.sri_tipo_emision,
+                        aporte_personal_iess = EXCLUDED.aporte_personal_iess,
+                        aporte_patronal_iess = EXCLUDED.aporte_patronal_iess,
+                        fondo_reserva_porcentaje = EXCLUDED.fondo_reserva_porcentaje,
+                        divisor_vacaciones = EXCLUDED.divisor_vacaciones,
                         updated_at = NOW(),
                         updated_by = EXCLUDED.updated_by
                 `,
                 values: [
-                    context.empresaId, sbu, iva, maxConsumidorFinal, cuentaCaja, cuentaIvaVentas,
+                    context.empresaId, sbu, ivaCatalogoItemId, maxConsumidorFinal, cuentaCaja, cuentaIvaVentas,
                     cuentaIvaCompras, cuentaRetRentaPorPagar, cuentaCxcClientes,
                     cuentaAnticipoClientes, cuentaCxpProveedores, cuentaAnticipoProveedores,
-                    fechaCierre, context.usuarioId
+                    cuentaVentas, cuentaDevolucionVentas, cuentaCompras, cuentaInventario,
+                    cuentaIvaPorPagar, cuentaRetIvaPorPagar, cuentaCostoVentas, cuentaDescuentoVentas,
+                    fechaCierre,
+                    cuentaSueldos, cuentaAportePatronal, cuentaDecimoTercero, cuentaDecimoCuarto,
+                    cuentaIessPorPagar, cuentaSueldosPorPagar, cuentaProvDecimoTercero, cuentaProvDecimoCuarto,
+                    cuentaCajaChica, cuentaGastosVarios, cuentaSobranteInventario, cuentaFaltanteInventario,
+                    aportePersonalIess, aportePatronalIess, fondoReservaPorcentaje, divisorVacaciones,
+                    sriTipoEmision,
+                    context.usuarioId
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }

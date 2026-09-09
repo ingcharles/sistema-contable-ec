@@ -43,7 +43,7 @@
   - `useEmpleados`
   - `useRolesPago`
   - `useNominaMutations`
-- **UseCase**: `NominaUseCases`
+- **UseCase**: `RRHHUseCases`
 - **Estado**: ⚠️ **HOOKS CREADOS - PENDIENTE MIGRACIÓN**
 - **InMemory Repository**: `InMemoryNominaRepository` **AÚN EN USO**
 

@@ -1,152 +1,177 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowUpCircle, Plus, Trash2, FileText, Calendar, Hash, AlertCircle } from 'lucide-react';
-import { Modal } from '@/shared/ui/Modal';
+import { FileText, AlertCircle, TrendingUp, Calculator, Truck } from 'lucide-react';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
-import { Button } from '@/shared/ui/Button';
 import { formatearDinero } from '@/shared/utils/formatearDinero';
-import { SriStandardizer } from '../../domain/services/SriStandardizer';
-import { FacturacionUseCases, ContabilidadUseCases } from '@/modules/shared/application/useCases/systemUseCases';
+import { FacturacionUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 import { useEmpresa } from '@/shared/context/EmpresaContext';
-import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
-import { AMBIENTE, TIPO_EMISION, FORMA_PAGO } from '../../domain/catalogos';
+import { Modal } from '@/shared/ui/Modal';
+import { usePuntoEmision } from '@/shared/context/PuntoEmisionContext';
+import { getLocalDateIso } from '@/shared/utils/dateUtils';
+import { useCatalogo } from '@/modules/shared/hooks/useCatalogo';
 
-interface MotivoNotaDebito {
-    razon: string;
-    valor: number;
+
+interface ItemNotaDebito {
+    id: string;
+    codigoPrincipal: string;
+    nombre: string;
+    cantidadOriginal: number;
+    precio: number;
+    valorCargo: number;
+    codigoIVA: string;
 }
 
 interface NotaDebitoModalProps {
-    factura: any;
+    factura: any; // Factura original a la que se aplica la ND
     onClose: () => void;
     onSave: () => void;
 }
 
 export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalProps) {
     const { currentEmpresa } = useEmpresa();
-    const { parametros, cargarParametros } = useConfiguracion();
-    const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
-    const [secuencial, setSecuencial] = useState('');
+    const { puntoActivo } = usePuntoEmision();
+
+    const parametros = currentEmpresa?.parametros;
+    const [generarGuia, setGenerarGuia] = useState(false);
+
+    const puntoEmisionId = puntoActivo?.puntoEmisionId;
+
+
+    const [motivo, setMotivo] = useState('');
+    const [fechaEmision, setFechaEmision] = useState(getLocalDateIso());
     const [guardando, setGuardando] = useState(false);
     const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
-    const [motivos, setMotivos] = useState<MotivoNotaDebito[]>([{ razon: '', valor: 0 }]);
-    const [formaPago] = useState(FORMA_PAGO.OTROS_CON_SISTEMA_FINANCIERO);
 
+    const { items: motivosND, cargando: cargandoMotivos } = useCatalogo('MOTIVO_ND');
+    const [motivoPersonalizado, setMotivoPersonalizado] = useState('');
+    const [esOtroMotivo, setEsOtroMotivo] = useState(false);
+    const [secuencial, setSecuencial] = useState('');
+    const [estab, setEstab] = useState(puntoActivo?.codigoEstablecimiento);
+    const [ptoEmi, setPtoEmi] = useState(puntoActivo?.codigoPunto);
+
+    // Cargar secuencial automático
     useEffect(() => {
-        cargarParametros();
-    }, [cargarParametros]);
+        const cargarSecuencial = async () => {
+            if (puntoEmisionId) {
+                try {
+                    const data = await FacturacionUseCases.obtenerSiguienteSecuencial(puntoEmisionId, '05');
+                    if (data.success) {
+                        setSecuencial(data.secuencial);
+                    }
+                } catch (error) {
+                    console.error('Error al cargar secuencial:', error);
+                }
+            }
+        };
+        cargarSecuencial();
+    }, [puntoEmisionId]);
 
-    const agregarMotivo = () => setMotivos([...motivos, { razon: '', valor: 0 }]);
-    const eliminarMotivo = (index: number) => setMotivos(motivos.filter((_, i) => i !== index));
-    const actualizarMotivo = (index: number, campo: keyof MotivoNotaDebito, valor: any) => {
-        const nuevos = [...motivos];
-        nuevos[index] = { ...nuevos[index], [campo]: valor };
-        setMotivos(nuevos);
+    // Sincronizar estab y ptoEmi
+    useEffect(() => {
+        if (puntoActivo) {
+            setEstab(puntoActivo.codigoEstablecimiento);
+            setPtoEmi(puntoActivo.codigoPunto);
+        }
+    }, [puntoActivo]);
+
+    const [items, setItems] = useState<ItemNotaDebito[]>(
+        factura.detalles?.map((item: any, index: number) => ({
+            id: item.id || `item-${index}`,
+            codigoPrincipal: item.codigoPrincipal || '',
+            nombre: item.descripcion,
+            cantidadOriginal: item.cantidad,
+            precio: item.precioUnitario,
+            valorCargo: 0,
+            codigoIVA: parametros?.ivaCodigo || '4',
+        })) || []
+    );
+
+    const handleCargoChange = (id: string, val: number) => {
+        setItems((prev: ItemNotaDebito[]) => prev.map(item =>
+            item.id === id ? { ...item, valorCargo: Math.max(0, val) } : item
+        ));
         if (errorValidacion) setErrorValidacion(null);
     };
 
-    const subtotal = motivos.reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
-    const ivaPorcentaje = (parametros?.iva || 15) / 100;
-    const iva = subtotal * ivaPorcentaje;
-    const total = subtotal + iva;
+    const ivaRateValue = (parametros?.ivaValor || 15) / 100;
+
+    const subtotalCargo = items.reduce((acc, item) => acc + item.valorCargo, 0);
+    const ivaCargo = items.reduce((acc, item) => {
+        // Códigos que no graban IVA según SRI: 0 (0%), 6 (Exento), 7 (No Objeto)
+        const codigosNoGraban = ['0', '6', '7'];
+        const esGravado = !codigosNoGraban.includes(item.codigoIVA);
+        const tarifa = esGravado ? ivaRateValue : 0;
+        return acc + (item.valorCargo * tarifa);
+    }, 0);
+    const totalCargo = subtotalCargo + ivaCargo;
 
     const handleEmitirND = async () => {
         if (!currentEmpresa) return;
-        if (total === 0 || !secuencial || motivos.some(m => !m.razon || m.valor <= 0)) {
-            setErrorValidacion("Complete todos los motivos, valores y el secuencial.");
+        if (!motivo || totalCargo === 0 || !puntoEmisionId) {
+            setErrorValidacion("Debe ingresar un motivo y cargar al menos un valor.");
             return;
         }
 
         setGuardando(true);
         setErrorValidacion(null);
         try {
-            const dataND = {
-                ambiente: AMBIENTE.PRUEBAS,
-                tipoEmision: TIPO_EMISION.NORMAL,
-                razonSocial: currentEmpresa.razonSocial,
-                nombreComercial: currentEmpresa.nombreComercial,
-                ruc: currentEmpresa.ruc,
-                estab: '001',
-                ptoEmi: '001',
-                secuencial: secuencial,
-                dirMatriz: currentEmpresa.direccionMatriz,
+            if (!puntoActivo) throw new Error('Debe seleccionar un punto de emisión válido');
+
+            const fullNumDocModificado = factura.secuencial.includes('-')
+                ? factura.secuencial
+                : `${factura.estab || '001'}-${factura.ptoEmi || '001'}-${factura.secuencial}`;
+
+            const payload = {
+                puntoEmisionId,
                 fechaEmision,
-                obligadoContabilidad: 'SI',
-                tipoIdentificacionAdquirente: factura.tipoIdentificacionAdquirente,
-                razonSocialAdquirente: factura.razonSocialAdquirente,
-                identificacionAdquirente: factura.identificacionAdquirente,
-                codDocModificado: '01',
-                numDocModificado: factura.secuencial,
+                clienteId: factura.clienteId,
+                motivo,
+                codDocModificado: '01', // Factura
+                numDocModificado: fullNumDocModificado,
                 fechaEmisionDocSustento: factura.fechaEmision,
-                totalSinImpuestos: subtotal,
-                codigoIVA: '4',
-                valorIVA: iva,
-                valorTotal: total,
-                pagos: [{ formaPago, total }],
-                motivos: motivos
+                generarGuia,
+                detalles: items.filter(i => i.valorCargo > 0).map(i => {
+                    const codigosNoGraban = ['0', '6', '7'];
+                    const esGravado = !codigosNoGraban.includes(i.codigoIVA);
+                    const tarifaCalculada = esGravado ? ivaRateValue : 0;
+                    return {
+                        codigoPrincipal: i.codigoPrincipal || 'ND',
+                        descripcion: i.nombre,
+                        razonModificacion: motivo,
+                        cantidad: 1,
+                        precioUnitario: i.valorCargo,
+                        descuento: 0,
+                        baseImponible: i.valorCargo,
+                        valorModificacion: i.valorCargo + (i.valorCargo * tarifaCalculada),
+                        valorIVA: i.valorCargo * tarifaCalculada,
+                        codigoIVA: i.codigoIVA,
+                        tarifa: tarifaCalculada * 100
+                    };
+                }),
+                pagos: [{
+                    formaPago: '20', // OTROS CON UTILIZACION DEL SISTEMA FINANCIERO
+                    total: totalCargo,
+                    plazo: 0,
+                    unidadTiempo: 'DIAS'
+                }]
             };
 
-            const jsonSri = SriStandardizer.standardizeNotaDebito(dataND);
+            const res = await FacturacionUseCases.emitirNotaDebito(payload);
 
-            let sriResult = {
-                success: false,
-                status: 'BORRADOR',
-                numeroAutorizacion: null as string | null,
-                claveAcceso: null as string | null
-            };
-
-            try {
-                const emisionRes = await FacturacionUseCases.emitirFactura(jsonSri);
-                sriResult = {
-                    success: true,
-                    status: emisionRes.status || 'AUTORIZADO',
-                    numeroAutorizacion: emisionRes.numeroAutorizacion,
-                    claveAcceso: emisionRes.claveAcceso
-                };
-            } catch (sriError: any) {
-                console.error('Error SRI:', sriError);
-                sriResult.status = 'ERROR SRI';
-            }
-
-            await FacturacionUseCases.registrarComprobante({
-                tipoComprobante: 'NOTA_DEBITO',
-                fechaEmision,
-                clienteId: factura.identificacionAdquirente,
-                clienteNombre: factura.razonSocialAdquirente,
-                clienteIdentificacion: factura.identificacionAdquirente,
-                subtotal: subtotal,
-                iva: iva,
-                total: total,
-                detalles: motivos.map(m => ({ descripcion: m.razon, total: m.valor })),
-                secuencial: parseInt(secuencial),
-                claveAcceso: sriResult.claveAcceso,
-                numeroAutorizacion: sriResult.numeroAutorizacion,
-                estado: sriResult.status
-            });
-
-            await ContabilidadUseCases.registrarAsiento({
-                numero: `AS-ND-${secuencial}`,
-                fecha: fechaEmision,
-                glosa: `P/R Nota de Débito ${secuencial} s/Factura ${factura.secuencial} - ${factura.razonSocialAdquirente}`,
-                tipo: 'INGRESO',
-                detalles: [
-                    { cuentaCodigo: '1.1.02.01', debe: total, haber: 0 },
-                    { cuentaCodigo: '4.1.01.01', debe: 0, haber: subtotal },
-                    { cuentaCodigo: '2.1.05.01', debe: 0, haber: iva }
-                ]
-            });
-
-            if (sriResult.success) {
-                alert(`Nota de Débito autorizada: ${sriResult.numeroAutorizacion}`);
+            if (res.success) {
+                if (res.estado === 'AUTORIZADO') {
+                    alert(`Nota de Débito autorizada: ${res.secuencial}`);
+                } else {
+                    alert(`Nota de Débito guardada con estado: ${res.estado}`);
+                }
+                onSave();
+                onClose();
             } else {
-                alert(`Nota de Débito guardada localmente. Estado: ${sriResult.status}`);
+                throw new Error(res.error || 'Error al procesar la Nota de Débito');
             }
-
-            onSave();
-            onClose();
         } catch (error: any) {
-            console.error('Error ND:', error);
+            console.error('Error al emitir ND:', error);
             setErrorValidacion(`Error: ${error.message}`);
         } finally {
             setGuardando(false);
@@ -159,8 +184,7 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
             onSubmit={handleEmitirND}
             isLoading={guardando}
             submitLabel="Emitir y Autorizar SRI"
-            submitIcon={<ArrowUpCircle size={18} />}
-            submitVariant="primary"
+            submitIcon={<TrendingUp size={18} />}
         />
     );
 
@@ -169,103 +193,173 @@ export function NotaDebitoModal({ factura, onClose, onSave }: NotaDebitoModalPro
             isOpen={true}
             onClose={onClose}
             title="Emisión de Nota de Débito"
-            description={`Aumenta valor de Factura: ${factura.secuencial}`}
-            icon={<ArrowUpCircle size={24} className="text-blue-500" />}
+            description={`Sobre Factura: ${factura.secuencial}`}
+            icon={<TrendingUp size={24} />}
             footer={footer}
-            size="lg"
+            size="xl"
         >
-            <div className="space-y-6">
+            <div className="space-y-8">
                 {errorValidacion && (
-                    <div className="bg-red-50 text-red-800 p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                        <AlertCircle size={20} className="shrink-0" />
-                        <p className="text-sm font-medium">{errorValidacion}</p>
+                    <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2 border border-red-100">
+                        <AlertCircle size={18} />
+                        {errorValidacion}
                     </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <Hash size={14} className="text-sri-blue" /> Secuencial ND *
-                        </label>
-                        <input
-                            type="text"
-                            value={secuencial}
-                            onChange={e => setSecuencial(e.target.value.replace(/\D/g, ''))}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-sri-blue outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
-                            placeholder="000000001"
-                            maxLength={9}
-                        />
+
+                {/* Sección Información del Comprobante */}
+                <div>
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <FileText size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Información del Comprobante</h3>
                     </div>
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <Calendar size={14} className="text-sri-blue" /> Fecha Emisión
-                        </label>
-                        <input
-                            type="date"
-                            value={fechaEmision}
-                            onChange={e => setFechaEmision(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all"
-                        />
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6 pb-4">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 font-mono">
+                                <FileText size={14} className="text-sri-blue" /> Número de Nota de Débito
+                            </label>
+                            <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-sri-blue">
+                                {estab}-{ptoEmi}-{secuencial.padStart(9, '0')}
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <AlertCircle size={14} className="text-sri-blue" /> Fecha de Emisión
+                            </label>
+                            <input
+                                type="date"
+                                value={fechaEmision}
+                                onChange={e => setFechaEmision(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-bold text-slate-700"
+                                disabled
+                            />
+                        </div>
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                        <div className="flex items-center gap-2">
-                            <div className="p-1.5 bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20">
-                                <FileText size={16} />
-                            </div>
-                            <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Motivos del Débito</h4>
+                {/* Sección Modificación */}
+                <div>
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <TrendingUp size={16} />
                         </div>
-                        <Button onClick={agregarMotivo} size="sm" variant="secondary" className="h-8 py-0 flex items-center gap-1">
-                            <Plus size={14} /> Agregar
-                        </Button>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Motivo de la Modificación</h3>
                     </div>
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Motivo de Modificación *</label>
+                            <select
+                                value={esOtroMotivo ? 'OTRO' : motivo}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    if (val === 'OTRO') {
+                                        setEsOtroMotivo(true);
+                                        setMotivo(motivoPersonalizado);
+                                    } else {
+                                        setEsOtroMotivo(false);
+                                        setMotivo(val);
+                                    }
+                                }}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-medium text-slate-700"
+                                disabled={cargandoMotivos}
+                            >
+                                <option value="">Seleccione un motivo...</option>
+                                {motivosND.map(m => (
+                                    <option key={m.id} value={m.valor}>{m.valor}</option>
+                                ))}
+                                <option value="OTRO">OTRO (Especificar...)</option>
+                            </select>
 
-                    <div className="space-y-3">
-                        {motivos.map((m, idx) => (
-                            <div key={idx} className="flex gap-4 items-center p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-sri-blue/30 transition-colors">
-                                <div className="flex-1">
-                                    <input
-                                        value={m.razon}
-                                        onChange={e => actualizarMotivo(idx, 'razon', e.target.value)}
-                                        placeholder="Ej: Intereses por mora"
-                                        className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
-                                    />
+                            {esOtroMotivo && (
+                                <input
+                                    type="text"
+                                    value={motivoPersonalizado}
+                                    onChange={e => {
+                                        setMotivoPersonalizado(e.target.value);
+                                        setMotivo(e.target.value);
+                                    }}
+                                    className="w-full mt-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-medium text-slate-700 animate-in fade-in slide-in-from-top-1"
+                                    placeholder="Escriba el motivo personalizado..."
+                                />
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                            <Truck className="text-emerald-500" size={20} />
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={generarGuia}
+                                    onChange={(e) => setGenerarGuia(e.target.checked)}
+                                    className="w-5 h-5 rounded border-emerald-200 text-emerald-600 focus:ring-emerald-500 transition-all"
+                                />
+                                <div>
+                                    <span className="text-xs font-black text-emerald-800 uppercase tracking-wider">Generar Guía de Remisión</span>
+                                    <p className="text-[10px] text-emerald-600 font-bold uppercase opacity-70">Documento de traslado automático</p>
                                 </div>
-                                <div className="w-32">
-                                    <input
-                                        type="number"
-                                        value={m.valor}
-                                        onChange={e => actualizarMotivo(idx, 'valor', Number(e.target.value))}
-                                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-right font-mono font-bold text-sm text-blue-600 outline-none focus:ring-2 focus:ring-blue-500/20"
-                                        step="0.01"
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => eliminarMotivo(idx)}
-                                    disabled={motivos.length === 1}
-                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        ))}
+                            </label>
+                        </div>
                     </div>
                 </div>
 
-                <div className="pt-4 border-t-2 border-slate-100 flex justify-end">
-                    <div className="w-64 space-y-2">
-                        <div className="flex justify-between text-sm font-medium text-slate-600">
-                            <span>Subtotal:</span>
-                            <span className="font-mono">{formatearDinero(subtotal)}</span>
+                {/* Sección Detalles */}
+                <div>
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-sri-blue/10">
+                        <div className="p-1.5 bg-sri-blue text-white rounded-lg shadow-lg shadow-sri-blue/20">
+                            <Calculator size={16} />
                         </div>
-                        <div className="flex justify-between text-sm font-medium text-slate-600">
-                            <span>IVA ({parametros?.iva || 15}%):</span>
-                            <span className="font-mono">{formatearDinero(iva)}</span>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Detalles de Cargos</h3>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                        <table className="w-full text-xs text-left">
+                            <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-200 bg-slate-50">
+                                <tr>
+                                    <th className="py-3 px-4">Producto</th>
+                                    <th className="py-3 px-4 text-right">Cantidad</th>
+                                    <th className="py-3 px-4 text-right">Cargo Unit.</th>
+                                    <th className="py-3 px-4 text-right">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {items.map(item => (
+                                    <tr key={item.id} className="hover:bg-sri-blue/5 transition-colors">
+                                        <td className="py-3 px-4 font-medium text-slate-700">{item.nombre}</td>
+                                        <td className="py-3 px-4 text-right text-slate-500 font-bold">{item.cantidadOriginal}</td>
+                                        <td className="py-3 px-4 text-right">
+                                            <input
+                                                type="number"
+                                                value={item.valorCargo}
+                                                onChange={e => handleCargoChange(item.id, parseFloat(e.target.value) || 0)}
+                                                step="0.01"
+                                                className="w-24 px-3 py-1.5 text-center font-bold bg-slate-50 text-sri-blue border border-slate-200 rounded-lg outline-none focus:ring-4 focus:ring-sri-blue/10 transition-all font-mono"
+                                                min={0}
+                                            />
+                                        </td>
+                                        <td className="py-3 px-4 text-right font-bold text-slate-700 font-mono">
+                                            {formatearDinero(item.valorCargo)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Totales */}
+                <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <div className="w-64 space-y-2 text-right">
+                        <div className="flex justify-between text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span>Subtotal Cargo:</span>
+                            <span className="font-mono text-sm">{formatearDinero(subtotalCargo)}</span>
                         </div>
-                        <div className="flex justify-between text-lg font-black text-blue-600 border-t-2 border-blue-100 pt-2">
-                            <span>Total ND:</span>
-                            <span className="font-mono">{formatearDinero(total)}</span>
+                        <div className="flex justify-between text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span>IVA ({parametros?.ivaEtiqueta || '15%'}):</span>
+                            <span className="font-mono text-sm">{formatearDinero(ivaCargo)}</span>
+                        </div>
+                        <div className="flex justify-between font-black text-sri-blue pt-2 mt-2 border-t border-slate-200">
+                            <span className="text-xs uppercase tracking-widest">Total ND:</span>
+                            <span className="text-2xl font-mono">{formatearDinero(totalCargo)}</span>
                         </div>
                     </div>
                 </div>

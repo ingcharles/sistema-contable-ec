@@ -1,74 +1,350 @@
-'use client';
+import { Factura } from '@/shared/types';
+import { useBrandColors } from '@/shared/hooks/useBrandColors';
+import { useEmpresa } from '@/shared/context/EmpresaContext';
 
 /**
  * Componente FacturaRIDE
  * Representación Impresa de Documento Electrónico (RIDE)
- * Cumple con el formato estándar del SRI para facturas electrónicas
+ * para Facturas (01)
+ * Cumple con el formato estándar del SRI Ecuador
  */
 
-// Remove unused React import
-import { FacturaViewModel } from '../../domain/FacturaViewModel';
-import { FORMA_PAGO } from '../../domain/catalogos';
-import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
-import { useEffect } from 'react';
+// Interfaces para los datos parseados del XML de factura
+export interface FacturaData {
+    // Info Tributaria
+    ambiente: string;
+    tipoEmision: string;
+    razonSocial: string;
+    nombreComercial?: string;
+    ruc: string;
+    claveAcceso: string;
+    codDoc: string;
+    estab: string;
+    ptoEmi: string;
+    secuencial: string;
+    dirMatriz: string;
 
-interface FacturaRIDEProps {
-    factura: FacturaViewModel;
+    // Info Factura
+    fechaEmision: string;
+    dirEstablecimiento?: string;
+    contribuyenteEspecial?: string;
+    obligadoContabilidad: string;
+    tipoIdentificacionComprador: string;
+    razonSocialComprador: string;
+    identificacionComprador: string;
+    direccionComprador?: string;
+    emailComprador?: string;
+    totalSinImpuestos: number;
+    totalDescuento: number;
+    totalConImpuestos: TotalImpuesto[];
+    propina: number;
+    importeTotal: number;
+    moneda: string;
+    pagos: Pago[];
+
+    // Detalles
+    detalles: Detalle[];
+
+    // Autorización
+    numeroAutorizacion?: string;
+    fechaAutorizacion?: string;
 }
 
-export function FacturaRIDE({ factura }: FacturaRIDEProps) {
-    const { parametros, cargarParametros } = useConfiguracion();
+export interface TotalImpuesto {
+    codigo: string;
+    codigoPorcentaje: string;
+    baseImponible: number;
+    valor: number;
+}
 
-    useEffect(() => {
-        cargarParametros();
-    }, []);
+export interface Detalle {
+    codigoPrincipal: string;
+    codigoAuxiliar?: string;
+    descripcion: string;
+    cantidad: number;
+    precioUnitario: number;
+    descuento: number;
+    precioTotalSinImpuesto: number;
+    impuestos: ImpuestoDetalle[];
+}
 
-    const getNombreFormaPago = (codigo: string) => {
-        const entry = Object.entries(FORMA_PAGO).find(([_, val]) => val === codigo);
-        return entry ? entry[0].replace(/_/g, ' ') : 'OTROS CON SISTEMA FINANCIERO';
+export interface ImpuestoDetalle {
+    codigo: string;
+    codigoPorcentaje: string;
+    tarifa: number;
+    baseImponible: number;
+    valor: number;
+}
+
+export interface Pago {
+    formaPago: string;
+    total: number;
+    plazo?: string;
+    unidadTiempo?: string;
+}
+
+interface FacturaRIDEProps {
+    comprobante: Factura;
+}
+
+/**
+ * Parsea el XML de factura firmado y extrae los datos
+ */
+function parseFacturaXml(xml: string): FacturaData | null {
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xml, 'text/xml');
+
+        const getTextContent = (parent: Document | Element, tagName: string): string => {
+            const element = parent.getElementsByTagName(tagName)[0];
+            return element?.textContent || '';
+        };
+
+        const infoTributaria = doc.getElementsByTagName('infoTributaria')[0];
+        const infoFactura = doc.getElementsByTagName('infoFactura')[0];
+        const detallesElements = doc.getElementsByTagName('detalle');
+
+        if (!infoTributaria || !infoFactura) {
+            console.error('XML de factura inválido: falta infoTributaria o infoFactura');
+            return null;
+        }
+
+        // Parsear detalles
+        const detalles: Detalle[] = [];
+        for (let i = 0; i < detallesElements.length; i++) {
+            const det = detallesElements[i];
+            const impuestosElements = det.getElementsByTagName('impuesto');
+            const impuestos: ImpuestoDetalle[] = [];
+
+            for (let j = 0; j < impuestosElements.length; j++) {
+                const imp = impuestosElements[j];
+                impuestos.push({
+                    codigo: getTextContent(imp, 'codigo'),
+                    codigoPorcentaje: getTextContent(imp, 'codigoPorcentaje'),
+                    tarifa: parseFloat(getTextContent(imp, 'tarifa')) || 0,
+                    baseImponible: parseFloat(getTextContent(imp, 'baseImponible')) || 0,
+                    valor: parseFloat(getTextContent(imp, 'valor')) || 0,
+                });
+            }
+
+            detalles.push({
+                codigoPrincipal: getTextContent(det, 'codigoPrincipal'),
+                codigoAuxiliar: getTextContent(det, 'codigoAuxiliar'),
+                descripcion: getTextContent(det, 'descripcion'),
+                cantidad: parseFloat(getTextContent(det, 'cantidad')) || 0,
+                precioUnitario: parseFloat(getTextContent(det, 'precioUnitario')) || 0,
+                descuento: parseFloat(getTextContent(det, 'descuento')) || 0,
+                precioTotalSinImpuesto: parseFloat(getTextContent(det, 'precioTotalSinImpuesto')) || 0,
+                impuestos,
+            });
+        }
+
+        // Parsear Totales con Impuestos
+        const totalImpuestosElements = infoFactura.getElementsByTagName('totalImpuesto');
+        const totalConImpuestos: TotalImpuesto[] = [];
+        for (let i = 0; i < totalImpuestosElements.length; i++) {
+            const imp = totalImpuestosElements[i];
+            totalConImpuestos.push({
+                codigo: getTextContent(imp, 'codigo'),
+                codigoPorcentaje: getTextContent(imp, 'codigoPorcentaje'),
+                baseImponible: parseFloat(getTextContent(imp, 'baseImponible')) || 0,
+                valor: parseFloat(getTextContent(imp, 'valor')) || 0,
+            });
+        }
+
+        // Parsear Pagos
+        const pagosElements = infoFactura.getElementsByTagName('pago');
+        const pagos: Pago[] = [];
+        for (let i = 0; i < pagosElements.length; i++) {
+            const p = pagosElements[i];
+            pagos.push({
+                formaPago: getTextContent(p, 'formaPago'),
+                total: parseFloat(getTextContent(p, 'total')) || 0,
+                plazo: getTextContent(p, 'plazo'),
+                unidadTiempo: getTextContent(p, 'unidadTiempo'),
+            });
+        }
+
+        const parsedData: FacturaData = {
+            ambiente: getTextContent(infoTributaria, 'ambiente'),
+            tipoEmision: getTextContent(infoTributaria, 'tipoEmision'),
+            razonSocial: getTextContent(infoTributaria, 'razonSocial'),
+            nombreComercial: getTextContent(infoTributaria, 'nombreComercial'),
+            ruc: getTextContent(infoTributaria, 'ruc'),
+            claveAcceso: getTextContent(infoTributaria, 'claveAcceso'),
+            codDoc: getTextContent(infoTributaria, 'codDoc'),
+            estab: getTextContent(infoTributaria, 'estab'),
+            ptoEmi: getTextContent(infoTributaria, 'ptoEmi'),
+            secuencial: getTextContent(infoTributaria, 'secuencial'),
+            dirMatriz: getTextContent(infoTributaria, 'dirMatriz'),
+            fechaEmision: getTextContent(infoFactura, 'fechaEmision'),
+            dirEstablecimiento: getTextContent(infoFactura, 'dirEstablecimiento'),
+            contribuyenteEspecial: getTextContent(infoFactura, 'contribuyenteEspecial'),
+            obligadoContabilidad: getTextContent(infoFactura, 'obligadoContabilidad'),
+            tipoIdentificacionComprador: getTextContent(infoFactura, 'tipoIdentificacionComprador'),
+            razonSocialComprador: getTextContent(infoFactura, 'razonSocialComprador'),
+            identificacionComprador: getTextContent(infoFactura, 'identificacionComprador'),
+            direccionComprador: getTextContent(infoFactura, 'direccionComprador'),
+            totalSinImpuestos: parseFloat(getTextContent(infoFactura, 'totalSinImpuestos')) || 0,
+            totalDescuento: parseFloat(getTextContent(infoFactura, 'totalDescuento')) || 0,
+            totalConImpuestos,
+            propina: parseFloat(getTextContent(infoFactura, 'propina')) || 0,
+            importeTotal: parseFloat(getTextContent(infoFactura, 'importeTotal')) || 0,
+            moneda: getTextContent(infoFactura, 'moneda'),
+            pagos,
+            detalles,
+        };
+
+        // Parsear Información Adicional
+        const infoAdicionalElements = doc.getElementsByTagName('campoAdicional');
+        for (let i = 0; i < infoAdicionalElements.length; i++) {
+            const campo = infoAdicionalElements[i];
+            const nombre = campo.getAttribute('nombre');
+            const valor = campo.textContent || '';
+
+            if (nombre === 'Direccion' || nombre === 'Dirección' || nombre === 'DIRECCION') {
+                parsedData.direccionComprador = valor;
+            } else if (nombre === 'Email' || nombre === 'EMAIL' || nombre === 'E-mail' || nombre === 'Mail') {
+                parsedData.emailComprador = valor;
+            }
+        }
+
+        return parsedData;
+    } catch (error) {
+        console.error('Error parseando XML de factura:', error);
+        return null;
+    }
+}
+
+
+/**
+ * Obtiene el nombre de la forma de pago según el código SRI
+ */
+function getNombreFormaPago(codigo: string): string {
+    const formas: Record<string, string> = {
+        '01': 'SIN UTILIZACION DEL SISTEMA FINANCIERO',
+        '16': 'TARJETA DE DEBITO',
+        '17': 'DINERO ELECTRONICO',
+        '18': 'TARJETA PREPAGO',
+        '19': 'TARJETA DE CREDITO',
+        '20': 'OTROS CON UTILIZACION DEL SISTEMA FINANCIERO',
+        '21': 'ENDOSO DE TITULOS',
     };
+    return formas[codigo] || 'OTROS';
+}
+
+export function FacturaRIDE({ comprobante }: FacturaRIDEProps) {
+    const colors = useBrandColors();
+    const { currentEmpresa } = useEmpresa();
+    const xmlFirmado = comprobante.xmlFirmado;
+    const data = xmlFirmado ? parseFacturaXml(xmlFirmado) : null;
+
+    // Si no hay XML pero hay objeto factura, usarlo como fallback
+    const factor: FacturaData | null = data || (comprobante ? {
+        ambiente: '2',
+        tipoEmision: '1',
+        razonSocial: 'EMPRESA',
+        ruc: '0000000000001',
+        claveAcceso: comprobante.claveAcceso,
+        codDoc: '01',
+        estab: '001',
+        ptoEmi: '001',
+        secuencial: comprobante.secuencial,
+        dirMatriz: 'DIRECCION MATRIZ',
+        fechaEmision: comprobante.fechaEmision,
+        obligadoContabilidad: 'SI',
+        tipoIdentificacionComprador: comprobante.tipoIdentificacionComprador || '04',
+        razonSocialComprador: comprobante.razonSocialComprador,
+        identificacionComprador: comprobante.identificacionComprador,
+        direccionComprador: comprobante.direccionComprador,
+        emailComprador: comprobante.emailComprador,
+        totalSinImpuestos: comprobante.subtotal || 0,
+        totalDescuento: comprobante.descuento || 0,
+        totalConImpuestos: [],
+        propina: 0,
+        importeTotal: comprobante.importeTotal,
+        moneda: 'DOLAR',
+        pagos: [],
+        detalles: []
+    } : null);
+
+    if (!factor) {
+        return (
+            <div className="max-w-4xl mx-auto p-8 bg-white text-slate-800 font-sans border border-slate-200 shadow-sm">
+                <div className="text-center text-red-500">
+                    <p className="font-bold text-lg">Error al cargar la factura</p>
+                    <p className="text-sm mt-2">No se proporcionó un XML válido ni datos de respaldo</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Totales calculados para el pie
+    const codigosNoGraban = ['0', '6', '7'];
+    const subtotalGravado = data
+        ? data.totalConImpuestos.filter(i => !codigosNoGraban.includes(i.codigoPorcentaje)).reduce((acc, i) => acc + i.baseImponible, 0)
+        : comprobante.detalles?.filter((d: any) => !codigosNoGraban.includes(d.codigoIVA)).reduce((acc: number, d: any) => acc + Number(d.baseImponible), 0) || 0;
+
+    const subtotal0 = data
+        ? data.totalConImpuestos.find(i => i.codigoPorcentaje === '0')?.baseImponible || 0
+        : comprobante.detalles?.filter((d: any) => d.codigoIVA === '0').reduce((acc: number, d: any) => acc + Number(d.baseImponible), 0) || 0;
+
+    const valorIva = data
+        ? data.totalConImpuestos.reduce((acc, i) => acc + i.valor, 0)
+        : comprobante.totalIVA || 0;
 
     return (
-        <div className="max-w-4xl mx-auto p-8 bg-white text-slate-800 font-sans border border-slate-200 shadow-sm print:shadow-none print:border-0">
+        <div className="max-w-4xl mx-auto p-8 bg-white text-slate-800 font-sans border border-slate-200 shadow-sm print:shadow-none print:border-0 overflow-hidden">
             {/* Encabezado RIDE */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 {/* Lado Izquierdo: Info Empresa */}
                 <div className="space-y-4">
-                    <div className="h-24 w-48 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300">
-                        <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Logo Empresa</span>
+                    <div className="h-24 w-48 flex items-center justify-center overflow-hidden">
+                        {currentEmpresa?.logo ? (
+                            <img
+                                src={`data:image/png;base64,${currentEmpresa.logo}`}
+                                alt="Logo Empresa"
+                                className="h-full w-full object-contain object-left"
+                            />
+                        ) : (
+                            <div className="h-full w-full bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300">
+                                <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Sin Logo</span>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-1">
-                        <h1 className="text-xl font-black uppercase tracking-tight">{factura.razonSocial}</h1>
-                        {factura.nombreComercial && <p className="text-sm font-bold text-slate-500">{factura.nombreComercial}</p>}
+                        <h1 className="text-xl font-black uppercase tracking-tight">{factor.razonSocial}</h1>
+                        {factor.nombreComercial && <p className="text-sm font-bold text-slate-500">{factor.nombreComercial}</p>}
                         <div className="text-[10px] leading-tight text-slate-600 space-y-0.5">
-                            <p><span className="font-bold">Dirección Matriz:</span> {factura.dirMatriz}</p>
-                            <p><span className="font-bold">Dirección Establecimiento:</span> {factura.dirEstablecimiento || factura.dirMatriz}</p>
-                            <p><span className="font-bold">Contribuyente Especial Nro:</span> {factura.contribuyenteEspecial || 'NO'}</p>
-                            <p><span className="font-bold">Obligado a llevar contabilidad:</span> {factura.obligadoContabilidad}</p>
+                            <p><span className="font-bold">Dirección Matriz:</span> {factor.dirMatriz}</p>
+                            <p><span className="font-bold">Dirección Establecimiento:</span> {factor.dirEstablecimiento || factor.dirMatriz}</p>
+                            <p><span className="font-bold">Contribuyente Especial Nro:</span> {factor.contribuyenteEspecial || 'NO'}</p>
+                            <p><span className="font-bold">Obligado a llevar contabilidad:</span> {factor.obligadoContabilidad}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Lado Derecho: Info Tributaria Comprobante */}
-                <div className="border-2 border-slate-900 p-6 rounded-2xl space-y-3">
+                <div className="border-2 p-6 rounded-2xl space-y-3" style={{ borderColor: colors.primary }}>
                     <div className="space-y-1">
-                        <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{factura.ruc}</span></p>
-                        <p className="text-xl font-black uppercase bg-slate-900 text-white px-3 py-1 inline-block rounded-md">Factura</p>
-                        <p className="text-sm font-bold">No. {factura.estab}-{factura.ptoEmi}-{factura.secuencial}</p>
+                        <p className="text-lg font-black tracking-tighter">R.U.C.: <span className="font-mono">{factor.ruc}</span></p>
+                        <p className="text-xl font-black uppercase text-white px-3 py-1 inline-block rounded-md" style={{ backgroundColor: colors.primary }}>
+                            FACTURA
+                        </p>
+                        <p className="text-sm font-bold">No. {factor.estab}-{factor.ptoEmi}-{factor.secuencial}</p>
                     </div>
 
                     <div className="text-[10px] space-y-1">
                         <p><span className="font-bold">NÚMERO DE AUTORIZACIÓN:</span></p>
-                        <p className="font-mono break-all text-xs">{factura.numeroAutorizacion || 'PENDIENTE DE AUTORIZACIÓN'}</p>
-                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {factura.fechaAutorizacion || 'PENDIENTE'}</p>
-                        <p><span className="font-bold">AMBIENTE:</span> {factura.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}</p>
+                        <p className="font-mono break-all text-xs">{comprobante.numeroAutorizacion || factor.claveAcceso || 'PENDIENTE DE AUTORIZACIÓN'}</p>
+                        <p><span className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</span> {comprobante.fechaAutorizacion || 'PENDIENTE'}</p>
+                        <p><span className="font-bold">AMBIENTE:</span> {factor.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}</p>
                         <p><span className="font-bold">EMISIÓN:</span> NORMAL</p>
                     </div>
 
                     <div className="space-y-1 pt-2">
                         <p className="text-[10px] font-bold">CLAVE DE ACCESO:</p>
                         <div className="bg-slate-50 p-2 border border-slate-200 rounded-lg">
-                            {/* Simulación de Código de Barras */}
                             <div className="h-8 w-full bg-slate-900 flex items-center justify-center mb-1 overflow-hidden">
                                 <div className="w-full h-full flex gap-[1px]">
                                     {Array.from({ length: 100 }).map((_, i) => (
@@ -76,24 +352,24 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
                                     ))}
                                 </div>
                             </div>
-                            <p className="text-[9px] font-mono text-center tracking-tighter">{factura.claveAcceso || '0000000000000000000000000000000000000000000000000'}</p>
+                            <p className="text-[9px] font-mono text-center tracking-tighter">{factor.claveAcceso || '0000000000000000000000000000000000000000000000000'}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Datos del Adquirente */}
+            {/* Datos del Cliente */}
             <div className="border border-slate-900 p-4 rounded-xl mb-6 grid grid-cols-1 md:grid-cols-2 gap-y-2 text-[11px]">
-                <p><span className="font-bold">Razón Social / Nombres y Apellidos:</span> {factura.razonSocialAdquirente}</p>
-                <p><span className="font-bold">Identificación:</span> {factura.identificacionAdquirente}</p>
-                <p><span className="font-bold">Fecha Emisión:</span> {factura.fechaEmision}</p>
-                <p><span className="font-bold">Guía de Remisión:</span> </p>
+                <p><span className="font-bold">Razón Social / Nombres y Apellidos:</span> {factor.razonSocialComprador}</p>
+                <p><span className="font-bold">Identificación:</span> {factor.identificacionComprador}</p>
+                <p><span className="font-bold">Fecha Emisión:</span> {factor.fechaEmision}</p>
+                <p><span className="font-bold">Guía de Remisión:</span> N/A</p>
             </div>
 
             {/* Tabla de Detalles */}
             <div className="border border-slate-900 rounded-xl overflow-hidden mb-8">
                 <table className="w-full text-[10px] text-left">
-                    <thead className="bg-slate-900 text-white font-bold uppercase tracking-wider">
+                    <thead className="text-white font-bold uppercase tracking-wider" style={{ backgroundColor: colors.primary }}>
                         <tr>
                             <th className="px-3 py-2 border-r border-white/10">Cod. Principal</th>
                             <th className="px-3 py-2 border-r border-white/10">Cant</th>
@@ -104,51 +380,49 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                        {factura.detalles.map((detalle, idx) => (
+                        {factor.detalles?.map((detalle: any, idx: number) => (
                             <tr key={idx}>
                                 <td className="px-3 py-2 border-r border-slate-200 font-mono">{detalle.codigoPrincipal}</td>
-                                <td className="px-3 py-2 border-r border-slate-200 text-center">{detalle.cantidad.toFixed(2)}</td>
-                                <td className="px-3 py-2 border-r border-slate-200 font-bold">{detalle.descripcion}</td>
-                                <td className="px-3 py-2 border-r border-slate-200 text-right">{detalle.precioUnitario.toFixed(2)}</td>
-                                <td className="px-3 py-2 border-r border-slate-200 text-right">{detalle.descuento.toFixed(2)}</td>
-                                <td className="px-3 py-2 text-right font-bold">{detalle.total.toFixed(2)}</td>
+                                <td className="px-3 py-2 border-r border-slate-200 text-center">{Number(detalle.cantidad).toFixed(2)}</td>
+                                <td className="px-3 py-2 border-r border-slate-200 font-bold uppercase">{detalle.descripcion}</td>
+                                <td className="px-3 py-2 border-r border-slate-200 text-right">{Number(detalle.precioUnitario).toFixed(2)}</td>
+                                <td className="px-3 py-2 border-r border-slate-200 text-right">{Number(detalle.descuento || 0).toFixed(2)}</td>
+                                <td className="px-3 py-2 text-right font-bold">${Number(detalle.precioTotalSinImpuesto || detalle.total).toFixed(2)}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
 
-            {/* Pie de Factura: Info Adicional, Pagos y Totales */}
+            {/* Pie de Factura */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                 <div className="space-y-6">
                     {/* Información Adicional */}
                     <div className="border border-slate-900 p-4 rounded-xl space-y-2">
                         <h3 className="text-[10px] font-black uppercase tracking-widest border-b border-slate-200 pb-1 mb-2">Información Adicional</h3>
                         <div className="text-[9px] space-y-1">
-                            <p><span className="font-bold uppercase">Dirección:</span> {factura.direccionAdquirente || 'S/N'}</p>
-                            <p><span className="font-bold uppercase">Email:</span> {factura.emailAdquirente || 'S/N'}</p>
-                            {factura.observaciones && <p><span className="font-bold uppercase">Observaciones:</span> {factura.observaciones}</p>}
+                            <p><span className="font-bold uppercase">Tipo Identificación:</span> {
+                                comprobante.tipoIdentificacionCompradorNombre || 'N/A'
+                            }</p>
+                            <p><span className="font-bold uppercase">Dirección:</span> {factor.direccionComprador || 'N/A'}</p>
+                            <p><span className="font-bold uppercase">Email:</span> {factor.emailComprador || 'N/A'}</p>
                         </div>
                     </div>
 
-                    {/* Formas de Pago */}
+                    {/* Pagos */}
                     <div className="border border-slate-900 rounded-xl overflow-hidden">
                         <table className="w-full text-[9px] text-left">
                             <thead className="bg-slate-100 font-bold uppercase border-b border-slate-900">
                                 <tr>
-                                    <th className="px-3 py-1.5 border-r border-slate-900">Forma de Pago</th>
-                                    <th className="px-3 py-1.5 border-r border-slate-900 text-right">Valor</th>
-                                    <th className="px-3 py-1.5 border-r border-slate-900 text-center">Plazo</th>
-                                    <th className="px-3 py-1.5 text-center">Tiempo</th>
+                                    <th className="px-3 py-1.5 border-r border-slate-900 font-bold text-slate-800">Forma de Pago</th>
+                                    <th className="px-3 py-1.5 text-right font-bold text-slate-800">Valor</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                                {factura.pagos.map((pago, idx) => (
+                                {factor.pagos?.map((pago: any, idx: number) => (
                                     <tr key={idx}>
                                         <td className="px-3 py-1.5 border-r border-slate-900 uppercase">{getNombreFormaPago(pago.formaPago)}</td>
-                                        <td className="px-3 py-1.5 border-r border-slate-900 text-right font-bold">{pago.total.toFixed(2)}</td>
-                                        <td className="px-3 py-1.5 border-r border-slate-900 text-center">{pago.plazo || 0}</td>
-                                        <td className="px-3 py-1.5 text-center uppercase">{pago.unidadTiempo || 'Dias'}</td>
+                                        <td className="px-3 py-1.5 text-right font-bold">${Number(pago.total).toFixed(2)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -159,38 +433,30 @@ export function FacturaRIDE({ factura }: FacturaRIDEProps) {
                 {/* Totales */}
                 <div className="border border-slate-900 rounded-xl overflow-hidden">
                     <table className="w-full text-[10px] text-left">
-                        <tbody className="divide-y divide-slate-900">
+                        <tbody className="divide-y divide-slate-200">
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal Sin Impuestos</td>
-                                <td className="px-3 py-1.5 text-right font-bold">{factura.totalSinImpuestos.toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right font-bold">${Number(factor.totalSinImpuestos).toFixed(2)}</td>
                             </tr>
                             <tr>
-                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal {parametros?.iva || 15}%</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '4' || d.codigoIVA === '2').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal {currentEmpresa?.parametros?.ivaEtiqueta || 'IVA'}</td>
+                                <td className="px-3 py-1.5 text-right">${Number(subtotalGravado).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal 0%</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '0').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal No Objeto de IVA</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '6').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Subtotal Exento de IVA</td>
-                                <td className="px-3 py-1.5 text-right">{factura.detalles.filter(d => d.codigoIVA === '7').reduce((acc, d) => acc + d.baseImponible, 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right">${Number(subtotal0).toFixed(2)}</td>
                             </tr>
                             <tr>
                                 <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">Total Descuento</td>
-                                <td className="px-3 py-1.5 text-right">{(factura.totalDescuento || 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right text-red-600">${Number(factor.totalDescuento || 0).toFixed(2)}</td>
                             </tr>
                             <tr>
-                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA {parametros?.iva || 15}%</td>
-                                <td className="px-3 py-1.5 text-right font-bold">{(factura.totalIVA || 0).toFixed(2)}</td>
+                                <td className="px-3 py-1.5 font-bold uppercase bg-slate-50">IVA {currentEmpresa?.parametros?.ivaEtiqueta || ''}</td>
+                                <td className="px-3 py-1.5 text-right font-bold">${Number(valorIva).toFixed(2)}</td>
                             </tr>
-                            <tr className="bg-slate-900 text-white">
+                            <tr className="text-white" style={{ backgroundColor: colors.primary }}>
                                 <td className="px-3 py-2 font-black uppercase text-xs">Importe Total</td>
-                                <td className="px-3 py-2 text-right font-black text-xs">{(factura.importeTotal || 0).toFixed(2)}</td>
+                                <td className="px-3 py-2 text-right font-black text-xs">${Number(factor.importeTotal).toFixed(2)}</td>
                             </tr>
                         </tbody>
                     </table>

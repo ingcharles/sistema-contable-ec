@@ -110,8 +110,48 @@ export async function POST(req: NextRequest) {
                 observaciones
             ]);
 
+            const movimientoId = kardexResult.rows[0].id;
+
+            // --- GENERACIÓN DE ASIENTO CONTABLE (Solo para Ajustes) ---
+            if (tipo === 'AJUSTE_POSITIVO' || tipo === 'AJUSTE_NEGATIVO') {
+                // 1. Obtener parámetros
+                const paramsResult = await client.query('SELECT cuenta_inventario, cuenta_sobrante_inventario, cuenta_faltante_inventario FROM configuracion.parametros WHERE empresa_id = $1', [context.empresaId]);
+                const params = paramsResult.rows[0] || {};
+
+                const ctaInventario = params.cuenta_inventario;
+                const ctaAjuste = tipo === 'AJUSTE_POSITIVO'
+                    ? (params.cuenta_sobrante_inventario)
+                    : (params.cuenta_faltante_inventario);
+
+                const montoTotal = cantidad * (costoUnitario || nuevoCosto);
+
+                // 2. Crear el asiento
+                const asientoResult = await client.query(`
+                    INSERT INTO contabilidad.asientos (empresa_id, usuario_id, numero, fecha, glosa, tipo, estado)
+                    VALUES ($1, $2, $3, CURRENT_DATE, $4, 'DIARIO', 'MAYORIZADO')
+                    RETURNING id
+                `, [
+                    context.empresaId, context.usuarioId,
+                    `AJU-${movimientoId.toString().toUpperCase().slice(-12)}`,
+                    `Ajuste de Inventario (${tipo}): ${referencia || ''}`
+                ]);
+                const asientoId = asientoResult.rows[0].id;
+
+                const glosaAsiento = `Ajuste de Inventario (${tipo}): ${referencia || ''}`;
+                // 3. Partida Doble
+                if (tipo === 'AJUSTE_POSITIVO') {
+                    // DEBE Inventario, HABER Ingreso (Sobrante)
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, $4, $5)`, [asientoId, ctaInventario, montoTotal, observaciones, glosaAsiento]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, $4, $5)`, [asientoId, ctaAjuste, montoTotal, observaciones, glosaAsiento]);
+                } else {
+                    // DEBE Gasto (Faltante), HABER Inventario
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, $4, $5)`, [asientoId, ctaAjuste, montoTotal, observaciones, `Ajuste de Inventario (${tipo}): ${referencia || ''}`]);
+                    await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, $4, $5)`, [asientoId, ctaInventario, montoTotal, observaciones, `Ajuste de Inventario (${tipo}): ${referencia || ''}`]);
+                }
+            }
+
             return {
-                movimientoId: kardexResult.rows[0].id,
+                movimientoId,
                 stockResultante: kardexResult.rows[0].stock_resultante
             };
         }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });

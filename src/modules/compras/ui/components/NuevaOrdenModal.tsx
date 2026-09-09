@@ -51,7 +51,7 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
         }
     };
 
-    const ivaPorcentaje = (parametros?.iva || 15) / 100;
+    const ivaPorcentaje = (parametros?.ivaValor) / 100;
 
     const subtotalNoIva = detalles.filter(d => !d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0);
     const subtotalIva = detalles.filter(d => d.grabaIva).reduce((acc, d) => acc + d.subtotal, 0);
@@ -127,7 +127,7 @@ export const NuevaOrdenModal: React.FC<Props> = ({ onClose, onSave }) => {
                     <p className="text-xl font-black text-slate-600">{formatMoney(subtotalTotal)}</p>
                 </div>
                 <div className="space-y-0.5">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IVA ({parametros?.iva || 15}%)</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IVA ({parametros?.ivaValor}%)</p>
                     <p className="text-xl font-black text-slate-600">{formatMoney(iva)}</p>
                 </div>
                 <div className="h-10 w-px bg-slate-200"></div>

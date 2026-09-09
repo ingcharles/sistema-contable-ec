@@ -18,9 +18,8 @@ export const useBuzon = () => {
         try {
             const data = await BuzonUseCases.listarComprobantes(empresaId);
             setComprobantes(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar comprobantes del buzón');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar comprobantes del buzón');
         } finally {
             setLoading(false);
         }
@@ -33,12 +32,22 @@ export const useBuzon = () => {
         try {
             await BuzonUseCases.sincronizarSRI(empresaId, desde, hasta);
             await cargarComprobantes(empresaId);
-        } catch (err: any) {
-            setError(err.message || 'Error al sincronizar con el SRI');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al sincronizar con el SRI';
+            setError(msg);
             throw err;
         } finally {
             setImporting(false);
+        }
+    }, [cargarComprobantes]);
+
+    const procesarComprobante = useCallback(async (id: string, empresaId: string) => {
+        try {
+            await BuzonUseCases.procesarComprobante(id);
+            await cargarComprobantes(empresaId);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al procesar comprobante';
+            setError(msg);
         }
     }, [cargarComprobantes]);
 
@@ -48,6 +57,7 @@ export const useBuzon = () => {
         importing,
         error,
         cargarComprobantes,
-        sincronizarSRI
+        sincronizarSRI,
+        procesarComprobante
     };
 };

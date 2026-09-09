@@ -74,6 +74,35 @@ export interface Compra extends Auditable {
     nroRetencion?: string;
 }
 
+export interface RegistrarCompraConRetencionInput {
+    // Datos de la compra
+    proveedorId: string;
+    tipoComprobante: string;
+    secuencial: string;
+    autorizacion: string;
+    fechaEmision: string;
+    fechaRegistro: string;
+    sustento: string;
+    descripcion: string;
+    subtotalIva: number;
+    subtotal0: number;
+    montoIva: number;
+    total: number;
+    ordenCompraId?: string;
+    detalles: any[]; // Se puede tipar mejor si se tiene la interfaz de detalles
+
+    // Datos del asiento contable
+    centroCostoId?: string | null;
+    numeroAsiento: string;
+    glosaAsiento: string;
+    parametros?: any;
+
+    // Datos de retención
+    aplicaRetencion: boolean;
+    datosRetencion?: any; // Estructura compleja del SRI
+    puntoEmisionId?: string | null;
+}
+
 export interface CompraRepository {
     getAll(empresaId: string): Promise<Compra[]>;
     save(compra: Compra): Promise<void>;

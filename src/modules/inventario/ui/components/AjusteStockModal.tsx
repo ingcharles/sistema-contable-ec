@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, TrendingUp, TrendingDown, Package, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
-import { Producto, Bodega } from '../../domain/types';
+import { Producto, Bodega, TipoMovimientoInventario } from '../../domain/types';
 import { InventarioUseCases } from '@/modules/shared/application/useCases/systemUseCases';
 
 interface Props {
@@ -14,11 +14,9 @@ interface Props {
     empresaId: string;
 }
 
-type TipoMovimiento = 'ENTRADA' | 'SALIDA' | 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO' | 'DEVOLUCION_COMPRA' | 'DEVOLUCION_VENTA';
-
 export const AjusteStockModal: React.FC<Props> = ({ producto, onClose, onSave, empresaId }) => {
     const [bodegas, setBodegas] = useState<Bodega[]>([]);
-    const [tipo, setTipo] = useState<TipoMovimiento>('ENTRADA');
+    const [tipo, setTipo] = useState<TipoMovimientoInventario>(TipoMovimientoInventario.ENTRADA);
     const [bodegaId, setBodegaId] = useState('');
     const [cantidad, setCantidad] = useState<number>(0);
     const [costoUnitario, setCostoUnitario] = useState<number>(producto.costoPromedio || 0);
@@ -57,21 +55,22 @@ export const AjusteStockModal: React.FC<Props> = ({ producto, onClose, onSave, e
                 bodegaId,
                 tipo,
                 cantidad,
-                costoUnitario: (tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO') ? costoUnitario : undefined,
+                costoUnitario: (tipo === TipoMovimientoInventario.ENTRADA || tipo === TipoMovimientoInventario.AJUSTE_POSITIVO) ? costoUnitario : 0,
                 referencia,
                 observaciones
             });
 
             onSave();
             onClose();
-        } catch (err: any) {
-            setError(err.message || 'Error al registrar el movimiento');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al registrar el movimiento';
+            setError(msg);
         } finally {
             setGuardando(false);
         }
     };
 
-    const esEntrada = tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION_VENTA';
+    const esEntrada = tipo === TipoMovimientoInventario.ENTRADA || tipo === TipoMovimientoInventario.AJUSTE_POSITIVO || tipo === TipoMovimientoInventario.DEVOLUCION_VENTA;
     const nuevoStock = esEntrada ? producto.stockActual + cantidad : producto.stockActual - cantidad;
 
     const footer = (
@@ -108,12 +107,11 @@ export const AjusteStockModal: React.FC<Props> = ({ producto, onClose, onSave, e
                     <div className="grid grid-cols-2 gap-3">
                         <button
                             type="button"
-                            onClick={() => setTipo('ENTRADA')}
-                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${
-                                tipo === 'ENTRADA'
-                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                    : 'border-slate-200 bg-white hover:border-emerald-300'
-                            }`}
+                            onClick={() => setTipo(TipoMovimientoInventario.ENTRADA)}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${tipo === 'ENTRADA'
+                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                : 'border-slate-200 bg-white hover:border-emerald-300'
+                                }`}
                         >
                             <TrendingUp size={24} className={tipo === 'ENTRADA' ? 'text-emerald-600' : 'text-slate-400'} />
                             <div className="text-left">
@@ -123,12 +121,11 @@ export const AjusteStockModal: React.FC<Props> = ({ producto, onClose, onSave, e
                         </button>
                         <button
                             type="button"
-                            onClick={() => setTipo('SALIDA')}
-                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${
-                                tipo === 'SALIDA'
-                                    ? 'border-rose-500 bg-rose-50 text-rose-700'
-                                    : 'border-slate-200 bg-white hover:border-rose-300'
-                            }`}
+                            onClick={() => setTipo(TipoMovimientoInventario.SALIDA)}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${tipo === 'SALIDA'
+                                ? 'border-rose-500 bg-rose-50 text-rose-700'
+                                : 'border-slate-200 bg-white hover:border-rose-300'
+                                }`}
                         >
                             <TrendingDown size={24} className={tipo === 'SALIDA' ? 'text-rose-600' : 'text-slate-400'} />
                             <div className="text-left">
@@ -138,12 +135,11 @@ export const AjusteStockModal: React.FC<Props> = ({ producto, onClose, onSave, e
                         </button>
                         <button
                             type="button"
-                            onClick={() => setTipo('AJUSTE_POSITIVO')}
-                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${
-                                tipo === 'AJUSTE_POSITIVO'
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                    : 'border-slate-200 bg-white hover:border-blue-300'
-                            }`}
+                            onClick={() => setTipo(TipoMovimientoInventario.AJUSTE_POSITIVO)}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${tipo === 'AJUSTE_POSITIVO'
+                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                : 'border-slate-200 bg-white hover:border-blue-300'
+                                }`}
                         >
                             <TrendingUp size={24} className={tipo === 'AJUSTE_POSITIVO' ? 'text-blue-600' : 'text-slate-400'} />
                             <div className="text-left">
@@ -153,12 +149,11 @@ export const AjusteStockModal: React.FC<Props> = ({ producto, onClose, onSave, e
                         </button>
                         <button
                             type="button"
-                            onClick={() => setTipo('AJUSTE_NEGATIVO')}
-                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${
-                                tipo === 'AJUSTE_NEGATIVO'
-                                    ? 'border-orange-500 bg-orange-50 text-orange-700'
-                                    : 'border-slate-200 bg-white hover:border-orange-300'
-                            }`}
+                            onClick={() => setTipo(TipoMovimientoInventario.AJUSTE_NEGATIVO)}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${tipo === 'AJUSTE_NEGATIVO'
+                                ? 'border-orange-500 bg-orange-50 text-orange-700'
+                                : 'border-slate-200 bg-white hover:border-orange-300'
+                                }`}
                         >
                             <TrendingDown size={24} className={tipo === 'AJUSTE_NEGATIVO' ? 'text-orange-600' : 'text-slate-400'} />
                             <div className="text-left">
@@ -168,12 +163,11 @@ export const AjusteStockModal: React.FC<Props> = ({ producto, onClose, onSave, e
                         </button>
                         <button
                             type="button"
-                            onClick={() => setTipo('DEVOLUCION_VENTA')}
-                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${
-                                tipo === 'DEVOLUCION_VENTA'
-                                    ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
-                                    : 'border-slate-200 bg-white hover:border-cyan-300'
-                            }`}
+                            onClick={() => setTipo(TipoMovimientoInventario.DEVOLUCION_VENTA)}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${tipo === 'DEVOLUCION_VENTA'
+                                ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                                : 'border-slate-200 bg-white hover:border-cyan-300'
+                                }`}
                         >
                             <TrendingUp size={24} className={tipo === 'DEVOLUCION_VENTA' ? 'text-cyan-600' : 'text-slate-400'} />
                             <div className="text-left">
@@ -183,12 +177,11 @@ export const AjusteStockModal: React.FC<Props> = ({ producto, onClose, onSave, e
                         </button>
                         <button
                             type="button"
-                            onClick={() => setTipo('DEVOLUCION_COMPRA')}
-                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${
-                                tipo === 'DEVOLUCION_COMPRA'
-                                    ? 'border-purple-500 bg-purple-50 text-purple-700'
-                                    : 'border-slate-200 bg-white hover:border-purple-300'
-                            }`}
+                            onClick={() => setTipo(TipoMovimientoInventario.DEVOLUCION_COMPRA)}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${tipo === 'DEVOLUCION_COMPRA'
+                                ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                : 'border-slate-200 bg-white hover:border-purple-300'
+                                }`}
                         >
                             <TrendingDown size={24} className={tipo === 'DEVOLUCION_COMPRA' ? 'text-purple-600' : 'text-slate-400'} />
                             <div className="text-left">

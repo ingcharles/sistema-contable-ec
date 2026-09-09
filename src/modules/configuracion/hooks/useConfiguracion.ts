@@ -17,9 +17,8 @@ export const useConfiguracion = () => {
             const data = await ConfiguracionUseCases.listarSucursales();
             setSucursales(data);
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar sucursales');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar sucursales');
         } finally {
             setLoading(false);
         }
@@ -31,8 +30,9 @@ export const useConfiguracion = () => {
             const result = await ConfiguracionUseCases.guardarSucursal(sucursal);
             await cargarSucursales();
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar sucursal');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar sucursal';
+            setError(msg);
             throw err;
         } finally {
             setLoading(false);
@@ -48,9 +48,8 @@ export const useConfiguracion = () => {
             const data = await ConfiguracionUseCases.listarPuntosEmision();
             setPuntosEmision(data);
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar puntos de emisión');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar puntos de emisión');
         } finally {
             setLoading(false);
         }
@@ -62,8 +61,9 @@ export const useConfiguracion = () => {
             const result = await ConfiguracionUseCases.guardarPuntoEmision(punto);
             await cargarPuntosEmision();
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar punto de emisión');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar punto de emisión';
+            setError(msg);
             throw err;
         } finally {
             setLoading(false);
@@ -79,9 +79,8 @@ export const useConfiguracion = () => {
             const data = await ConfiguracionUseCases.listarRetenciones();
             setRetenciones(data);
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar códigos de retención');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar códigos de retención');
         } finally {
             setLoading(false);
         }
@@ -93,8 +92,9 @@ export const useConfiguracion = () => {
             const result = await ConfiguracionUseCases.guardarRetencion(retencion);
             await cargarRetenciones();
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar código de retención');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar código de retención';
+            setError(msg);
             throw err;
         } finally {
             setLoading(false);
@@ -110,9 +110,8 @@ export const useConfiguracion = () => {
             const data = await ConfiguracionUseCases.obtenerParametros();
             setParametros(data);
             return data;
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar parámetros');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar parámetros');
         } finally {
             setLoading(false);
         }
@@ -124,8 +123,9 @@ export const useConfiguracion = () => {
             const result = await ConfiguracionUseCases.guardarParametros(params);
             setParametros(params);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar parámetros');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar parámetros';
+            setError(msg);
             throw err;
         } finally {
             setLoading(false);

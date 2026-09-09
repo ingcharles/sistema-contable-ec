@@ -31,36 +31,47 @@ export const CruceCuentasModal: React.FC<Props> = ({ documento, anticipos, onClo
         setGuardando(true);
         try {
             const params = await ConfiguracionUseCases.obtenerParametros();
+            const transaccionId = crypto.randomUUID();
+            const glosaAsiento = `Cruce Fac/${documento.nroComprobante} con Anticipo ${anticipoSeleccionado.referencia}`;
+
             await CarteraUseCases.registrarPago({
+                id: transaccionId,
+                empresaId: documento.empresaId,
                 documentoId: documento.id,
                 anticipoId: anticipoSeleccionado.id,
                 fecha,
                 valorEfectivo: 0,
                 valorRetencion: 0,
                 valorCruce,
-                formaPago: 'CRUCE_ANTICIPO'
+                formaPago: 'CRUCE_ANTICIPO',
+                referencia: `CRU-${transaccionId.slice(0, 8)}`
             });
 
             const esCxC = documento.tipo === TipoCartera.CXC;
-            const ctaCxC = params.cuentaCxcClientes || '1.1.02.01';
-            const ctaCxP = params.cuentaCxpProveedores || '2.1.01.01';
-            const ctaAntCli = params.cuentaAnticipoClientes || '2.1.04.01';
-            const ctaAntProv = params.cuentaAnticipoProveedores || '1.1.04.01';
+            const ctaCxC = params.cuentaCxcClientes;
+            const ctaCxP = params.cuentaCxpProveedores;
+            const ctaAntCli = params.cuentaAnticipoClientes;
+            const ctaAntProv = params.cuentaAnticipoProveedores;
 
             const detalles = esCxC ? [
-                { cuentaCodigo: ctaAntCli, debe: valorCruce, haber: 0 },
-                { cuentaCodigo: ctaCxC, debe: 0, haber: valorCruce }
+                { cuentaCodigo: ctaAntCli, cuentaNombre: 'ANTICIPO CLIENTES', debe: valorCruce, haber: 0, glosa: glosaAsiento },
+                { cuentaCodigo: ctaCxC, cuentaNombre: 'CLIENTES', debe: 0, haber: valorCruce, glosa: glosaAsiento }
             ] : [
-                { cuentaCodigo: ctaCxP, debe: valorCruce, haber: 0 },
-                { cuentaCodigo: ctaAntProv, debe: 0, haber: valorCruce }
+                { cuentaCodigo: ctaCxP, cuentaNombre: 'PROVEEDORES', debe: valorCruce, haber: 0, glosa: glosaAsiento },
+                { cuentaCodigo: ctaAntProv, cuentaNombre: 'ANTICIPO PROVEEDORES', debe: 0, haber: valorCruce, glosa: glosaAsiento }
             ];
 
             await ContabilidadUseCases.registrarAsiento({
-                numero: `CRU-${crypto.randomUUID().slice(0, 8)}`,
+                id: crypto.randomUUID(),
+                empresaId: documento.empresaId,
+                numero: `CRU-${transaccionId.slice(0, 8)}`,
                 fecha,
-                glosa: `Cruce Fac/${documento.nroComprobante} con Anticipo ${anticipoSeleccionado.referencia}`,
+                glosa: glosaAsiento,
                 tipo: 'DIARIO',
-                detalles
+                estado: 'MAYORIZADO',
+                detalles,
+                totalDebe: valorCruce,
+                totalHaber: valorCruce
             });
 
             onSave();

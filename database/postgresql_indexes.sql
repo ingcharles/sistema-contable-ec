@@ -301,6 +301,30 @@ CREATE INDEX IF NOT EXISTS idx_terceros_tipo ON directorio.terceros(tipo_tercero
 CREATE INDEX IF NOT EXISTS idx_terceros_activo ON directorio.terceros(activo);
 CREATE INDEX IF NOT EXISTS idx_terceros_razon_social ON directorio.terceros USING gin(to_tsvector('spanish', razon_social));
 
+
+-- Índices para mejorar performance
+CREATE INDEX IF NOT EXISTS idx_compras_detalle_compra ON compras.compras_detalle(compra_id);
+CREATE INDEX IF NOT EXISTS idx_compras_detalle_producto ON compras.compras_detalle(producto_id);
+
+
+-- ============================================================================
+-- ÍNDICES
+-- ============================================================================
+
+-- Búsqueda de puntos por usuario y empresa (muy frecuente)
+CREATE INDEX IF NOT EXISTS idx_usuarios_puntos_usuario_empresa 
+ON configuracion.usuarios_puntos_emision(usuario_id, empresa_id)
+WHERE activo = true;
+
+-- Búsqueda rápida del punto activo
+CREATE INDEX IF NOT EXISTS idx_usuarios_puntos_activo 
+ON configuracion.usuarios_puntos_emision(usuario_id, empresa_id, activo) 
+WHERE activo = true;
+
+-- Búsqueda de usuarios por punto de emisión (para administración)
+CREATE INDEX IF NOT EXISTS idx_usuarios_puntos_punto_emision 
+ON configuracion.usuarios_puntos_emision(punto_emision_id, empresa_id);
+
 -- ============================================================================
 -- SECCIÓN 9: ESTADÍSTICAS Y MANTENIMIENTO
 -- ============================================================================

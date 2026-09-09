@@ -57,6 +57,7 @@ export interface MovimientoKardex extends Auditable {
     referenciaComprobante: string;
 
     // Cantidades
+    cantidad?: number; // Usado para comandos de ajuste
     cantidadEntrada: number;
     cantidadSalida: number;
     saldoCantidad: number;
@@ -66,6 +67,17 @@ export interface MovimientoKardex extends Auditable {
     valorEntrada: number;
     valorSalida: number;
     saldoValor: number; // Costo total del inventario
+}
+
+export interface TransferenciaInventario extends Auditable {
+    id: string;
+    empresaId: string;
+    fecha: string;
+    bodegaOrigenId: string;
+    bodegaDestinoId: string;
+    productoId: string;
+    cantidad: number;
+    observacion?: string;
 }
 
 export interface InventarioRepository {

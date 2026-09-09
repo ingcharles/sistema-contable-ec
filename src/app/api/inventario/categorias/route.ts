@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const returnAll = searchParams.get('all') === 'true';
-        
+
         // Si se piden todas, no hacemos paginación
         if (returnAll) {
             const result = await db.query(
@@ -121,25 +121,26 @@ export async function POST(req: NextRequest) {
             activa = true
         } = body;
 
-        const id = crypto.randomUUID();
-
-        await db.query(
+        const result = await db.query(
             {
                 text: `
                 INSERT INTO inventario.categorias_producto (
-                    id, empresa_id, nombre, descripcion,
+                    empresa_id, nombre, descripcion,
                     cuenta_inventario, cuenta_costo_venta, cuenta_venta,
                     activa, created_at, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                RETURNING id
             `,
                 values: [
-                    id, context.empresaId, nombre, descripcion,
+                    context.empresaId, nombre, descripcion,
                     cuentaInventario, cuentaCostoVenta, cuentaVenta,
                     activa
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
+
+        const id = result.rows[0].id;
 
         return NextResponse.json({
             message: 'Categoría creada exitosamente',

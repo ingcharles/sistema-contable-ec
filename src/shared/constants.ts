@@ -24,13 +24,8 @@ export const ICON_MAP: Record<string, LucideIcon> = {
     Settings
 };
 
-export interface NavItem {
-    label: string;
-    icon: LucideIcon;
-    path: string;
-    requiredRoles?: ('SUPERADMIN' | 'ADMIN' | 'CONTADOR' | 'AUDITOR' | 'ASISTENTE')[];
-    minPlan?: 'GRATUITO' | 'PROFESIONAL' | 'EMPRESARIAL';
-}
+export const DEFAULT_VALIDEZ_DIAS = 15;
+
 
 // export const MOCK_EMPRESAS: Empresa[] = [
 //     {
@@ -43,7 +38,7 @@ export interface NavItem {
 //         agenteRetencion: true,
 //         contribuyenteEspecial: '5368',
 //         rimpe: null,
-//         logoUrl: 'https://picsum.photos/40/40'
+//         logo: ''
 //     },
 //     {
 //         id: 'c9bf9e57-1685-4c89-bafb-ff5af830be2a',
@@ -55,7 +50,7 @@ export interface NavItem {
 //         agenteRetencion: false,
 //         contribuyenteEspecial: null,
 //         rimpe: 'EMPRENDEDOR',
-//         logoUrl: 'https://picsum.photos/41/41'
+//         logo: ''
 //     }
 // ];
 

@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
                     valor_adquisicion as "valorAdquisicion", valor_residual as "valorResidual",
                     vida_util_meses as "vidaUtilMeses", depreciacion_acumulada as "depreciacionAcumulada",
                     valor_libros as "valorLibros", estado, ubicacion, responsable,
+                    cuenta_gasto as "cuentaGasto", cuenta_dep_acumulada as "cuentaDepAcumulada",
                     created_at as "createdAt", updated_at as "updatedAt"
                 FROM activos.activos_fijos
                 WHERE empresa_id = $1
@@ -62,29 +63,29 @@ export async function POST(req: NextRequest) {
             id, codigo, nombre, categoria, fechaAdquisicion,
             valorAdquisicion, valorResidual, vidaUtilMeses,
             depreciacionAcumulada, valorLibros, estado,
-            ubicacion, responsable
+            ubicacion, responsable, cuentaGasto, cuentaDepAcumulada
         } = body;
 
         if (!id) {
             // Insertar nuevo activo
-            const newId = crypto.randomUUID();
             await db.query({
                 text: `
                     INSERT INTO activos.activos_fijos (
-                        id, empresa_id, usuario_id, codigo, nombre, categoria,
+                        empresa_id, usuario_id, codigo, nombre, categoria,
                         fecha_adquisicion, valor_adquisicion, valor_residual,
                         vida_util_meses, depreciacion_acumulada, valor_libros,
-                        estado, ubicacion, responsable
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                        estado, ubicacion, responsable, cuenta_gasto, cuenta_dep_acumulada
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                 `,
                 values: [
-                    newId, context.empresaId, context.usuarioId, codigo, nombre, categoria,
+                    context.empresaId, context.usuarioId, codigo, nombre, categoria,
                     fechaAdquisicion, valorAdquisicion, valorResidual, vidaUtilMeses,
-                    depreciacionAcumulada, valorLibros, estado, ubicacion, responsable
+                    depreciacionAcumulada, valorLibros, estado, ubicacion, responsable,
+                    cuentaGasto, cuentaDepAcumulada
                 ]
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 
-            return NextResponse.json({ success: true, id: newId });
+            return NextResponse.json({ success: true });
         } else {
             // Actualizar activo existente
             await db.query({
@@ -95,13 +96,15 @@ export async function POST(req: NextRequest) {
                         valor_residual = $6, vida_util_meses = $7,
                         depreciacion_acumulada = $8, valor_libros = $9,
                         estado = $10, ubicacion = $11, responsable = $12,
+                        cuenta_gasto = $13, cuenta_dep_acumulada = $14,
                         updated_at = NOW()
-                    WHERE id = $13 AND empresa_id = $14
+                    WHERE id = $15 AND empresa_id = $16
                 `,
                 values: [
                     codigo, nombre, categoria, fechaAdquisicion, valorAdquisicion,
                     valorResidual, vidaUtilMeses, depreciacionAcumulada, valorLibros,
-                    estado, ubicacion, responsable, id, context.empresaId
+                    estado, ubicacion, responsable, cuentaGasto, cuentaDepAcumulada,
+                    id, context.empresaId
                 ]
             }, { empresaId: context.empresaId!, usuarioId: context.usuarioId! });
 

@@ -56,19 +56,20 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Código y nombre son requeridos' }, { status: 400 });
         }
 
-        const id = crypto.randomUUID();
-
-        await db.query(
+        const result = await db.query(
             {
                 text: `
                     INSERT INTO configuracion.sucursales (
-                        id, empresa_id, codigo, nombre, direccion, es_matriz, activa, created_by
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        empresa_id, codigo, nombre, direccion, es_matriz, activa, created_by
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING id
                 `,
-                values: [id, context.empresaId, codigo, nombre, direccion, esMatriz, activa, context.usuarioId]
+                values: [context.empresaId, codigo, nombre, direccion, esMatriz, activa, context.usuarioId]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
+
+        const id = result.rows[0].id;
 
         return NextResponse.json({ success: true, id, message: 'Sucursal creada exitosamente' }, { status: 201 });
     } catch (error: any) {

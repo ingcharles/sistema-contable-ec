@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Save, Package, Tag, DollarSign, BarChart2, AlertCircle } from 'lucide-react';
 import { Modal } from '@/shared/ui/Modal';
+
 import { useConfiguracion } from '@/modules/configuracion/hooks/useConfiguracion';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useCategorias, useInventarioMutations } from '../../hooks/useInventario';
@@ -34,11 +35,10 @@ export const ProductoModal = ({ producto, onClose, onSave, empresaId }: Producto
         cargarParametros();
     }, []);
 
-    // Manejo de IVA y Unidades con catálogos dinámicos
-    const { getCatalogo, loading: loadingCatalogos } = useCatalogos(['SRI_TIPO_IMPUESTO_IVA', 'SRI_UNIDAD_MEDIDA']);
-    const tarifasIva = getCatalogo('SRI_TIPO_IMPUESTO_IVA');
-    const unidadesMedida = getCatalogo('SRI_UNIDAD_MEDIDA');
-    const [codigoTarifaIva, setCodigoTarifaIva] = useState(producto?.codigoTarifaIva || '4'); // Por defecto 15% (código 4)
+    // Manejo de Unidades con catálogos dinámicos
+    const { getCatalogo, loading: loadingCatalogos } = useCatalogos(['SRI_UNIDAD_MEDIDA']);
+    const unidadesMedida = getCatalogo('SRI_UNIDAD_MEDIDA') || [];
+    const [codigoTarifaIva, setCodigoTarifaIva] = useState(producto?.codigoTarifaIva || parametros?.ivaCodigo);
 
     // Seleccionar primera categoría cuando carguen
     useEffect(() => {
@@ -47,17 +47,12 @@ export const ProductoModal = ({ producto, onClose, onSave, empresaId }: Producto
         }
     }, [categorias, categoriaId]);
 
-    // Actualizar default tarifa cuando carguen los catálogos si el actual no existe o es inválido
+    // Actualizar default tarifa cuando carguen los parámetros
     useEffect(() => {
-        if (!loadingCatalogos && tarifasIva.length > 0) {
-            const existe = tarifasIva.some(t => t.codigo === codigoTarifaIva);
-            if (!existe) {
-                const tarifaDinamica = tarifasIva.find(t => t.valor.includes(`${parametros?.iva || 15}%`));
-                if (tarifaDinamica) setCodigoTarifaIva(tarifaDinamica.codigo);
-                else setCodigoTarifaIva(tarifasIva[0].codigo);
-            }
+        if (!producto && parametros?.ivaCodigo && !codigoTarifaIva) {
+            setCodigoTarifaIva(parametros.ivaCodigo);
         }
-    }, [loadingCatalogos, tarifasIva, codigoTarifaIva]);
+    }, [parametros, producto]);
 
     const handleGuardar = async () => {
         if (!nombre || !codigo || !categoriaId) {
@@ -184,10 +179,10 @@ export const ProductoModal = ({ producto, onClose, onSave, empresaId }: Producto
                         </label>
                         <input
                             type="number"
-                            step="0.01"
                             value={precioVenta}
-                            onChange={(e) => setPrecioVenta(Number(e.target.value))}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
+                            onChange={(e) => setPrecioVenta(parseFloat(e.target.value) || 0)}
+                            step="0.01"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold"
                         />
                     </div>
                 </div>
@@ -198,7 +193,8 @@ export const ProductoModal = ({ producto, onClose, onSave, empresaId }: Producto
                         <input
                             type="number"
                             value={stockMinimo}
-                            onChange={(e) => setStockMinimo(Number(e.target.value))}
+                            onChange={(e) => setStockMinimo(parseFloat(e.target.value) || 0)}
+                            step="1"
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
                         />
                     </div>
@@ -207,12 +203,12 @@ export const ProductoModal = ({ producto, onClose, onSave, empresaId }: Producto
                         <select
                             value={codigoTarifaIva}
                             onChange={(e) => setCodigoTarifaIva(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all"
-                            disabled={loadingCatalogos}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sri-blue/20 transition-all font-bold"
                         >
-                            {tarifasIva.map(t => (
-                                <option key={t.codigo} value={t.codigo}>{t.valor} {t.descripcion ? `- ${t.descripcion}` : ''}</option>
-                            ))}
+                            <option value={parametros?.ivaCodigo || '4'}>{parametros?.ivaEtiqueta || 'IVA'}</option>
+                            <option value="0">0% (IVA CERO)</option>
+                            <option value="6">EXENTO DE IVA</option>
+                            <option value="7">NO OBJETO DE IMPUESTO</option>
                         </select>
                     </div>
                 </div>

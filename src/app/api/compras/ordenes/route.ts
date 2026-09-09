@@ -57,11 +57,11 @@ export async function POST(req: NextRequest) {
             proveedorId, secuencial, fechaEmision, fechaEntrega,
             observacion, subtotal, iva, total, detalles
         } = body;
-
+        console.log('Registrando orden de compra con data:', proveedorId);
         const result = await db.transaction(async (client) => {
             // 0. Resolver proveedorId (RUC) a UUID
             const tercero = await client.query({
-                text: 'SELECT id FROM directorio.terceros WHERE identificacion = $1 AND empresa_id = $2',
+                text: 'SELECT id FROM directorio.terceros WHERE id = $1 AND empresa_id = $2',
                 values: [proveedorId, context.empresaId]
             });
             const tId = tercero.rows[0]?.id;
@@ -70,32 +70,33 @@ export async function POST(req: NextRequest) {
                 throw new Error('Proveedor no encontrado');
             }
 
-            const ordenId = crypto.randomUUID();
-
             // 1. Insertar cabecera de la orden
-            await client.query(`
+            const ordenResult = await client.query(`
                 INSERT INTO compras.ordenes (
-                    id, empresa_id, usuario_id, proveedor_id, secuencial,
+                    empresa_id, usuario_id, proveedor_id, secuencial,
                     fecha_emision, fecha_entrega, observacion,
                     subtotal, iva, total, estado, created_at
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDIENTE', NOW()
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDIENTE', NOW()
                 )
+                RETURNING id
             `, [
-                ordenId, context.empresaId, context.usuarioId, tId,
+                context.empresaId, context.usuarioId, tId,
                 secuencial, fechaEmision, fechaEntrega, observacion,
                 subtotal, iva, total
             ]);
+
+            const ordenId = ordenResult.rows[0].id;
 
             // 2. Insertar detalles (si existen)
             if (detalles && Array.isArray(detalles)) {
                 for (const d of detalles) {
                     await client.query(`
                         INSERT INTO compras.ordenes_detalles (
-                            id, orden_id, producto_nombre, cantidad, precio_unitario, subtotal, graba_iva
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                            orden_id, producto_nombre, cantidad, precio_unitario, subtotal, graba_iva
+                        ) VALUES ($1, $2, $3, $4, $5, $6)
                     `, [
-                        crypto.randomUUID(), ordenId, d.producto, d.cantidad,
+                        ordenId, d.producto, d.cantidad,
                         d.precioUnitario, d.subtotal, d.grabaIva
                     ]);
                 }

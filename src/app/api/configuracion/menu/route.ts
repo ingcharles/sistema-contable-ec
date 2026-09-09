@@ -15,48 +15,24 @@ export async function GET(request: NextRequest) {
 
         const result = await db.querySimple({
             text: `
-                SELECT 
-                    mi.id,
-                    mi.label,
-                    mi.icon_name as "iconName",
-                    mi.path,
-                    mi.plan_minimo as "minPlan",
-                    COALESCE(array_agg(r.nombre) FILTER (WHERE r.nombre IS NOT NULL), '{}') as "requiredRoles"
-                FROM configuracion.menu_items mi
-                LEFT JOIN configuracion.menu_item_roles mir ON mi.id = mir.menu_item_id
-                LEFT JOIN seguridad.roles r ON mir.rol_id = r.id
-                WHERE mi.activo = true
-                AND (
-                    -- Validar Plan
-                    CASE 
-                        WHEN mi.plan_minimo = 'PROFESIONAL' THEN 1 
-                        WHEN mi.plan_minimo = 'EMPRESARIAL' THEN 2 
-                        ELSE 0 
-                    END <= (
-                        SELECT CASE 
-                            WHEN p.codigo = 'PROFESIONAL' THEN 1 
-                            WHEN p.codigo = 'EMPRESARIAL' THEN 2 
-                            ELSE 0 
-                        END
-                        FROM seguridad.usuarios u
-                        LEFT JOIN seguridad.planes p ON u.plan_id = p.id
-                        WHERE u.id = $1
-                    )
-                )
-                AND (
-                    -- Validar Roles: Permitir si no tiene roles requeridos O si el usuario tiene uno de ellos
-                    NOT EXISTS (SELECT 1 FROM configuracion.menu_item_roles mir2 WHERE mir2.menu_item_id = mi.id)
-                    OR EXISTS (
-                        SELECT 1 FROM configuracion.menu_item_roles mir2 
-                        JOIN seguridad.roles r2 ON mir2.rol_id = r2.id
-                        JOIN seguridad.usuarios_roles ur ON r2.id = ur.rol_id
-                        WHERE mir2.menu_item_id = mi.id 
-                        AND ur.usuario_id = $1
-                    )
-                )
-                GROUP BY mi.id
-                ORDER BY mi.orden ASC
-            `,
+      SELECT DISTINCT
+        mi.id,
+        mi.padre_id as "padreId",
+        mi.etiqueta,
+        mi.icono,
+        mi.ruta,
+        mi.orden
+      FROM configuracion.menu_items mi
+      INNER JOIN seguridad.permisos p ON mi.permiso_id = p.id
+      -- 1. Verificar si el ROL del usuario tiene el permiso
+      INNER JOIN seguridad.roles_permisos rp ON p.id = rp.permiso_id
+      INNER JOIN seguridad.usuarios_roles ur ON rp.rol_id = ur.rol_id AND ur.usuario_id = $1
+      -- 2. Verificar si el PLAN del usuario tiene el permiso
+      INNER JOIN seguridad.planes_permisos pp ON p.id = pp.permiso_id
+      INNER JOIN seguridad.usuarios u ON pp.plan_id = u.plan_id AND u.id = $1
+      WHERE mi.activo = true
+      ORDER BY mi.orden ASC
+      `,
             values: [context.usuarioId]
         });
 

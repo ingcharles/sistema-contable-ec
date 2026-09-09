@@ -48,14 +48,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
         }
 
-        const id = crypto.randomUUID();
-
-        await db.query(
+        const result = await db.query(
             {
                 text: `
                     INSERT INTO facturacion.transportistas (
-                        id, empresa_id, usuario_id, identificacion, razon_social, placa, email, telefono, activo
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        empresa_id, usuario_id, identificacion, razon_social, placa, email, telefono, activo
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     ON CONFLICT (empresa_id, identificacion) DO UPDATE SET
                         razon_social = EXCLUDED.razon_social,
                         placa = EXCLUDED.placa,
@@ -63,16 +61,18 @@ export async function POST(req: NextRequest) {
                         telefono = EXCLUDED.telefono,
                         activo = EXCLUDED.activo,
                         updated_at = NOW()
+                    RETURNING id, razon_social as "razonSocial", placa
                 `,
                 values: [
-                    id, context.empresaId, context.usuarioId,
+                    context.empresaId, context.usuarioId,
                     identificacion, razonSocial, placa, email, telefono, activo
                 ]
             },
             { empresaId: context.empresaId!, usuarioId: context.usuarioId! }
         );
 
-        return NextResponse.json({ success: true, id });
+        const row = result.rows[0];
+        return NextResponse.json({ success: true, data: { id: row.id, razonSocial: row.razonSocial, placa: row.placa } });
     } catch (error: any) {
         console.error('Error al guardar transportista:', error);
         return NextResponse.json({ error: 'Error al guardar transportista', details: error.message }, { status: 500 });

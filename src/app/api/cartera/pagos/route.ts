@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
                 RETURNING cuenta_contable_codigo
             `, [esCobro ? monto : -monto, cuentaBancoId]);
 
-            const ctaBanco = bancoResult.rows[0]?.cuenta_contable_codigo || '1.1.01.01';
+            const ctaBanco = bancoResult.rows[0]?.cuenta_contable_codigo;
 
             // 4. Generar Asiento Contable Automático
             const asientoResult = await client.query(`
@@ -89,23 +89,24 @@ export async function POST(req: NextRequest) {
                 RETURNING id
             `, [
                 context.empresaId, context.usuarioId,
-                `${esCobro ? 'COB' : 'PAG'}-${Date.now().toString().slice(-6)}`,
+                `${esCobro ? 'COB' : 'PAG'}-${doc.nro_comprobante.replace(/-/g, '')}`,
                 fecha, `${esCobro ? 'Cobro' : 'Pago'} ${doc.tercero_nombre} - Fact. ${doc.nro_comprobante}`,
                 esCobro ? 'INGRESO' : 'EGRESO'
             ]);
             const asientoId = asientoResult.rows[0].id;
 
             // Determinar cuentas contables
-            const ctaCartera = esCobro ? (doc.cuenta_contable_cxc || '1.1.02.01') : (doc.cuenta_contable_cxp || '2.1.01.01');
+            const ctaCartera = esCobro ? doc.cuenta_contable_cxc : doc.cuenta_contable_cxp;
 
+            const glosaAsiento = `${esCobro ? 'Cobro' : 'Pago'} ${doc.tercero_nombre} - Fact. ${doc.nro_comprobante}`;
             if (esCobro) {
                 // DEBE: Banco/Caja, HABER: Clientes
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'INGRESO POR COBRO')`, [asientoId, ctaBanco, monto]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'BAJA DE CARTERA')`, [asientoId, ctaCartera, monto]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'INGRESO POR COBRO', $4)`, [asientoId, ctaBanco, monto, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'BAJA DE CARTERA', $4)`, [asientoId, ctaCartera, monto, glosaAsiento]);
             } else {
                 // DEBE: Proveedores, HABER: Banco/Caja
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, $3, 0, 'BAJA DE PASIVO')`, [asientoId, ctaCartera, monto]);
-                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto) VALUES ($1, $2, 0, $3, 'EGRESO POR PAGO')`, [asientoId, ctaBanco, monto]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, $3, 0, 'BAJA DE PASIVO', $4)`, [asientoId, ctaCartera, monto, glosaAsiento]);
+                await client.query(`INSERT INTO contabilidad.asientos_detalles (asiento_id, cuenta_codigo, debe, haber, concepto, glosa) VALUES ($1, $2, 0, $3, 'EGRESO POR PAGO', $4)`, [asientoId, ctaBanco, monto, glosaAsiento]);
             }
 
             return { asientoId };

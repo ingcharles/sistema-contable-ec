@@ -15,9 +15,8 @@ export const useCajaChica = () => {
         try {
             const data = await CajaChicaUseCases.obtenerInfo(empresaId);
             setCaja(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar información de caja chica');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar información de caja chica');
         } finally {
             setLoading(false);
         }
@@ -30,9 +29,8 @@ export const useCajaChica = () => {
         try {
             const data = await CajaChicaUseCases.listarVales(empresaId);
             setVales(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar vales de caja chica');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar vales de caja chica');
         } finally {
             setLoading(false);
         }
@@ -49,9 +47,8 @@ export const useCajaChica = () => {
             ]);
             setCaja(info);
             setVales(valesData);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar datos de caja chica');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar datos de caja chica');
         } finally {
             setLoading(false);
         }
@@ -78,9 +75,9 @@ export const useCajaChicaMutations = () => {
         try {
             const result = await CajaChicaUseCases.guardarVale(empresaId, vale);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar vale');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar vale';
+            setError(msg);
             throw err;
         } finally {
             setProcesando(false);
@@ -93,9 +90,9 @@ export const useCajaChicaMutations = () => {
         try {
             const result = await CajaChicaUseCases.anularVale(empresaId, valeId);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al anular vale');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al anular vale';
+            setError(msg);
             throw err;
         } finally {
             setProcesando(false);

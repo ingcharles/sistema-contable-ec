@@ -18,12 +18,11 @@ export const useCategorias = (empresaId: string) => {
             const response = await InventarioUseCases.listarTodasCategorias();
             // Extraer datos de la respuesta paginada
             const data = response.data || [];
-           
+
             setCategorias(data);
             setError(null);
-        } catch (err: any) {
-            console.error("Error cargando categorías:", err);
-            setError(err.message || 'Error al cargar categorías');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar categorías');
         } finally {
             setLoading(false);
         }
@@ -50,8 +49,8 @@ export const useInventarioMutations = () => {
         try {
             const result = await InventarioUseCases.guardarProducto(producto);
             return { success: true, data: result };
-        } catch (err: any) {
-            const msg = err.message || 'Error al guardar el producto';
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar el producto';
             setError(msg);
             return { success: false, error: msg };
         } finally {
@@ -65,8 +64,8 @@ export const useInventarioMutations = () => {
         try {
             const result = await InventarioUseCases.guardarCategoria(categoria);
             return { success: true, data: result };
-        } catch (err: any) {
-            const msg = err.message || 'Error al guardar la categoría';
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar la categoría';
             setError(msg);
             return { success: false, error: msg };
         } finally {

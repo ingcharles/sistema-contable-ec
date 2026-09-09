@@ -5,6 +5,7 @@ export interface SecurityContext {
     isValid: boolean;
     empresaId?: string;
     usuarioId?: string;
+    roles?: string[];
     error?: string;
 }
 
@@ -16,6 +17,7 @@ export function validateContext(req: NextRequest): SecurityContext {
     // Intentar extraer de JWT
     const authHeader = req.headers.get('authorization');
     const token = JWTService.extractTokenFromHeader(authHeader);
+    console.log('Token:', token);
 
     if (token) {
         try {
@@ -23,7 +25,8 @@ export function validateContext(req: NextRequest): SecurityContext {
             return {
                 isValid: true,
                 empresaId: payload.empresaId,
-                usuarioId: payload.userId
+                usuarioId: payload.userId,
+                roles: payload.roles,
             };
         } catch (error) {
             return {

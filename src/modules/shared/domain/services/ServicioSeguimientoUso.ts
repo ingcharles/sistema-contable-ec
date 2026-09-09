@@ -1,19 +1,7 @@
 import { db } from '@/shared/infrastructure/database/postgresql';
 
-// Enum alineado con la base de datos
-export enum TipoComprobanteEnum {
-    FACTURA = '01',
-    LIQUIDACION_COMPRA = '03',
-    NOTA_CREDITO = '04',
-    NOTA_DEBITO = '05',
-    GUIA_REMISION = '06',
-    RETENCION = '07'
-}
-
-export type TipoComprobanteSri = '01' | '03' | '04' | '05' | '06' | '07';
-
 interface EstadisticasUso {
-    tipo_documento: TipoComprobanteSri;
+    tipo_documento_id: string;
     cantidad: number;
     limite: number;
     restante: number;
@@ -30,6 +18,28 @@ interface ResultadoVerificacionCuota {
 
 export class ServicioSeguimientoUso {
     /**
+     * Obtiene la configuración de un tipo de comprobante SRI
+     */
+    static async obtenerConfigComprobante(codigo: string): Promise<{ id: string, codigo: string, valor: string }> {
+        const result = await db.querySimple({
+            text: `
+                SELECT ci.id, ci.codigo, ci.valor 
+                FROM configuracion.catalogos_items ci
+                INNER JOIN configuracion.catalogos_tipos ct ON ci.catalogo_codigo = ct.codigo
+                WHERE ct.codigo = 'SRI_TIPO_COMPROBANTE' 
+                AND ci.codigo = $1 
+                AND ci.activo = true
+                AND ct.activo = true
+            `,
+            values: [codigo]
+        });
+        if (result.rowCount === 0) {
+            throw new Error(`El tipo de comprobante '${codigo}' no está configurado en el sistema (Catálogo SRI_TIPO_COMPROBANTE).`);
+        }
+        return result.rows[0];
+    }
+
+    /**
      * Obtiene el período actual en formato YYYY-MM
      */
     private static obtenerPeriodoActual(): string {
@@ -40,41 +50,35 @@ export class ServicioSeguimientoUso {
     }
 
     /**
-     * Verifica si el usuario puede emitir un documento del tipo especificado (SRI Code)
-     * Ahora consulta directamente la configuración en BD vinculada al tipo de documento
+     * Verifica si el usuario puede emitir un documento del tipo especificado (Catalog UUID)
      */
-    static async verificarCuota(usuarioId: string, tipoDoc: TipoComprobanteSri): Promise<ResultadoVerificacionCuota> {
+    static async verificarCuota(usuarioId: string, tipoComprobanteId: string): Promise<ResultadoVerificacionCuota> {
         const periodo = this.obtenerPeriodoActual();
 
         try {
-            // 1. Obtener límite y nombre legible en una sola consulta
+            // 1. Obtener límite y nombre legible en una sola consulta por ID de catálogo
             const resultadoConfig = await db.querySimple({
                 text: `
                     SELECT 
                         pc.valor_numero AS limite,
                         ci.valor AS nombre_legible
                     FROM seguridad.usuarios u
-                    JOIN seguridad.planes p 
-                        ON p.id = u.plan_id
-                    JOIN seguridad.plan_caracteristicas pc 
-                        ON pc.plan_id = p.id
-                    LEFT JOIN configuracion.catalogos_items ci 
-                        ON ci.codigo = $2 
-                    AND ci.catalogo_codigo = 'SRI_TIPO_COMPROBANTE'
+                    JOIN seguridad.planes p ON p.id = u.plan_id
+                    JOIN seguridad.plan_caracteristicas pc ON pc.plan_id = p.id
+                    JOIN configuracion.catalogos_items ci ON ci.id = $2
                     WHERE u.id = $1 
-                    AND pc.tipo_documento = $2;
+                    AND pc.tipo_documento_id = $2;
                 `,
-                values: [usuarioId, tipoDoc]
+                values: [usuarioId, tipoComprobanteId]
             });
 
             if (resultadoConfig.rowCount === 0) {
-                // Si no hay configuración explícita en el plan para este tipo de documento
-                // Consultamos al menos el nombre para el mensaje de error, si existe en catálogo
+                // Si no hay configuración explícita en el plan, obtenemos el nombre del catálogo para el mensaje
                 const catResult = await db.querySimple({
-                    text: 'SELECT nombre FROM facturacion.tipos_comprobante WHERE codigo = $1',
-                    values: [tipoDoc]
+                    text: 'SELECT valor FROM configuracion.catalogos_items WHERE id = $1',
+                    values: [tipoComprobanteId]
                 });
-                const nombreDoc = catResult.rows[0]?.nombre || 'Documento';
+                const nombreDoc = catResult.rows[0]?.valor || 'Documento';
 
                 return {
                     permitido: false,
@@ -92,9 +96,9 @@ export class ServicioSeguimientoUso {
                 text: `
                     SELECT COALESCE(cantidad, 0) as cantidad
                     FROM seguridad.usuario_estadisticas_uso
-                    WHERE usuario_id = $1 AND periodo = $2 AND tipo_documento = $3
+                    WHERE usuario_id = $1 AND periodo = $2 AND tipo_documento_id = $3
                 `,
-                values: [usuarioId, periodo, tipoDoc]
+                values: [usuarioId, periodo, tipoComprobanteId]
             });
 
             const usoActual = resultadoUso.rowCount && resultadoUso.rowCount > 0
@@ -122,7 +126,7 @@ export class ServicioSeguimientoUso {
                 restante: Math.max(0, restante),
                 mensaje: permitido
                     ? undefined
-                    : `Ha alcanzado el límite de ${limite} ${nombre_legible || tipoDoc} para este mes`
+                    : `Ha alcanzado el límite de ${limite} ${nombre_legible || 'documentos'} para este mes`
             };
 
         } catch (error) {
@@ -132,22 +136,22 @@ export class ServicioSeguimientoUso {
     }
 
     /**
-     * Incrementa el contador de uso para un tipo de documento
+     * Incrementa el contador de uso para un tipo de documento (Catalog UUID)
      */
-    static async incrementarUso(usuarioId: string, tipoDoc: TipoComprobanteSri): Promise<void> {
+    static async incrementarUso(usuarioId: string, tipoComprobanteId: string): Promise<void> {
         const periodo = this.obtenerPeriodoActual();
 
         try {
             await db.querySimple({
                 text: `
-                    INSERT INTO seguridad.usuario_estadisticas_uso (usuario_id, periodo, tipo_documento, cantidad)
+                    INSERT INTO seguridad.usuario_estadisticas_uso (usuario_id, periodo, tipo_documento_id, cantidad)
                     VALUES ($1, $2, $3, 1)
-                    ON CONFLICT (usuario_id, periodo, tipo_documento)
+                    ON CONFLICT (usuario_id, periodo, tipo_documento_id)
                     DO UPDATE SET 
                         cantidad = seguridad.usuario_estadisticas_uso.cantidad + 1,
-                        fecha_actualizacion = NOW()
+                        updated_at = NOW()
                 `,
-                values: [usuarioId, periodo, tipoDoc]
+                values: [usuarioId, periodo, tipoComprobanteId]
             });
         } catch (error) {
             console.error('Error al incrementar uso:', error);
@@ -161,35 +165,34 @@ export class ServicioSeguimientoUso {
         const periodoObjetivo = periodo || this.obtenerPeriodoActual();
 
         try {
-            // Consulta dinâmica: Trae todas las características del plan que tengan 'tipo_documento' definido
             const resultado = await db.querySimple({
                 text: `
                     SELECT 
-                        pc.tipo_documento,
+                        pc.tipo_documento_id,
                         pc.valor_numero as limite,
-                        tc.nombre as nombre_legible,
+                        ci.valor as nombre_legible,
                         COALESCE(us.cantidad, 0) as cantidad
                     FROM seguridad.usuarios u
                     JOIN seguridad.planes p ON p.id = u.plan_id
                     JOIN seguridad.plan_caracteristicas pc ON pc.plan_id = p.id
-                    LEFT JOIN facturacion.tipos_comprobante tc ON tc.codigo = pc.tipo_documento
+                    JOIN configuracion.catalogos_items ci ON ci.id = pc.tipo_documento_id
                     LEFT JOIN seguridad.usuario_estadisticas_uso us ON 
                         us.usuario_id = u.id AND 
                         us.periodo = $2 AND
-                        us.tipo_documento = pc.tipo_documento
+                        us.tipo_documento_id = pc.tipo_documento_id
                     WHERE u.id = $1 
-                        AND pc.tipo_documento IS NOT NULL
-                    ORDER BY pc.tipo_documento
+                        AND pc.tipo_documento_id IS NOT NULL
+                    ORDER BY ci.valor
                 `,
                 values: [usuarioId, periodoObjetivo]
             });
 
             return resultado.rows.map((fila: any) => ({
-                tipo_documento: fila.tipo_documento as TipoComprobanteSri,
+                tipo_documento_id: fila.tipo_documento_id,
                 cantidad: fila.cantidad,
                 limite: fila.limite,
                 restante: Math.max(0, fila.limite - fila.cantidad),
-                nombre_legible: fila.nombre_legible || `Documento ${fila.tipo_documento}`
+                nombre_legible: fila.nombre_legible || `Documento`
             }));
 
         } catch (error) {

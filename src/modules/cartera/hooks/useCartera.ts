@@ -15,9 +15,8 @@ export const useCuentasPorCobrar = () => {
         try {
             const data = await CarteraUseCases.listarCuentasPorCobrar();
             setCuentas(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar cuentas por cobrar');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar cuentas por cobrar');
         } finally {
             setLoading(false);
         }
@@ -45,9 +44,8 @@ export const useDocumentosPendientes = () => {
         try {
             const data = await CarteraUseCases.listarDocumentosPendientes(tipo);
             setDocumentos(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar documentos pendientes');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar documentos pendientes');
         } finally {
             setLoading(false);
         }
@@ -75,9 +73,8 @@ export const useAnticipos = () => {
         try {
             const data = await CarteraUseCases.listarAnticipos(tipo);
             setAnticipos(data);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar anticipos');
-            console.error(err);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al cargar anticipos');
         } finally {
             setLoading(false);
         }
@@ -104,9 +101,9 @@ export const useCarteraMutations = () => {
         try {
             const result = await CarteraUseCases.registrarPago(pago);
             return result;
-        } catch (err: any) {
-            setError(err.message || 'Error al registrar pago');
-            console.error(err);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al registrar pago';
+            setError(msg);
             throw err;
         } finally {
             setGuardando(false);

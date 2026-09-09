@@ -147,30 +147,32 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const id = crypto.randomUUID();
         const now = new Date();
         const estadoFinal = estado || EstadoConciliacion.BORRADOR;
         const usuarioId = context.usuarioId;
         const empresaId = context.empresaId;
 
         // Transacción
-        await db.transaction(async (client) => {
+        const result = await db.transaction(async (client) => {
             // 1. Insertar Conciliación
-            await client.query(`
+            const insertResult = await client.query(`
                 INSERT INTO bancos.bancos_conciliaciones (
-                    id, empresa_id, cuenta_id, fecha_corte, 
+                    empresa_id, cuenta_id, fecha_corte, 
                     saldo_libro, saldo_extracto, cheques_no_cobrados, depositos_en_transito, 
                     diferencia, estado, observaciones, created_at, updated_at, created_by
                 ) VALUES (
-                    $1, $2, $3, $4, 
-                    $5, $6, $7, $8, 
-                    $9, $10, $11, $12, $13, $14
+                    $1, $2, $3, 
+                    $4, $5, $6, $7, 
+                    $8, $9, $10, $11, $12, $13
                 )
+                RETURNING id
             `, [
-                id, empresaId, cuentaId, fechaCorte,
+                empresaId, cuentaId, fechaCorte,
                 saldoLibro, saldoExtracto, chequesNoCobrados, depositosEnTransito,
                 diferencia, estadoFinal, observaciones, now, now, usuarioId
             ]);
+
+            const id = insertResult.rows[0].id;
 
             // 2. Actualizar movimientos (si hay)
             if (movimientosIds && movimientosIds.length > 0) {
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
         }, { empresaId: empresaId!, usuarioId: usuarioId! });
 
         const nuevaConciliacion = {
-            id,
+            id: result.id,
             empresaId,
             cuentaId,
             fechaCorte,

@@ -1,6 +1,7 @@
 // import libxml from 'libxmljs2'; // Comentado para evitar errores de bindings en Windows durante el build
 import fs from 'fs';
 import path from 'path';
+import { spawn } from 'child_process';
 
 /**
  * Servicio para validar XML contra esquemas XSD oficiales del SRI
@@ -34,7 +35,7 @@ export class XsdValidator {
      * @param tipoComprobante Código del tipo de comprobante (01, 03, etc)
      * @returns true si es válido, lanza error si no
      */
-    static validate(xmlContent: string, tipoComprobante: string): boolean {
+    static async validate(xmlContent: string, tipoComprobante: string): Promise<boolean> {
         try {
             const schemaPath = this.getSchemaPath(tipoComprobante);
 
@@ -43,38 +44,60 @@ export class XsdValidator {
                 return true; // Fail open to avoid blocking if schema is missing, but log warning
             }
 
-            // Carga dinámica para evitar errores de bindings en entornos sin compilación nativa (ej. Windows build)
-            let libxml;
+            // Intento 1: libxmljs2 (rápido, nativo)
             try {
-                libxml = require('libxmljs2');
-            } catch (e) {
-                console.warn('libxmljs2 not available. Skipping XSD validation.');
+                const libxml = require('libxmljs2');
+                const schemaContent = fs.readFileSync(schemaPath, 'utf8');
+                const xsdDoc = libxml.parseXml(schemaContent);
+                const xmlDoc = libxml.parseXml(xmlContent);
+
+                const isValid = xmlDoc.validate(xsdDoc);
+
+                if (!isValid) {
+                    const errors = xmlDoc.validationErrors.map((err: any) => {
+                        return `[Line ${err.line}] ${err.message}`;
+                    }).join('\n');
+
+                    throw new Error(`Error de Validación XSD:\n${errors}`);
+                }
+
                 return true;
+            } catch (nativeError: unknown) {
+                // Intento 2: fallback con validador XSD en subproceso Node (requiere Java instalado)
+                try {
+                    await new Promise<void>((resolve, reject) => {
+                        const scriptPath = path.join(process.cwd(), 'src', 'scripts', 'validate_xsd.cjs');
+                        const child = spawn(process.execPath, [scriptPath, schemaPath], {
+                            cwd: process.cwd(),
+                            stdio: ['pipe', 'pipe', 'pipe']
+                        });
+
+                        let stderr = '';
+                        child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+                        child.on('error', reject);
+                        child.on('exit', (code) => {
+                            if (code === 0) return resolve();
+                            reject(new Error(stderr || 'Error al validar XSD en subproceso'));
+                        });
+
+                        child.stdin.write(xmlContent);
+                        child.stdin.end();
+                    });
+                    return true;
+                } catch (fallbackError: unknown) {
+                    const nativeMsg = nativeError instanceof Error ? nativeError.message : 'libxmljs2 no disponible';
+                    const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : 'validador XSD no disponible';
+                    throw new Error(`No se pudo validar XSD localmente. Detalles: ${nativeMsg}. ${fallbackMsg}. Asegure Java instalado o libxmljs2 compilado.`);
+                }
             }
 
-            const schemaContent = fs.readFileSync(schemaPath, 'utf8');
-            const xsdDoc = libxml.parseXml(schemaContent);
-            const xmlDoc = libxml.parseXml(xmlContent);
-
-            const isValid = xmlDoc.validate(xsdDoc);
-
-            if (!isValid) {
-                const errors = xmlDoc.validationErrors.map((err: any) => {
-                    return `[Line ${err.line}] ${err.message}`;
-                }).join('\n');
-
-                throw new Error(`Error de Validación XSD:\n${errors}`);
-            }
-
-            return true;
-
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Re-throw validation errors as is, wrap others
-            if (error.message && error.message.includes('Error de Validación XSD')) {
+            if (error instanceof Error && error.message.includes('Error de Validación XSD')) {
                 throw error;
             }
-            console.error('XSD Validation Exception:', error);
-            throw new Error(`Falló el proceso de validación XSD: ${error.message}`);
+            const msg = error instanceof Error ? error.message : 'Error desconocido';
+            throw new Error(`Falló el proceso de validación XSD: ${msg}`);
         }
     }
 }

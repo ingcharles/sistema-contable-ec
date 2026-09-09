@@ -8,11 +8,20 @@ import { useBuzon } from '@/modules/buzon/hooks/useBuzon';
 import { formatMoney } from '@/shared/utils/formatearDinero';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, Column } from '@/shared/ui/DataTable';
+import { AssociateComprobanteModal } from '@/modules/buzon/ui/components/AssociateComprobanteModal';
+import { NuevaCompraModal } from '@/modules/compras/ui/components/NuevaCompraModal';
+import { MovimientoCajaModal } from '@/modules/caja-chica/ui/components/MovimientoCajaModal';
 
 export default function BuzonPage() {
     const { currentEmpresa } = useEmpresa();
     const { comprobantes, loading, importing, cargarComprobantes, sincronizarSRI } = useBuzon();
     const [activeTab, setActiveTab] = useState<'TODOS' | 'RECIBIDO' | 'PROCESADO'>('TODOS');
+
+    // Estados para modales de asociación
+    const [compSeleccionado, setCompSeleccionado] = useState<ComprobanteRecibido | null>(null);
+    const [showSelection, setShowSelection] = useState(false);
+    const [showNuevaCompra, setShowNuevaCompra] = useState(false);
+    const [showNuevoVale, setShowNuevoVale] = useState(false);
 
     useEffect(() => {
         if (currentEmpresa?.id) {
@@ -98,20 +107,38 @@ export default function BuzonPage() {
         },
         {
             header: 'Acciones',
-            cell: () => (
+            cell: (comp) => (
                 <div className="flex justify-center gap-2">
                     <button className="p-1.5 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded" title="Ver XML"><FileText size={16} /></button>
-                    <button className="p-1.5 text-slate-400 hover:text-sri-blue hover:bg-blue-50 rounded" title="Asociar a Gasto"><ExternalLink size={16} /></button>
+                    <button
+                        className={`p-1.5 rounded transition-colors ${comp.estado === 'PROCESADO' ? 'text-green-500 bg-green-50' : 'text-slate-400 hover:text-sri-blue hover:bg-blue-50'}`}
+                        title={comp.estado === 'PROCESADO' ? 'Ya procesado' : 'Asociar a Gasto/Compra'}
+                        onClick={() => {
+                            if (comp.estado !== 'PROCESADO') {
+                                setCompSeleccionado(comp);
+                                setShowSelection(true);
+                            }
+                        }}
+                    >
+                        {comp.estado === 'PROCESADO' ? <CheckCircle2 size={16} /> : <ExternalLink size={16} />}
+                    </button>
                 </div>
             ),
             className: 'text-center'
         }
     ];
 
+    const handleSelectOption = (tipo: 'COMPRA' | 'CAJA_CHICA') => {
+        setShowSelection(false);
+        if (tipo === 'COMPRA') setShowNuevaCompra(true);
+        else setShowNuevoVale(true);
+    };
+
     if (!currentEmpresa) return null;
 
     return (
         <div className="space-y-6">
+            {/* ... existente ... */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Buzón XML (SRI)</h1>
@@ -161,6 +188,38 @@ export default function BuzonPage() {
                     }
                 />
             </div>
+
+            {/* Modales de Asociación */}
+            <AssociateComprobanteModal
+                isOpen={showSelection}
+                onClose={() => setShowSelection(false)}
+                comprobante={compSeleccionado}
+                onSelect={handleSelectOption}
+            />
+
+            {showNuevaCompra && (
+                <NuevaCompraModal
+                    xmlPrevio={compSeleccionado!}
+                    onClose={() => setShowNuevaCompra(false)}
+                    onSave={() => {
+                        setShowNuevaCompra(false);
+                        cargarComprobantes(currentEmpresa.id);
+                    }}
+                />
+            )}
+
+            {showNuevoVale && (
+                <MovimientoCajaModal
+                    tipo="EGRESO"
+                    empresaId={currentEmpresa.id}
+                    xmlPrevio={compSeleccionado!}
+                    onClose={() => setShowNuevoVale(false)}
+                    onSave={() => {
+                        setShowNuevoVale(false);
+                        cargarComprobantes(currentEmpresa.id);
+                    }}
+                />
+            )}
         </div>
     );
 }
